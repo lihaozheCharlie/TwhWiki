@@ -10,11 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Repositioned the README around an indexed personal-history brain, multi-lens journal analysis, and evidence-grounded reflective letters.
 - Restored the complete eight-lens library and documented that dynamically discovered lens files are content assets, not unused examples.
-
-### Removed
-
-- Unreferenced person-page rebuild and WikiLink normalization scripts.
-- Empty alias and dialogue indexes, which are now created on first use.
+- Restored the person-page rebuild tool, WikiLink normalization tool, alias index, dialogue index, and their original workflow references.
 
 ## [0.1.0] - 2026-08-22
 
