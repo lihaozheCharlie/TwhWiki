@@ -90,7 +90,7 @@ twhwiki/
 ### 1. 获取项目
 
 ```bash
-git clone <your-repository-url> twhwiki
+git clone git@github.com:lihaozheCharlie/TwhWiki.git twhwiki
 cd twhwiki
 ```
 
@@ -130,41 +130,6 @@ cd twhwiki
 
 ```text
 带我看看这次构建出的亮点，先从最新的近况对话开始。
-```
-
-## 一次构建实际会做什么
-
-以示例日记为例：
-
-1. 根 `AGENTS.md` 判断这是获授权的摄取请求。
-2. `wiki-build` 读取原始日记，填写完整影响矩阵。
-3. 不同领域 Skill 只更新自己负责的页面。
-4. 需要解释或回信时，先建立中性证据卡，再选择真正合适的主推理视角。
-5. 回信读取最新日记和少量相关旧线索，只围绕一个新理解展开。
-6. 所有新增判断链接回原始日记；无证据部分省略或标为推断。
-7. 更新来源索引、公共导航和构建日志。
-8. 连续运行两次标签更新，第二次必须 `updated=0`。
-9. 验证 WikiLink、Skill 路由与潜在隐私信息。
-
-详细设计见 [`docs/architecture.md`](docs/architecture.md)，个性化步骤见 [`docs/customization.md`](docs/customization.md)。
-
-## 常用命令
-
-```bash
-# 一键质量检查
-python3 tools/check.py
-
-# 更新 Obsidian 管理标签；写入后需要连续运行两次
-python3 tools/update_obsidian_tags.py
-
-# 检查 WikiLink
-python3 tools/validate_wiki_links.py
-
-# 检查 Skill 路由与引用
-python3 tools/validate_skill_system.py
-
-# 检查常见秘密、联系方式和本机绝对路径
-python3 tools/privacy_scan.py
 ```
 
 ## 设计边界
