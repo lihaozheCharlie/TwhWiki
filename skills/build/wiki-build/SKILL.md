@@ -1,0 +1,46 @@
+---
+name: build-wiki
+description: "编排明确授权的个人 wiki 摄取，适用于宽泛运行、变更日记、对话材料或非日记来源。填写完整影响矩阵并分发给唯一负责的 Skill；只读问题不要使用。"
+---
+
+# 构建：Wiki 构建
+
+这是获授权的摄取与公共导航编排器。它不负责领域模板，也绝不把查询或诊断自动变成写入任务。
+
+## 选择一个入口模式
+
+| 请求 | 读取的参考文件 |
+|---|---|
+| 宽泛的“运行/更新 wiki”或混合来源 | `references/orchestrator.md` |
+| 发生变化的日记文件 | `references/diary-ingest.md` |
+| 明确要求保留的对话材料 | `references/dialogue-ingest.md` |
+| 读书、历史、文章或其他来源 | `references/source-ingest.md` |
+| 来源索引维护 | `references/source-index.md` |
+
+始终读取 `skills/build/wiki-build/impact-matrix.md` 和 `skills/common/quality-gate/SKILL.md`。只读取所选模式的参考文件，以及矩阵中标为 `update` 的行所对应的负责人 Skill。
+
+当 `update` 涉及个人主线、人生阶段、事件复盘、循环、思维模型、现实系统、城市、关系综合或近况回信时，由各领域负责人按 `skills/common/reasoning-lenses/SKILL.md` 选择视角。编排器不得为整篇来源指定一个统一人物：同一来源进入不同层可以使用不同视角，来源索引和中性事实始终不使用。
+
+## 分发负责人
+
+- 个人主线、人生阶段、事件/决策、反复循环、思维模型和金句集锦：`skills/build/life-review/SKILL.md`
+- 人物、别名和关系功能：`skills/build/people/SKILL.md`
+- 现实系统、城市、组织、项目和地点：`skills/build/life-experience/SKILL.md`
+- 状态追踪：`skills/build/state-tracking/SKILL.md`
+- 近况回信：`skills/build/companion-reflection/SKILL.md`
+- 来源索引和公共导航：本 Skill
+
+## 公共导航职责
+
+本 Skill 负责 `wiki/00 总入口/`、`wiki/index.md`、`wiki/08 来源索引/`、`wiki/99 维护规则/` 和 `wiki/log.md` 的导航更新。人生阶段内容及其总览只由 `build-life-review` 负责。
+
+只有本次运行改变了可发现性、覆盖范围、数量或运行规则时，才更新公共导航。日志只记录有实质意义且获授权的维护，不记录只读检查或普通问题。
+
+## 核心契约
+
+1. 综合前先读取证据。
+2. 影响矩阵每一行都必须填写 `update`、`link-only`、`no-op` 或 `defer`。
+3. 每个 `update` 都路由到唯一负责人，不要跨 Skill 复制模板。
+4. 保留授权来源范围之外的用户既有修改。
+5. 应用质量门，并报告延期或跳过的工作。
+6. 领域负责人通过动态发现脚本读取人物库；编排器和影响矩阵不维护人物名单。

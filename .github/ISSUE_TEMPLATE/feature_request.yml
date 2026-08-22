@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a focused improvement to the framework.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What personal-knowledge workflow is currently difficult?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Which layer, Skill, or tool should change?
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed or fictionalized personal information.
+          required: true

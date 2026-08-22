@@ -1,0 +1,15 @@
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.idea/
+.vscode/
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.privacy-denylist
+*.log

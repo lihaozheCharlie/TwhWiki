@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible problem in a Skill, tool, or example.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Use fictional or anonymized content only.
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Validation output
+      description: Paste the output of `python3 tools/check.py`, after removing private paths or data.

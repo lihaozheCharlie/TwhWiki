@@ -1,0 +1,86 @@
+[
+  {
+    "prompt": "分析一下这个 wiki 的 Skill 体系有哪些问题，不要修改",
+    "expected": ["common-skill-system"],
+    "must_not": ["build-knowledge-adjustment"],
+    "mode": "read-only"
+  },
+  {
+    "prompt": "把人物模板的重复规则修掉并重跑相关人物页",
+    "expected": ["build-knowledge-adjustment", "build-people"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
+    "prompt": "wiki 里关于探索期知道什么？",
+    "expected": ["consume-query"],
+    "must_not": ["build-wiki"],
+    "mode": "read-only"
+  },
+  {
+    "prompt": "用费曼和芒格两种视角解释我为什么不想在疲惫时做大决定，只读分析",
+    "expected": ["consume-query", "common-reasoning-lenses"],
+    "must_not": ["build-life-review", "build-companion-reflection"],
+    "mode": "read-only"
+  },
+  {
+    "prompt": "日记有更新，跑一下 wiki",
+    "expected": ["build-wiki"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
+    "prompt": "检查 wiki 健康，但不要修改",
+    "expected": ["common-quality-gate"],
+    "must_not": ["build-knowledge-adjustment"],
+    "mode": "read-only"
+  },
+  {
+    "prompt": "将这段对话明确收入 wiki",
+    "expected": ["build-wiki"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
+    "prompt": "根据这些日记更新云川城市页，不要改人物模板",
+    "expected": ["build-life-experience"],
+    "must_not": ["build-people"],
+    "mode": "write"
+  },
+  {
+    "prompt": "根据已有来源更新我的人生阶段和思维模型",
+    "expected": ["build-life-review"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
+    "prompt": "把这篇日记的状态变化更新到状态追踪中，不做诊断",
+    "expected": ["build-state-tracking"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
+    "prompt": "给最近这篇日记写一封像长者一样的回信",
+    "expected": ["build-companion-reflection"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
+    "prompt": "读完这篇日记，像一个了解我的朋友那样写封有洞见的回信",
+    "expected": ["build-companion-reflection"],
+    "must_not": ["consume-query", "build-people"],
+    "mode": "write"
+  },
+  {
+    "prompt": "调试为什么这条消息没有被识别为实体信号，只分析不写入",
+    "expected": ["common-signal-detector"],
+    "must_not": ["build-wiki", "build-people"],
+    "mode": "read-only"
+  },
+  {
+    "prompt": "wiki 里现有的近况对话有哪些？只需要查询",
+    "expected": ["consume-query"],
+    "must_not": ["build-companion-reflection"],
+    "mode": "read-only"
+  }
+]
