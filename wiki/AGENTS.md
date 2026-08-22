@@ -6,7 +6,7 @@ tags:
   - "类型/wiki"
 status: "active"
 source:
-  - "LifeWiki Forge"
+  - "TwhWiki"
 ---
 # Wiki 结构与约定
 

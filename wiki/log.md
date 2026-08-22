@@ -7,7 +7,7 @@ tags:
   - "类型/wiki"
 status: "active"
 source:
-  - "LifeWiki Forge sample"
+  - "TwhWiki sample"
 ---
 # 构建日志
 

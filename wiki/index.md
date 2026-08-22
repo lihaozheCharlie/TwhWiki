@@ -7,9 +7,9 @@ tags:
   - "类型/wiki"
 status: "active"
 source:
-  - "LifeWiki Forge sample"
+  - "TwhWiki sample"
 ---
-# LifeWiki Forge 示例 Wiki
+# TwhWiki 示例 Wiki
 
 > 这是由两篇虚构日记编译出的最小样例。所有人物、组织、地点和经历均为虚构。
 

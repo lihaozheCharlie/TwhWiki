@@ -1,6 +1,6 @@
 ## What changed
 
-## Why it belongs in LifeWiki Forge
+## Why it belongs in TwhWiki
 
 ## Validation
 

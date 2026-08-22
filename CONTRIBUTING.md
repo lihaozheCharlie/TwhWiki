@@ -1,4 +1,4 @@
-# Contributing to LifeWiki Forge
+# Contributing to TwhWiki
 
 感谢你帮助这套个人 Wiki 构建框架变得更可靠、更容易理解。
 
