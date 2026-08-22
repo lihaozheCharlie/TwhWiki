@@ -15,8 +15,9 @@ description: "在 wiki/05 和 wiki/07 的人物分支中构建或更新有证据
 ## 先读
 
 - `skills/common/quality-gate/SKILL.md`
-- `wiki/08 来源索引/人物别名合并索引.md`
 - `skills/build/people/scripts/collect_person_evidence.py`
+
+若 `wiki/08 来源索引/人物别名合并索引` 已存在且目标人物有别名，再读取它；首次出现别名冲突时才创建该索引，不预建空页面。
 
 只有高影响人物的关系演化、稳定认知或关系功能确需解释时，才读取 `skills/common/reasoning-lenses/SKILL.md`；身份、别名和互动事实保持中性。
 
