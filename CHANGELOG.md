@@ -6,10 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Repositioned the README around an indexed personal-history brain, multi-lens journal analysis, and evidence-grounded reflective letters.
+
+### Added
+
+- Restored the Elon Musk reasoning lens as a fourth contrasting example.
+
 ### Removed
 
 - Unreferenced person-page rebuild and WikiLink normalization scripts.
-- Five redundant reasoning-lens examples; three contrasting examples remain.
+- Four redundant reasoning-lens examples; four contrasting examples remain.
 - Empty alias and dialogue indexes, which are now created on first use.
 
 ## [0.1.0] - 2026-08-22
