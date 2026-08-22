@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +26,11 @@ def main() -> int:
         print(f"[{label}] {output}")
         if result.returncode != 0:
             failures += 1
+        elif label == "tag idempotence":
+            match = re.search(r"updated=(\d+)", output)
+            if match is None or int(match.group(1)) != 0:
+                print("[tag idempotence] repository was not clean; run the tag updater twice and commit the result")
+                failures += 1
     print(f"checks={len(CHECKS)} failures={failures}")
     return 1 if failures else 0
 
