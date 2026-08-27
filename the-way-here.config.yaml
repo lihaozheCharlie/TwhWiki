@@ -1,0 +1,37 @@
+version: 3
+name: "The Way Here 知识空间"
+adapter: "personal-growth"
+defaultKnowledgeBase: "demo"
+
+paths:
+  skills: "knowledge-engine/skills"
+  tools: "knowledge-engine/tools"
+  agentInstructions: "AGENTS.md"
+
+knowledgeBases:
+  demo:
+    name: "The Way Here 演示 Wiki"
+    description: "不包含私人信息的产品演示知识库"
+    paths:
+      wiki: "vault/demo/wiki"
+      sources: "vault/demo/sources"
+    validation:
+      commands: []
+
+agents:
+  defaultRuntime: "auto"
+  runtimes:
+    codex:
+      enabled: true
+      command: "codex"
+      transport: "stdio"
+    pi:
+      enabled: true
+      providers: []
+
+validation:
+  commands:
+    - ["python3", "knowledge-engine/tools/update_obsidian_tags.py"]
+    - ["python3", "knowledge-engine/tools/update_obsidian_tags.py"]
+    - ["python3", "knowledge-engine/tools/validate_wiki_links.py"]
+    - ["python3", "knowledge-engine/tools/validate_skill_system.py"]

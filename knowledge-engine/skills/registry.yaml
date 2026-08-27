@@ -1,0 +1,63 @@
+version: 1
+description: "The Way Here Wiki Skill 的唯一机器可读路由索引；详细流程只存在于目标 SKILL.md。"
+skills:
+  - id: consume-query
+    path: knowledge-engine/skills/consume/query/SKILL.md
+    modes: [read]
+    responsibility: "查询、综合、导航或引用现有 Wiki"
+    triggers: ["查询 Wiki", "综合现有知识", "只读解释", "导航与引用"]
+  - id: build-wiki
+    path: knowledge-engine/skills/build/wiki-build/SKILL.md
+    modes: [write]
+    responsibility: "新增日记、多来源、对话及其他来源的统一摄取编排"
+    triggers: ["跑一下 Wiki", "新增日记", "摄取来源", "将对话收入 Wiki"]
+  - id: build-life-review
+    path: knowledge-engine/skills/build/life-review/SKILL.md
+    modes: [write]
+    responsibility: "个人主线、人生阶段、事件决策、反复循环、思维模型与金句"
+    triggers: ["更新人生阶段", "更新个人主线", "事件决策", "思维模型", "金句"]
+  - id: build-people
+    path: knowledge-engine/skills/build/people/SKILL.md
+    modes: [write]
+    responsibility: "人物、别名、关系功能和人物关系图谱"
+    triggers: ["更新人物", "人物别名", "关系功能", "人物关系图谱"]
+  - id: build-life-experience
+    path: knowledge-engine/skills/build/life-experience/SKILL.md
+    modes: [write]
+    responsibility: "现实系统、城市、组织、项目和地点"
+    triggers: ["现实系统", "城市页", "组织项目", "地点"]
+  - id: build-state-tracking
+    path: knowledge-engine/skills/build/state-tracking/SKILL.md
+    modes: [write]
+    responsibility: "当前状态与趋势证据"
+    triggers: ["状态追踪", "趋势证据", "状态变化"]
+  - id: build-companion-reflection
+    path: knowledge-engine/skills/build/companion-reflection/SKILL.md
+    modes: [write]
+    responsibility: "朋友式、长者式近况回信"
+    triggers: ["近况回信", "朋友式回应", "长者式回应", "有洞见的回信"]
+  - id: build-knowledge-adjustment
+    path: knowledge-engine/skills/build/knowledge-adjustment/SKILL.md
+    modes: [write]
+    responsibility: "获授权调整分类、模板、抽取规则或 Skill 行为"
+    triggers: ["修改分类", "调整模板", "修改抽取规则", "调整 Skill"]
+  - id: common-quality-gate
+    path: knowledge-engine/skills/common/quality-gate/SKILL.md
+    modes: [read, write]
+    responsibility: "Wiki 或 Skill 修改后的质量门及只读健康检查"
+    triggers: ["质量检查", "Wiki 健康", "链接标签 lint", "修改后验证"]
+  - id: common-skill-system
+    path: knowledge-engine/skills/common/skill-system/SKILL.md
+    modes: [read, write]
+    responsibility: "Skill 体系、路由注册表、AGENTS 协议和验证器"
+    triggers: ["Skill 体系", "路由设计", "AGENTS 协议", "职责图", "验证器"]
+  - id: common-reasoning-lenses
+    path: knowledge-engine/skills/common/reasoning-lenses/SKILL.md
+    modes: [read, write]
+    responsibility: "解释性推理的人物视角与多视角比较"
+    triggers: ["人物视角", "多种视角", "解释性推理"]
+  - id: common-signal-detector
+    path: knowledge-engine/skills/common/signal-detector/SKILL.md
+    modes: [read, write]
+    responsibility: "耐久信号分类与信号路由诊断"
+    triggers: ["耐久信号", "信号分类", "路由诊断"]

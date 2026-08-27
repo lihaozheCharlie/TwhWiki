@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  '@google/genai': false
+  esbuild: true
+  protobufjs: false

@@ -1,15 +1,50 @@
+# OS and editor files
 .DS_Store
-Thumbs.db
-__pycache__/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local agent state
+.workbuddy/
+
+# Package dependencies and caches
+.pnpm-store/
+**/.pnpm-store/
+studio/node_modules/
+studio/**/node_modules/
+
+# Build and test output
+studio/**/dist/
+studio/**/.vite/
+studio/**/.impeccable/
+studio/apps/web/artifacts/
+**/.cache/
+**/coverage/
+
+# Private knowledge bases: the public repository ships only the anonymous demo.
+/vault/*
+!/vault/README.md
+!/vault/demo/
+!/vault/demo/**
+
+# Python caches
+**/__pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.venv/
-venv/
-.idea/
-.vscode/
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
-.privacy-denylist
+
+# Local environment, runtime, and temporary files
+.env
+.env.*
+!.env.example
+!.env.*.example
+studio/.env.local
+studio/.runtime/
 *.log
+*.pid
+*.tmp
+*.temp
+*.bak

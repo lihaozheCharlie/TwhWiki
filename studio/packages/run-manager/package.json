@@ -1,0 +1,19 @@
+{
+  "name": "@the-way-here/run-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@the-way-here/shared": "workspace:*",
+    "diff": "^8.0.2",
+    "fast-glob": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.2",
+    "vitest": "^3.2.4"
+  }
+}

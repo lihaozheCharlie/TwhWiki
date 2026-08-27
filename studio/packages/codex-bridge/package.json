@@ -1,0 +1,13 @@
+{
+  "name": "@the-way-here/codex-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "generate-schema": "codex app-server generate-ts --out src/generated"
+  },
+  "dependencies": {
+    "@the-way-here/shared": "workspace:*"
+  }
+}

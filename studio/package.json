@@ -1,0 +1,22 @@
+{
+  "name": "the-way-here",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "pnpm --filter @the-way-here/web build && pnpm --filter @the-way-here/server build",
+    "start": "node scripts/start.mjs",
+    "typecheck": "pnpm --filter @the-way-here/server typecheck && pnpm --filter @the-way-here/web typecheck",
+    "test": "pnpm --filter @the-way-here/wiki-core test && pnpm --filter @the-way-here/life-views test && pnpm --filter @the-way-here/run-manager test && pnpm --filter @the-way-here/server test && pnpm --filter @the-way-here/web test",
+    "doctor": "node scripts/doctor.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "yaml": "^2.8.1"
+  }
+}

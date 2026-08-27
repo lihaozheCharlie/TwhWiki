@@ -1,0 +1,82 @@
+handoff_version: 1
+skill: product
+status: complete
+objective: "把 the-way-here 从按 Wiki 分类浏览的界面，重构为围绕个人成长问题与证据闭环运行的本地 Web 产品。"
+inputs_used:
+  - "apps/web/src/App.tsx"
+  - "apps/web/src/styles.css"
+  - "packages/life-views/src/index.ts"
+  - "../vault/personal/wiki/00 总入口/个人操作系统.md"
+  - "../vault/personal/wiki/11 状态追踪/状态追踪总览.md"
+  - "../vault/personal/wiki/09 思维模型/思维模型总览.md"
+artifacts_created:
+  - path: "digital-product/product/strategy.md"
+    type: strategy
+    owner: product
+  - path: "apps/web/PRODUCT.md"
+    type: product-context
+    owner: product
+  - path: "apps/web/DESIGN.md"
+    type: design-system
+    owner: design
+  - path: "apps/web/src/App.tsx"
+    type: implementation
+    owner: engineering
+  - path: "digital-product/product/wiki-collaboration-prd.md"
+    type: prd
+    owner: product
+  - path: "digital-product/product/growth-workspace-prd.md"
+    type: prd
+    owner: product
+decisions:
+  - "顶层产品结构按用户任务组织，Wiki 类型降为二级结构。"
+  - "核心使用闭环为看见此刻、连接模式与证据、完整阅读或追问、回到生活。"
+  - "保留兼容路由、资料库、编辑器、搜索、图谱和 Codex 工作台。"
+  - "不引入成长评分、打卡和无来源的 AI 判断。"
+  - "共创工作台按理解、沉淀、维护组织；默认只读理解，写入使用一次明确授权。"
+  - "Agent 最终结果和下一步是一等内容，技术日志折叠到诊断层。"
+  - "主要 Wiki 场景提供页面内上下文共创：提交前展示类目、当前内容、稳定页面路径与逐轮权限。"
+  - "人生地图采用主线与并行人生线共存的可探索航图，不用单一时间轴伪造顺序。"
+  - "人物、回信和结构化理解路径使用主从完整阅读；右侧直接加载完整内容，独立页面只是可选出口。"
+  - "二级路径使用明确父级返回；具体页面继续保留来源语境返回，选中条目写入 URL 以支持浏览器前进后退。"
+  - "首页当前问题使用新近证据、关注类型与连接广度排序，同时展示理由和其他候选。"
+  - "事实证据、Wiki 判断与下一次观察使用独立语义，不把推断伪装成事实。"
+  - "回信同时提供按写信时间与按生命主题的阅读线；材料区间不再冒充写信日期。"
+  - "人物、人生阶段与关系图转向局部、上下文相关的纵向探索。"
+assumptions:
+  - "以当前真实用户与 Vault 观察到的问题可以代表首个开源版本的核心需求。"
+constraints:
+  - "不得修改或丢失 Vault、原始知识库和既有 Skills。"
+  - "本地优先，只监听 127.0.0.1。"
+  - "原始来源只读，综合 Wiki 写入继续受现有授权保护。"
+risks:
+  - "strategy.md#R1"
+  - "strategy.md#R2"
+  - "strategy.md#R3"
+  - "strategy.md#R4"
+  - "strategy.md#R5"
+unresolved:
+  - owner: product
+    question: "新的问题导向首页是否能在连续数周真实使用中稳定优于目录导向首页？"
+validation:
+  performed:
+    - "审阅真实 Vault 总入口、状态、模型、回信和金句内容。"
+    - "通过本地浏览器逐页检查全部主路由、人物、现实系统、思维模型与回信页面。"
+    - "确认行动与学习模型可完整展开，人物全量可查，回信与资料库使用渐进呈现。"
+    - "完成 1280px 桌面视觉验证。"
+    - "通过 typecheck、10 项自动化测试和生产构建。"
+    - "使用真实已完成 Codex 任务验证回答提取、Vault 引用跳转和返回共创记录。"
+    - "逐页验证 13 个主要路由均无白屏且有可读内容。"
+    - "验证页面内 Agent 上下文卡、只读/写入切换、Escape、焦点循环与侧栏 inert 状态。"
+    - "完成 1280×800 的截图复核；页面无横向溢出。"
+    - "独立设计终审的 4 项修复均判定 resolved，最终 disposition 为 ship。"
+    - "三阶段实现通过 13 项自动化测试、完整 typecheck 与生产构建。"
+    - "真实 Vault 验证首页焦点选择为 2026-08-18 最近信号，回信按写信日期稳定倒序。"
+    - "验证人物最近影响排序不受 Wiki 维护页日期污染，人生阶段正确区分人物、地点与系统。"
+    - "验证关系图可从 92 个核心节点收拢到 48 个两跳局部节点，并提供原文列表。"
+    - "完成 1280×800 浏览器验收，控制台无错误。"
+  remaining:
+    - "完成三阶段实现后的浏览器视觉验收与多 Vault 适配测试。"
+recommended_next:
+  - skill: product
+    reason: "邀请不同 Vault 结构的用户进行任务测试，验证问题导向首页与适配能力。"

@@ -1,4 +1,4 @@
-# Contributing to TwhWiki
+# Contributing to the-way-here
 
 感谢你帮助这套个人 Wiki 构建框架变得更可靠、更容易理解。
 
@@ -20,10 +20,13 @@
 ## 本地检查
 
 ```bash
-python3 tools/check.py
+cd studio
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-若修改了 Markdown，先连续运行两次标签更新，第二次应显示 `updated=0`。所有 WikiLink、Skill 路由和隐私检查都应通过。
+若修改了演示 Wiki，回到仓库根目录并设置 `THE_WAY_HERE_KNOWLEDGE_BASE=demo`，连续运行两次标签更新，再运行链接检查；第二次标签更新必须显示 `updated=0`。修改 Skill、路由或维护工具时还要运行 `knowledge-engine/tools/validate_skill_system.py`。
 
 ## Pull Request 建议
 

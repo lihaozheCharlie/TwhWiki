@@ -1,0 +1,17 @@
+{
+  "name": "@the-way-here/life-views",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@the-way-here/shared": "workspace:*",
+    "@the-way-here/wiki-core": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
