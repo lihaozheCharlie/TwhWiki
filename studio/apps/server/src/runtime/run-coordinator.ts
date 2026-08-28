@@ -5,6 +5,7 @@ import type {
   AgentApprovalDecision,
   AgentGlobalSettings,
   AgentModelOption,
+  AgentOutputTarget,
   AgentProviderPreset,
   AgentReasoningEffort,
   AgentRuntimeDescriptor,
@@ -13,7 +14,7 @@ import type {
   UpdateAgentGlobalSettings,
   WikiRun,
 } from "@the-way-here/shared";
-import { buildRunPrompt, parseAgentRuntimePreference, parseReasoningEffort, parseRunMode } from "../services/run-policy.js";
+import { buildRunPrompt, parseAgentOutputTarget, parseAgentRuntimePreference, parseReasoningEffort, parseRunMode } from "../services/run-policy.js";
 import { runValidationCommands } from "../services/validation-runner.js";
 import type { AgentExecutionRef, AgentRuntimeEnvelope } from "./agent-runtime/types.js";
 import type { AgentRuntimeProvider, ResolvedAgentSelection } from "./agent-runtime/registry.js";
@@ -30,6 +31,7 @@ export type StartRunInput = {
   sessionId?: string;
   model?: string;
   effort?: AgentReasoningEffort;
+  outputTarget?: AgentOutputTarget;
 };
 
 export class RunRequestError extends Error {
@@ -103,6 +105,13 @@ export class RunCoordinator {
       throw new RunRequestError(404, error.message || "知识库不存在");
     }
     const taskConfig = resolvedKnowledge.config;
+    const outputTarget = input.outputTarget === undefined ? undefined : parseAgentOutputTarget(input.outputTarget);
+    if (input.outputTarget !== undefined && !outputTarget) throw new RunRequestError(400, "结果保存目标无效");
+    if (outputTarget) {
+      const targetPage = resolvedKnowledge.index.get(outputTarget.pageId);
+      if (!targetPage || targetPage.category !== "letters") throw new RunRequestError(404, "要保存版本的回信不存在");
+    }
+    const normalizedInput = { ...input, outputTarget };
     if (!prompt && mode !== "validate") throw new RunRequestError(400, "请输入任务内容");
     const requestedEffort = input.effort ? parseReasoningEffort(input.effort) : undefined;
     if (input.effort && !requestedEffort) throw new RunRequestError(400, "思考深度无效");
@@ -112,7 +121,7 @@ export class RunCoordinator {
     if (input.sessionId !== undefined && (typeof input.sessionId !== "string" || !input.sessionId.trim())) throw new RunRequestError(400, "Agent 会话 ID 无效");
 
     if (mode === "validate") {
-      const run = await this.createRun(input, mode, prompt || "运行知识质量检查", taskConfig);
+      const run = await this.createRun(normalizedInput, mode, prompt || "运行知识质量检查", taskConfig);
       this.knowledge.events.broadcast("run", run);
       void this.validateOnly(run.id);
       return run;
@@ -135,7 +144,7 @@ export class RunCoordinator {
     } catch (error: any) {
       throw new RunRequestError(503, error.message || "没有可用的 Agent 运行时");
     }
-    const run = await this.createRun(input, mode, prompt!, taskConfig, {
+    const run = await this.createRun(normalizedInput, mode, prompt!, taskConfig, {
       runtimeId: selection.runtimeId,
       provider: selection.model.provider,
       model: selection.model.id,
@@ -238,7 +247,7 @@ export class RunCoordinator {
         mode,
         config.knowledgeBaseId,
         config,
-        { displayPrompt: input.displayPrompt?.trim() || prompt, ...agent },
+        { displayPrompt: input.displayPrompt?.trim() || prompt, outputTarget: input.outputTarget, ...agent },
       );
     } catch (error: any) {
       throw new RunRequestError(409, error.message || "无法创建任务");

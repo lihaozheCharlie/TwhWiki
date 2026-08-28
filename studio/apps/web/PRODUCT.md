@@ -34,8 +34,10 @@ Unlike a file browser, note graph, or generic AI chat, The Way Here gives raw pe
 - React web client with a Fastify server and Markdown as the durable data format.
 - Current delivery scope is desktop web. Mobile and tablet adaptation, touch-specific interaction, narrow-screen navigation, and mobile visual QA are out of scope until separately prioritized; feature work must not add them incidentally.
 - Full reading must always remain available. Summaries are navigation aids, never replacements for source or synthesis pages.
+- A completed person-perspective reread of a letter remains in the current knowledge base's Agent conversation history and is also retained as a durable letter version. The original letter is never overwritten; the reading surface defaults to the latest completed version and offers a provenance-labelled history switcher only when at least two versions exist.
 - Codex actions must keep query, authorized update, and health-check permissions distinct and expose progress and approval states.
-- Compatibility routes may remain while the primary navigation and task flow change.
+- All Agent interactions use one bottom-right contextual drawer. It carries the current page context and keeps new questions, current-knowledge-base conversation history, and full thread detail in the same surface; closing it returns focus to the control that opened it.
+- The standalone Workbench / co-creation page is no longer part of the product. Legacy `/workbench` URLs redirect to home instead of opening a parallel Agent surface.
 
 ## Brand Commitments
 
@@ -47,7 +49,8 @@ Unlike a file browser, note graph, or generic AI chat, The Way Here gives raw pe
 1. **Knowledge Sources** — two explicit sublayers. “Raw Import” is an inbox for unorganized Markdown, TXT, and local folders; “Organized Sources” contains already filed records such as diaries and uses a folder tree, file list, and full reading pane. AI and WeChat conversations remain staged connectors. Import count is not capped; a 100 MB batch guard protects the local service.
 2. **My Knowledge** — all constructed outcomes: current state, patterns, life stages, relationships, decisions, models, letters, quotes, and their relationship map. Its stable secondary navigation remains visible under the active primary section.
 3. **Advanced Build** — an opt-in control surface for expert users. Build Skills are grouped by the same knowledge system as My Knowledge: Understand Yourself, Review Life, People & World, and System & Quality. Users adjust one rule through guided goals instead of scanning an undifferentiated card wall.
-4. **At This Moment / Co-create** — the outcome-oriented daily entry and the conversational way to understand, update, or validate the system.
+4. **At This Moment** — the outcome-oriented daily entry into the user's current state.
+5. **Contextual Agent** — the conversational way to understand, update, or validate the system without leaving the page that supplied the question's context. Compose, current-knowledge-base history, and complete thread detail are modes of the same drawer, while permission boundaries remain explicit for every interaction.
 
 ## Evidence on Hand
 

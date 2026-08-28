@@ -38,6 +38,13 @@ describe("RunStore", () => {
     expect(new Set(restored?.events.map((event) => event.message)).size).toBe(80);
   });
 
+  it("persists a letter-version target alongside the Agent run", async () => {
+    const { store } = await storeFixture();
+    const outputTarget = { kind: "letter-version" as const, pageId: "wiki/12 回信/今天", lensId: "yanni", lensName: "雅尼", label: "雅尼视角回信" };
+    const run = await store.create("雅尼视角重读", "重读这封信", "read", "personal", config("personal"), { outputTarget });
+    await expect(store.get(run.id)).resolves.toMatchObject({ outputTarget });
+  });
+
   it("recovers the first complete object from an older corrupted run file", async () => {
     const { store, stateRoot } = await storeFixture();
     const run = await store.create("可恢复任务", "测试", "read", "personal", config("personal"));

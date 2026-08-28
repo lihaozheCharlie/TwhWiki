@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useParams, useSearchParams } from "react-router-d
 import type { FocusWorkspaceView, GraphData, LifeMapView, QuotesView, ReasoningLens, SectionedPageView, SkillFileContent, SkillTreeNode, StateSignal, StructuredCard, TodayView, VaultInfo, WikiPageSummary } from "@the-way-here/shared";
 import { useApi } from "../../api";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
+import { openContextAgent } from "../collaboration/model";
 import { LifeStageRoute } from "../knowledge/LifeStageRoute";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
@@ -29,7 +30,7 @@ export function KnowledgeHome({ revision }: { revision: number }) {
       <div className="knowledge-recent"><h2>最近更新</h2><div>{recentChanges.map((page) => <PageLink page={page} key={page.id}><span>{graphCategoryNames[page.category] || page.category}</span><b>{page.title}</b><time>{new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}</time></PageLink>)}</div></div>
       {repeatedQuotes.length > 0 && <aside><span>被反复引用的句子</span>{repeatedQuotes.map((entry) => <blockquote key={entry.title}><p>{entry.quote.replace(/^>\s*/gm, "").replace(/[*_`]/g, "")}</p><cite>{entry.source || entry.title}</cite></blockquote>)}</aside>}
     </section>}
-    <section className="knowledge-next"><div><span>继续沿着知识工作</span><h2>带着一个真实问题进入</h2><p>Agent 会区分原始材料、已有知识和新的推断，不把解释伪装成事实。</p></div><NavLink className="primary-action" to="/workbench?mode=read"><Icon name="spark" size={16} />与知识共创</NavLink></section>
+    <section className="knowledge-next"><div><span>继续沿着知识工作</span><h2>带着一个真实问题进入</h2><p>Agent 会区分原始材料、已有知识和新的推断，不把解释伪装成事实。</p></div><button type="button" className="primary-action" onClick={() => openContextAgent({ mode: "read" })}><Icon name="spark" size={16} />询问知识 Agent</button></section>
     <ContextualAgentDock revision={revision} context={{ scope: "我的知识", title: "全部构建知识", summary: `当前有 ${vault.pageCount} 个知识页面，来自 ${vault.sourceCount} 份原始材料。`, defaultMode: "read", launcherLabel: "询问我的知识", suggestions: ["当前知识结构中，哪些部分证据最充分，哪些仍然缺少原始材料？", "结合最近更新的知识，我现在最值得继续追问什么？"] }} />
   </div>;
 }
@@ -167,7 +168,7 @@ export function AdvancedBuild({ revision }: { revision: number }) {
         {checked.length > 0 && <footer className="skill-files-selection">
           <span>已选 <b>{checked.length}</b> 个文件</span>
           <button type="button" onClick={() => setChecked([])}>清空</button>
-          <NavLink className="primary-action" to={`/workbench?mode=write&prompt=${encodeURIComponent(buildPrompt)}`}>交给 Agent 处理 <Icon name="arrow" size={15} /></NavLink>
+          <button type="button" className="primary-action" onClick={() => openContextAgent({ mode: "write", prompt: buildPrompt })}>交给 Agent 处理 <Icon name="arrow" size={15} /></button>
         </footer>}
       </section>
 
@@ -187,14 +188,14 @@ export function AdvancedBuild({ revision }: { revision: number }) {
                 </header>
                 <pre>{file.content}</pre>
                 <footer>
-                  <NavLink to={`/workbench?mode=read&prompt=${encodeURIComponent(explainPrompt)}`}>让 Agent 解释</NavLink>
-                  <NavLink className="primary-action" to={`/workbench?mode=write&prompt=${encodeURIComponent(adjustPrompt)}`}>调整这条规则 <Icon name="arrow" size={15} /></NavLink>
+                  <button type="button" onClick={() => openContextAgent({ mode: "read", prompt: explainPrompt })}>让 Agent 解释</button>
+                  <button type="button" className="primary-action" onClick={() => openContextAgent({ mode: "write", prompt: adjustPrompt })}>调整这条规则 <Icon name="arrow" size={15} /></button>
                 </footer>
               </>}
       </article>
     </section>
 
-    <section className="advanced-safety"><div><span>不确定规则是否健康？</span><h2>先运行只读检查，不修改任何知识内容</h2></div><NavLink to="/workbench?mode=validate">运行知识健康检查 <Icon name="arrow" size={16} /></NavLink></section>
+    <section className="advanced-safety"><div><span>不确定规则是否健康？</span><h2>先运行只读检查，不修改任何知识内容</h2></div><button type="button" onClick={() => openContextAgent({ mode: "validate" })}>运行知识健康检查 <Icon name="arrow" size={16} /></button></section>
     <ContextualAgentDock revision={revision} context={{ scope: "高级构建", title: file ? `构建规则 ${file.name}` : "构建规则文件", summary: file ? `正在查看 ${file.path}。` : `共有 ${allFiles.length} 个构建规则文件，分布在 ${tree.length} 个分组中。`, defaultMode: "read", launcherLabel: "询问构建规则", suggestions: ["这些构建规则里，哪一条决定了我的近况回信怎么写？", "如果我想让知识页面更强调证据来源，应该调整哪条规则？"] }} />
   </div>;
 }
@@ -281,12 +282,12 @@ export function Today({ revision }: { revision: number }) {
           <div><span>名人回信</span><h2 id="home-lenses-title">换一个人的思考方式，重读你的经历</h2><p>这些视角不会替你增加事实，只改变提问的角度。选一个视角，它会带着自己惯常关注的东西，重新读一遍你的材料。</p></div>
           <NavLink to="/letters">读全部近况回信 <Icon name="arrow" size={15} /></NavLink>
         </header>
-        <div className="home-lens-grid">{featuredLenses.map((lens) => <NavLink key={lens.id} className="home-lens-card" to={`/workbench?mode=read&prompt=${encodeURIComponent(lensPrompt(lens))}`}>
+        <div className="home-lens-grid">{featuredLenses.map((lens) => <button type="button" key={lens.id} className="home-lens-card" onClick={() => openContextAgent({ mode: "read", prompt: lensPrompt(lens) })}>
           <h3>{lens.displayName}</h3>
           <p>{lens.attention}</p>
           {lens.signals.length > 0 && <ul>{lens.signals.slice(0, 3).map((signal) => <li key={signal}>{signal}</li>)}</ul>}
           <b>用这个视角重读 <Icon name="arrow" size={14} /></b>
-        </NavLink>)}</div>
+        </button>)}</div>
       </section>}
 
       {lifeMap?.stages.length ? <section className="home-life-route" aria-labelledby="home-trail-title"><header><div><span>你的轨迹</span><h2 id="home-trail-title">一条主线，也有同时生长的人生</h2><p>主线记录依次发生的阶段；家庭与其他长期身份会在对应时间点分岔并行。</p></div><NavLink to="/timeline">完整回看人生 <Icon name="arrow" size={15} /></NavLink></header><LifeStageRoute compact stages={lifeMap.stages} selectedId={currentStage?.page.id} ariaLabel="首页人生阶段轨迹" onSelect={(id) => navigate(`/timeline?stage=${encodeURIComponent(id)}`)} /></section> : null}
@@ -390,7 +391,7 @@ export function GrowthHub({ revision }: { revision: number }) {
         </div>
       </section>)}
     </div>
-    <section className="growth-note"><h2>看见之后，不急着变好</h2><p>这个产品不把成长换算成分数、连续天数或完成率。更重要的是：你能否更准确地描述发生了什么，辨认旧模式，并带着一个更好的问题回到生活。</p><button className="inline-agent-hint" onClick={() => window.dispatchEvent(new CustomEvent("open-context-agent"))}>帮我寻找问题 <Icon name="arrow" size={16} /></button></section>
+    <section className="growth-note"><h2>看见之后，不急着变好</h2><p>这个产品不把成长换算成分数、连续天数或完成率。更重要的是：你能否更准确地描述发生了什么，辨认旧模式，并带着一个更好的问题回到生活。</p><button className="inline-agent-hint" onClick={() => openContextAgent()}>帮我寻找问题 <Icon name="arrow" size={16} /></button></section>
     <ContextualAgentDock revision={revision} context={{ scope: "理解自己", title: "个人主线、反复循环、现实系统与思维模型", summary: "从当前问题出发，结合已有的长期命题、循环、系统和判断工具。", defaultMode: "read", launcherLabel: "一起理解", suggestions: ["结合我的个人主线、反复循环和近期状态，现在最值得理解的一个问题是什么？", "最近发生的事更像哪一种旧模式？请给出证据和竞争解释。", "我有一个新的自我观察，帮我判断它应该补充到哪条路径。"] }} />
   </div>;
 }

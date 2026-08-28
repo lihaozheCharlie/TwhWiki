@@ -7,7 +7,6 @@ import { Icon } from "../shared/ui";
 import { OrganizedSources } from "../features/sources/Sources";
 import { AdvancedBuild, FocusWorkspace, GrowthHub, KnowledgeHome, Today } from "../features/overview/OverviewPages";
 import { Cards, KnowledgeGraph, Letters, Library, MentalModels, Quotes, Reader, Relationships, SearchResults, Timeline } from "../features/knowledge/KnowledgePages";
-import { RunDetail, Workbench } from "../features/collaboration/Collaboration";
 import { CreateKnowledgeBaseDialog, DemoKnowledgeBaseNotice } from "../features/knowledge-bases/KnowledgeBaseOnboarding";
 
 const CREATE_KNOWLEDGE_BASE = "__create_knowledge_base__";
@@ -78,7 +77,7 @@ export function AppShell({ revision }: { revision: number }) {
       let destination = location.pathname;
       if (destination.startsWith("/page/")) destination = isSourceReader ? "/sources" : "/knowledge";
       else if (destination.startsWith("/focus/")) destination = "/";
-      else if (/^\/workbench\/.+/.test(destination)) destination = "/workbench";
+      else if (destination.startsWith("/workbench")) destination = "/";
       window.location.assign(destination);
     } catch (reason: any) {
       setKnowledgeBaseSwitching(false);
@@ -159,8 +158,7 @@ export function AppShell({ revision }: { revision: number }) {
             <Route path="/library" element={<Library revision={revision} />} />
             <Route path="/search" element={<SearchResults revision={revision} />} />
             <Route path="/page/*" element={<Reader revision={revision} />} />
-            <Route path="/workbench" element={<Workbench revision={revision} />} />
-            <Route path="/workbench/:runId" element={<RunDetail revision={revision} />} />
+            <Route path="/workbench/*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </main>

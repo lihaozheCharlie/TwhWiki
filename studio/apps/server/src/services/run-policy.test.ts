@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { VaultConfig } from "@the-way-here/shared";
-import { buildRunPrompt, parseAgentRuntimePreference, parseReasoningEffort, parseRunMode } from "./run-policy.js";
+import { buildRunPrompt, parseAgentOutputTarget, parseAgentRuntimePreference, parseReasoningEffort, parseRunMode } from "./run-policy.js";
 
 const config: VaultConfig = {
   version: 3,
@@ -38,5 +38,17 @@ describe("run policy", () => {
     expect(prompt).toContain("Agent 识别意图");
     expect(prompt).toContain("明确要求补充、修改、摄取、重跑、重建或修复");
     expect(prompt).toContain("必须保持严格只读");
+  });
+
+  it("accepts only complete letter-version output targets", () => {
+    expect(parseAgentOutputTarget({ kind: "letter-version", pageId: "wiki/12 回信/今天", lensId: "yanni", lensName: "雅尼", label: "雅尼视角回信" })).toEqual({
+      kind: "letter-version",
+      pageId: "wiki/12 回信/今天",
+      lensId: "yanni",
+      lensName: "雅尼",
+      label: "雅尼视角回信",
+    });
+    expect(parseAgentOutputTarget({ kind: "letter-version", pageId: "", lensId: "yanni", lensName: "雅尼", label: "雅尼视角回信" })).toBeUndefined();
+    expect(parseAgentOutputTarget({ kind: "page-rewrite", pageId: "wiki/12 回信/今天" })).toBeUndefined();
   });
 });

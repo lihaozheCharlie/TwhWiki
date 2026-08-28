@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { SourceImportBatch, SourceImportChannel, SourceImportFile } from "@the-way-here/shared";
-import { prepareImportFiles } from "../../import-materials.js";
+import { prepareImportBatch } from "../../import-materials.js";
 import { isPathInside, normalizeSourceFolder } from "../../path-policy.js";
 import { KnowledgeRuntime } from "../../runtime/knowledge-runtime.js";
 
-const importChannels = new Set<SourceImportChannel>(["files", "chatgpt", "gemini", "deepseek", "doubao", "other-ai", "wechat"]);
+const importChannels = new Set<SourceImportChannel>(["files", "chatgpt", "gemini", "deepseek", "doubao", "other-ai", "wechat", "alipay"]);
 
 export type ImportRequest = { files?: SourceImportFile[]; channel?: SourceImportChannel; targetFolder?: string };
 
@@ -59,13 +59,13 @@ export class ImportStore {
     if (targetRoot !== sourceRoot && !isPathInside(sourceRoot, targetRoot)) throw new ImportRequestError(403, "目标文件夹超出原始知识目录");
     let prepared;
     try {
-      prepared = prepareImportFiles(files, channel, createdAt);
+      prepared = prepareImportBatch(files, channel, createdAt);
     } catch (error: any) {
       throw new ImportRequestError(400, error.message);
     }
     await mkdir(targetRoot, { recursive: true });
     const stored: SourceImportBatch["files"] = [];
-    for (const file of prepared) {
+    for (const file of prepared.files) {
       let target: string;
       try {
         target = await this.writeUnique(targetRoot, file.relativePath, file.content);
@@ -80,9 +80,18 @@ export class ImportStore {
       channel,
       targetFolder: targetFolder.split(path.sep).join("/"),
       fileCount: stored.length,
-      totalBytes: prepared.reduce((total, file) => total + file.bytes, 0),
+      totalBytes: prepared.files.reduce((total, file) => total + file.bytes, 0),
       files: stored,
+      journey: prepared.journey,
     };
+    if (batch.journey) {
+      const report = stored.find((file) => file.storedPath.endsWith(".md"));
+      if (report) {
+        const originalReportPath = batch.journey.reportPath;
+        batch.journey.agentPrompt = batch.journey.agentPrompt.replace(originalReportPath, report.storedPath);
+        batch.journey.reportPath = report.storedPath;
+      }
+    }
     await mkdir(this.manifestRoot(), { recursive: true });
     await writeFile(path.join(this.manifestRoot(), `${id}.json`), JSON.stringify(batch, null, 2), "utf8");
     await this.knowledge.index.rebuild();

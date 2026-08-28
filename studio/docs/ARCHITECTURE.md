@@ -29,13 +29,15 @@ Studio 不把知识构建规则重新写进 TypeScript。它提供编排、展�
 1. 启动时读取根注册表，优先选择显式指定或已注册的个人知识库，只在没有个人库时使用演示库，并只索引所选库的 Wiki 与来源 Markdown。
 2. 浏览器通过本地 API 读取摘要、页面、搜索和派生视图。
 3. 文件监控发现改动后重新索引，并通过 SSE 通知界面刷新。
-4. 工作台或页面 Agent 创建任务；Run 固化 `knowledgeBaseId` 与配置快照。页面 Agent 使用 `auto` 模式，根据用户原话识别读写意图，并预先记录受保护目录快照以便安全收集可能发生的改动。
+4. 页面内统一的上下文 Agent 抽屉创建任务；Run 固化 `knowledgeBaseId` 与配置快照。页面 Agent 使用 `auto` 模式，根据用户原话识别读写意图，并预先记录受保护目录快照以便安全收集可能发生的改动。
 5. `AgentRuntimeRegistry` 按用户选择与配置解析 Codex 或 Pi，适配器把两者事件统一为消息、工具、审批、诊断和回合完成事件；审批请求停在界面等待用户决定。
 6. 回合完成后按 Run 绑定的知识库收集差异；只有实际发生改动时才运行质量门并重建索引。显式写入与 `auto` 任务按知识库串行化，不同知识库可以独立运行；重启时会从对应运行时的会话记录恢复状态。
 
+消费账单走同一来源导入 seam，但由后端的账单深模块处理平台格式。模块以一份平台导出文件为接口，内部完成编码识别、交易规范化、退款归并，以及重复商户、共同地点、异地旅程、单日复合活动和跨日期主题聚类；输出一份 UTF-8 原始 CSV、一份可索引的 Markdown 聚类报告和前端可展示的旅程摘要。聚类只作为 Agent 回忆访谈的候选线索，用户对经历的确认与后续 Wiki 摄取仍遵守现有授权和 Skill 路由。
+
 ## Agent 运行时
 
-`RunCoordinator` 只依赖通用的 `AgentRuntimeProvider` seam，不包含 Codex 或 Pi 的协议分支。Codex 适配器继续复用 `codex-bridge`；Pi 适配器使用 `pi-agent-core` 驱动用户配置的模型，并提供限定范围的列表、搜索、读取和写入工具。只读任务没有写工具；`auto` 模式写入前请求审批；显式写入任务沿用工作台的一次性写入授权。所有写入只允许落在当前 Run 固化的 Wiki 或来源目录，已有文件还要求读取时返回的 SHA-256，避免并发覆盖。
+`RunCoordinator` 只依赖通用的 `AgentRuntimeProvider` seam，不包含 Codex 或 Pi 的协议分支。Codex 适配器继续复用 `codex-bridge`；Pi 适配器使用 `pi-agent-core` 驱动用户配置的模型，并提供限定范围的列表、搜索、读取和写入工具。只读任务没有写工具；`auto` 模式写入前请求审批；显式写入任务沿用 Agent 抽屉的一次性写入授权。所有写入只允许落在当前 Run 固化的 Wiki 或来源目录，已有文件还要求读取时返回的 SHA-256，避免并发覆盖。
 
 根 `the-way-here.config.yaml` 的 `agents` 字段负责工作区能力开关和初始值。例如：
 
@@ -79,11 +81,11 @@ agents:
 - `GET /api/search`、`GET /api/views/*`：搜索与个人成长派生视图。
 - `PUT /api/pages/*`：编辑当前知识库内的 Wiki 或来源，带并发检测。
 - `GET /api/events`：文件、索引、任务、审批和验证 SSE。
-- `POST /api/runs` 与 `/api/runs/:id/*`：启动和控制任务；创建请求显式携带知识库 ID，支持 `auto`、只读、写入与质量检查模式，非法模式和审批值在服务端拒绝。
+- `POST /api/runs` 与 `/api/runs/:id/*`：启动和控制任务；创建请求显式携带知识库 ID，支持 `auto`、只读、写入与质量检查模式。人物视角重读可附带经过校验的 `letter-version` 结果目标；非法模式、目标和审批值在服务端拒绝。
 
 ## 运行记录
 
-运行记录放在操作系统应用数据目录下的 `the-way-here/vaults/<workspace-hash>/`。记录包含知识库 ID、创建时配置、`runtimeId`、通用会话/回合 ID、provider、model 和最终结果；Pi 对话也保存在该目录的 `agent-sessions/pi/`，不会写入知识文件。写入及 `auto` 任务的快照覆盖配置声明的根协议、Wiki、Skills、Tools 和来源。每个任务使用唯一临时文件，同一知识库内可能改写内容的任务串行执行；旧版 `threadId`/`turnId` 会按 Codex 运行时透明迁移，旧版并发写坏后仍保留首个完整 JSON 对象的记录可自动恢复。
+运行记录放在操作系统应用数据目录下的 `the-way-here/vaults/<workspace-hash>/`。记录包含知识库 ID、创建时配置、`runtimeId`、通用会话/回合 ID、provider、model、最终结果和可选的 `outputTarget`；Pi 对话也保存在该目录的 `agent-sessions/pi/`，不会写入知识文件。完成的人物视角重读通过 `letter-version` 目标关联到原回信：同一结果既留在 Agent 对话历史，也作为回信的持久版本供默认最新阅读与历史切换，原始回信正文不被覆盖。写入及 `auto` 任务的快照覆盖配置声明的根协议、Wiki、Skills、Tools 和来源。每个任务使用唯一临时文件，同一知识库内可能改写内容的任务串行执行；旧版 `threadId`/`turnId` 会按 Codex 运行时透明迁移，旧版并发写坏后仍保留首个完整 JSON 对象的记录可自动恢复。
 
 ## 代码组织
 
@@ -95,6 +97,7 @@ agents:
 - `apps/server/src/modules/content/page-writer.ts`：页面创建、保存、重命名与并发安全写入。
 - `apps/server/src/modules/knowledge-bases/knowledge-base-manager.ts`：创建隔离的知识库目录并原子更新工作区注册表。
 - `apps/server/src/modules/imports/`、`modules/skills/`：导入批次和 Skill 目录读取。
+- `apps/server/src/modules/imports/payment-statement.ts`：支付宝账单的确定性解析、归并、聚类与回忆提示；后续支付平台通过同一账单导入 seam 增加适配器。
 - `apps/server/src/routes/`：HTTP 适配器，只处理请求/响应映射，不保存领域状态。
 - `apps/server/src/services/run-policy.ts`：运行时模式校验与绑定知识库的 Prompt。
 - `apps/server/src/services/validation-runner.ts`：按 Run 上下文执行质量命令。
@@ -102,7 +105,7 @@ agents:
 - `apps/web/src/features/sources/`：原始材料导入、浏览和编辑。
 - `apps/web/src/features/overview/`：此刻、理解自己、问题工作区与高级构建入口。
 - `apps/web/src/features/knowledge/`：人生地图、人物、回信、卡片、图谱、阅读与搜索。
-- `apps/web/src/features/collaboration/`：上下文共创、任务工作台及纯展示模型。
+- `apps/web/src/features/collaboration/`：统一上下文 Agent 抽屉、对话历史、结果目标及纯展示模型。
 - `apps/web/src/shared/`：共享 Markdown 阅读编辑深模块、路由语义和基础展示模块；`EditableDocument` 统一双击激活、自动保存、页面级滚动与章节跟踪，页面只传正文和展示变体。
 - `apps/web/src/styles/`：按基础、功能、主题和收尾覆盖顺序组织，入口显式保持级联顺序。
 - 配置路径在 `wiki-core` 解析时校验为工作区内相对路径；Python 工具通过同一注册表解析知识库根。

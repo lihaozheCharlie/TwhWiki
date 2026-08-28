@@ -1,4 +1,4 @@
-import type { AgentReasoningEffort, AgentRuntimePreference, VaultConfig, WikiRun } from "@the-way-here/shared";
+import type { AgentOutputTarget, AgentReasoningEffort, AgentRuntimePreference, VaultConfig, WikiRun } from "@the-way-here/shared";
 
 const runModes = new Set<WikiRun["mode"]>(["auto", "read", "write", "validate"]);
 const reasoningEfforts = new Set<AgentReasoningEffort>(["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
@@ -20,6 +20,21 @@ export function parseAgentRuntimePreference(value: unknown): AgentRuntimePrefere
   return typeof value === "string" && runtimePreferences.has(value as AgentRuntimePreference)
     ? value as AgentRuntimePreference
     : undefined;
+}
+
+export function parseAgentOutputTarget(value: unknown): AgentOutputTarget | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const target = value as Record<string, unknown>;
+  if (target.kind !== "letter-version") return undefined;
+  const fields = ["pageId", "lensId", "lensName", "label"] as const;
+  if (fields.some((field) => typeof target[field] !== "string" || !String(target[field]).trim() || String(target[field]).length > 240)) return undefined;
+  return {
+    kind: "letter-version",
+    pageId: String(target.pageId).trim(),
+    lensId: String(target.lensId).trim(),
+    lensName: String(target.lensName).trim(),
+    label: String(target.label).trim(),
+  };
 }
 
 export function buildRunPrompt(mode: Exclude<WikiRun["mode"], "validate">, prompt: string, config: VaultConfig): string {

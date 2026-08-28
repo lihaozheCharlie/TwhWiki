@@ -103,7 +103,35 @@ export interface SourceImportFile {
   mimeType?: string;
 }
 
-export type SourceImportChannel = "files" | "chatgpt" | "gemini" | "deepseek" | "doubao" | "other-ai" | "wechat";
+export type SourceImportChannel = "files" | "chatgpt" | "gemini" | "deepseek" | "doubao" | "other-ai" | "wechat" | "alipay";
+
+export type PaymentJourneyClusterKind = "journey" | "place" | "routine" | "day-story" | "theme";
+
+export interface PaymentJourneyCluster {
+  id: string;
+  kind: PaymentJourneyClusterKind;
+  title: string;
+  summary: string;
+  question: string;
+  startDate: string;
+  endDate: string;
+  entryCount: number;
+  categories: string[];
+  evidence: string[];
+}
+
+export interface PaymentJourneySummary {
+  provider: "alipay";
+  title: string;
+  reportPath: string;
+  period: { start: string; end: string };
+  transactionCount: number;
+  activeDays: number;
+  netExpense: number;
+  refundCount: number;
+  clusters: PaymentJourneyCluster[];
+  agentPrompt: string;
+}
 
 export interface SourceImportBatch {
   id: string;
@@ -117,6 +145,7 @@ export interface SourceImportBatch {
     storedPath: string;
     bytes: number;
   }>;
+  journey?: PaymentJourneySummary;
 }
 
 export interface BuildSkill {
@@ -467,6 +496,16 @@ export interface AgentRunResult {
   completedAt?: string;
 }
 
+export interface LetterVersionOutputTarget {
+  kind: "letter-version";
+  pageId: string;
+  lensId: string;
+  lensName: string;
+  label: string;
+}
+
+export type AgentOutputTarget = LetterVersionOutputTarget;
+
 export interface WikiRun {
   id: string;
   knowledgeBaseId: string;
@@ -480,6 +519,7 @@ export interface WikiRun {
   provider?: string;
   model?: string;
   effort?: AgentReasoningEffort;
+  outputTarget?: AgentOutputTarget;
   recoveredFromLegacyWorkspace?: boolean;
   mode: "auto" | "read" | "write" | "validate";
   status: RunStatus;

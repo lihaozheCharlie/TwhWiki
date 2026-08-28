@@ -155,16 +155,16 @@ h1, h2, h3, h4 { scroll-margin-top: 124px; }
 .skill-files-pane { background: #fafafa; border-color: var(--line); }
 .skill-file-row:hover { background: rgba(0, 113, 227, .045); }
 .skill-file-row.active { background: rgba(0, 113, 227, .1); box-shadow: inset 3px 0 0 var(--blue); }
-.skill-files-selection > a { border-radius: 999px; }
+.skill-files-selection > .primary-action { border-radius: 999px; }
 .skill-preview-pane > pre { background: #fafafa; }
-.skill-preview-pane > footer > a { border-radius: 999px; }
+.skill-preview-pane > footer > a, .skill-preview-pane > footer > button { border-radius: 999px; }
 .context-agent-launcher { color: #fff; background: var(--blue); border: 0; border-radius: 18px; box-shadow: 0 12px 32px rgba(0, 113, 227, .22); }
 .context-agent-launcher:hover { box-shadow: 0 16px 38px rgba(0, 113, 227, .28); }
 .context-agent-launcher small { color: rgba(255, 255, 255, .72); }
 .context-agent-panel { background: rgba(245, 245, 247, .98); }
 .context-agent-header { background: rgba(250, 250, 252, .9); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
 
-.person-detail, .letter-detail, .model-detail, .collection-detail, .letter-feature, .quote-card, .graph-canvas, .collaboration-station { border: 0; border-radius: 22px; }
+.person-detail, .letter-detail, .model-detail, .collection-detail, .letter-feature, .quote-card, .graph-canvas { border: 0; border-radius: 22px; }
 .people-index, .letter-index, .model-index, .collection-list { top: 136px; border: 0; border-radius: 18px; }
 .stage-map-card { border-color: transparent; border-radius: 16px; }
 .view-switch, .segmented, .letter-filters { width: max-content; max-width: 100%; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, .055); }

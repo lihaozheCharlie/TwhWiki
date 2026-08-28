@@ -2,10 +2,11 @@ import React, { useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { GraphData, LettersView, LifeMapView, QuotesView, ReasoningLens, RelationshipsView, SectionedPageView, StructuredCard, WikiPage, WikiPageSummary } from "@the-way-here/shared";
+import type { GraphData, LettersView, LifeMapView, QuotesView, ReasoningLens, RelationshipsView, SectionedPageView, StructuredCard, WikiPage, WikiPageSummary, WikiRun } from "@the-way-here/shared";
 import { useApi } from "../../api";
 import { categoryMeta, graphCategoryNames, growthTabs, knowledgeTabs, type ReturnContext } from "../../app/config";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
+import { letterRunVersions, openContextAgent, type LetterRunVersion } from "../collaboration/model";
 import { DocumentOutline, EditableDocument, MarkdownBody, documentHeadingPrefix } from "../../shared/markdown";
 import { apiPageHref, PageLink, pageHref, useReturnContext } from "../../shared/routing";
 import { CollapsibleIndexPane, Empty, Icon, Loading, PageHeader, SectionHeading, SectionTabs } from "../../shared/ui";
@@ -168,6 +169,19 @@ function EmbeddedPagePreview({ page, revision, startEditing = false, onRenamed }
   </article>;
 }
 
+function LetterVersionPreview({ pageTitle, version }: { pageTitle: string; version: LetterRunVersion }) {
+  const markdown = /^#\s+.+$/m.test(version.markdown) ? version.markdown : `# ${pageTitle}\n\n${version.markdown}`;
+  return <article className="embedded-page letter-version-preview" aria-live="polite">
+    <section className="editable-document editable-document--preview knowledge-document letter-version-document">
+      <header className="letter-version-document-meta">
+        <div><span>人物视角重读</span><b>{version.label}</b><small>{new Date(version.createdAt).toLocaleString("zh-CN", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 已保留在这封回信中</small></div>
+        <button type="button" onClick={() => openContextAgent({ runId: version.runId })}>查看生成对话 <Icon name="arrow" size={14} /></button>
+      </header>
+      <div className="editable-document-body"><MarkdownBody headingPrefix={documentHeadingPrefix(`letter-version-${version.id}`)}>{markdown}</MarkdownBody></div>
+    </section>
+  </article>;
+}
+
 export function Relationships({ revision }: { revision: number }) {
   const { data, loading, error } = useApi<RelationshipsView>("/api/views/relationships", revision);
   const [params, setParams] = useSearchParams();
@@ -223,6 +237,7 @@ export function Cards({ revision }: { revision: number }) {
 export function Letters({ revision }: { revision: number }) {
   const { data, loading } = useApi<LettersView>("/api/views/letters", revision);
   const { data: lenses } = useApi<ReasoningLens[]>("/api/lenses", revision);
+  const { data: runList, loading: runsLoading } = useApi<WikiRun[]>("/api/runs", revision);
   const [params, setParams] = useSearchParams();
   const [year, setYear] = useState("全部");
   const [lensOpen, setLensOpen] = useState(false);
@@ -230,12 +245,17 @@ export function Letters({ revision }: { revision: number }) {
   const [thread, setThread] = useState("全部");
   const [showAllThreads, setShowAllThreads] = useState(false);
   const [indexOpen, setIndexOpen] = useState(true);
-  if (loading || !data) return <Loading label="正在整理回信" />;
+  if (loading || !data || runsLoading) return <Loading label="正在整理回信" />;
   const lensExamples = (lenses || []).slice(0, 3).map((lens) => lens.displayName).join("、");
   const selectedThread = data.threads.find((item) => item.id === thread);
   const filtered = data.letters.filter((letter) => (view === "chronology" ? year === "全部" || letter.letterDate.startsWith(year) : thread === "全部" || selectedThread?.letters.includes(letter.page.id)));
   const selected = filtered.find((letter) => letter.page.id === params.get("letter")) || filtered[0];
-  const selectLetter = (id?: string, replace = false) => { setParams((current) => { const next = new URLSearchParams(current); if (id) next.set("letter", id); else next.delete("letter"); return next; }, { replace }); };
+  const generatedVersions = selected ? letterRunVersions(runList || [], selected.page.id) : [];
+  const versions = selected ? [{ id: "original", label: "原始回信", lensName: "", markdown: "", createdAt: selected.letterDate, runId: "" }, ...generatedVersions] : [];
+  const latestVersion = versions.at(-1);
+  const activeVersion = versions.find((version) => version.id === params.get("version")) || latestVersion;
+  const selectLetter = (id?: string, replace = false) => { setParams((current) => { const next = new URLSearchParams(current); if (id) next.set("letter", id); else next.delete("letter"); next.delete("version"); return next; }, { replace }); };
+  const selectVersion = (id?: string) => { setParams((current) => { const next = new URLSearchParams(current); if (!id || id === latestVersion?.id) next.delete("version"); else next.set("version", id); return next; }, { replace: true }); };
   return (
     <div>
       <PageHeader title="近况回信" description="不是绩效复盘，而是一面了解你走过的经历、仍尊重未知的对话镜子。既可以按写信时间回看，也可以沿着同一个生命主题跨年阅读。" />
@@ -258,11 +278,16 @@ export function Letters({ revision }: { revision: number }) {
           {(lenses || []).length > 0 && <div className="letter-origin-lens">
             <button type="button" className={lensOpen ? "open" : ""} aria-expanded={lensOpen} onClick={() => setLensOpen((value) => !value)}>用 {lensExamples} 等 {(lenses || []).length} 种人物视角重读 <Icon name="down" size={14} /></button>
             {lensOpen && <>
-              <p>这些人物视角由 The Way Here 从可核实的公开原则中提炼。它们不会增加事实，也不模仿口头禅；不同之处在于首先关注什么、怎样解释证据，以及在哪里停止。</p>
-              <div>{(lenses || []).map((lens) => <NavLink key={lens.id} to={`/workbench?mode=read&prompt=${encodeURIComponent(`请用「${lens.displayName}」的思考方式，重读我的这封近况回信《${selected.page.title}》，以及它所依据的材料。这个视角特别关注：${lens.attention}。请只依据我知识库里的原始材料和已有判断来回答，指出这封信可能忽略或轻描淡写的地方，并说明每条判断来自哪些证据。不要替我下结论。`)}`}><b>{lens.displayName}</b><small>{lens.attention}</small></NavLink>)}</div>
+              <p>这些人物视角由 The Way Here 从可核实的公开原则中提炼。它们不会增加事实，也不模仿口头禅；不同之处在于首先关注什么、怎样解释证据，以及在哪里停止。重读完成后会作为这封信的最新版本保留，原始回信仍可切换查看。</p>
+              <div>{(lenses || []).map((lens) => <button type="button" key={lens.id} onClick={() => { setLensOpen(false); selectVersion(); openContextAgent({ mode: "read", outputTarget: { kind: "letter-version", pageId: selected.page.id, lensId: lens.id, lensName: lens.displayName, label: `${lens.displayName}视角回信` }, prompt: `请用「${lens.displayName}」的思考方式，重新写一版完整的近况回信《${selected.page.title}》，并重读它所依据的材料。这个视角特别关注：${lens.attention}。保持一位了解我来路的朋友口吻，只依据知识库里的原始材料和已有判断，不虚构事实、不模仿人物口头禅，也不要替我下结论。最终只输出可直接阅读的完整回信正文，并在末尾用“依据”列出引用的材料；不要修改任何文件，系统会把回答保留为「${lens.displayName}视角回信」。` }); }}><b>{lens.displayName}</b><small>{lens.attention}</small></button>)}</div>
             </>}
           </div>}
-        </section><EmbeddedPagePreview key={selected.page.id} page={selected.page} revision={revision} onRenamed={(renamed) => selectLetter(renamed.id, true)} /></> : <Empty>当前范围暂无回信</Empty>}</div>
+        </section>
+        {versions.length > 1 && activeVersion && <section className="letter-version-switcher" aria-label="回信版本">
+          <div aria-live="polite"><span>正在阅读</span><b>{activeVersion.label}</b><small>{activeVersion.id === "original" ? `最初版本 · 写信于 ${selected.letterDate.slice(0, 10)}` : `${activeVersion.id === latestVersion?.id ? "最新版本" : "历史版本"} · ${new Date(activeVersion.createdAt).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}</small></div>
+          <label><span>切换回信版本 · {versions.length} 个</span><select value={activeVersion.id} onChange={(event) => selectVersion(event.target.value)}>{[...versions].reverse().map((version) => <option key={version.id} value={version.id}>{version.id === latestVersion?.id ? "最新 · " : ""}{version.label}{version.id === "original" ? " · 最初版本" : ` · ${new Date(version.createdAt).toLocaleDateString("zh-CN")}`}</option>)}</select></label>
+        </section>}
+        {activeVersion?.id !== "original" ? <LetterVersionPreview key={activeVersion?.id} pageTitle={selected.page.title} version={activeVersion as LetterRunVersion} /> : <EmbeddedPagePreview key={selected.page.id} page={selected.page} revision={revision} onRenamed={(renamed) => selectLetter(renamed.id, true)} />}</> : <Empty>当前范围暂无回信</Empty>}</div>
       </div>
       <ContextualAgentDock revision={revision} context={{ scope: view === "themes" ? `近况回信 · ${selectedThread?.title || "全部主题"}` : `近况回信 · ${year}`, title: selected?.page.title || `${year === "全部" ? "最近" : year + " 年"}的近况回信`, pageId: selected?.page.id, summary: selected?.page.excerpt || "从选定年份的日记和已有知识生成回信。", defaultMode: "write", launcherLabel: selected ? "回应或重写这封信" : "写一封新回信", suggestions: [year === "全部" ? "从 2025 年日记中抽样几篇，结合已有知识写一封新的近况回信。" : `从 ${year} 年日记中抽样几篇，结合已有知识写一封新的近况回信。`, selected ? "根据更多原始证据重新写这封回信，保留朋友式回应，不做绩效复盘。" : "请先帮我选择最值得回看的一个时间切片，再写回信。"] }} />
     </div>

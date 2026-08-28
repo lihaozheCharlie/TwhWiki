@@ -1,12 +1,18 @@
 import path from "node:path";
 import { inflateRawSync } from "node:zlib";
-import type { SourceImportChannel, SourceImportFile } from "@the-way-here/shared";
+import type { PaymentJourneySummary, SourceImportChannel, SourceImportFile } from "@the-way-here/shared";
+import { prepareAlipayStatement } from "./modules/imports/payment-statement.js";
 
 export interface PreparedImportFile {
   originalName: string;
   relativePath: string;
   content: string;
   bytes: number;
+}
+
+export interface PreparedImportBatch {
+  files: PreparedImportFile[];
+  journey?: PaymentJourneySummary;
 }
 
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
@@ -109,7 +115,7 @@ function htmlToText(value: string): string {
 }
 
 function channelLabel(channel: SourceImportChannel): string {
-  return ({ files: "文件", chatgpt: "ChatGPT", gemini: "Gemini", deepseek: "DeepSeek", doubao: "豆包", "other-ai": "其他 AI", wechat: "微信" })[channel];
+  return ({ files: "文件", chatgpt: "ChatGPT", gemini: "Gemini", deepseek: "DeepSeek", doubao: "豆包", "other-ai": "其他 AI", wechat: "微信", alipay: "支付宝账单" })[channel];
 }
 
 function frontmatter(channel: SourceImportChannel, source: string, createdAt: string): string {
@@ -246,7 +252,7 @@ function expandedFiles(files: SourceImportFile[], channel: SourceImportChannel):
   return result;
 }
 
-export function prepareImportFiles(files: SourceImportFile[], channel: SourceImportChannel, createdAt: string): PreparedImportFile[] {
+function prepareGenericImportFiles(files: SourceImportFile[], channel: SourceImportChannel, createdAt: string): PreparedImportFile[] {
   const allowed = channel === "files" ? new Set([".md", ".txt"]) : supportedChatExtensions;
   const expanded = expandedFiles(files, channel).filter((file) => allowed.has(path.posix.extname(file.name).toLocaleLowerCase()));
   if (!expanded.length) throw new Error(channel === "files" ? "没有找到可导入的 Markdown 或 TXT 文件" : "没有找到可识别的聊天记录文件");
@@ -279,4 +285,16 @@ export function prepareImportFiles(files: SourceImportFile[], channel: SourceImp
   const totalBytes = prepared.reduce((total, file) => total + Buffer.byteLength(file.content, "utf8"), 0);
   if (totalBytes > MAX_UNCOMPRESSED_BYTES) throw new Error("导入后的内容超过 100 MB，请拆分后重试");
   return prepared;
+}
+
+export function prepareImportBatch(files: SourceImportFile[], channel: SourceImportChannel, createdAt: string): PreparedImportBatch {
+  if (channel === "alipay") {
+    if (files.length !== 1) throw new Error("每次请选择一份支付宝账单，以免不同时间范围相互覆盖");
+    return prepareAlipayStatement(files[0]!, createdAt);
+  }
+  return { files: prepareGenericImportFiles(files, channel, createdAt) };
+}
+
+export function prepareImportFiles(files: SourceImportFile[], channel: SourceImportChannel, createdAt: string): PreparedImportFile[] {
+  return prepareImportBatch(files, channel, createdAt).files;
 }

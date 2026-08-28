@@ -1,4 +1,4 @@
-import type { AgentRuntimeEvent, WikiRun } from "@the-way-here/shared";
+import type { AgentOutputTarget, AgentRuntimeEvent, WikiRun } from "@the-way-here/shared";
 
 export type AgentContext = {
   scope: string;
@@ -9,6 +9,61 @@ export type AgentContext = {
   defaultMode?: "read" | "write";
   launcherLabel?: string;
 };
+
+export type OpenContextAgentRequest = {
+  prompt?: string;
+  mode?: WikiRun["mode"];
+  runId?: string;
+  view?: "compose" | "history";
+  outputTarget?: AgentOutputTarget;
+};
+
+export function openContextAgent(request: OpenContextAgentRequest = {}): void {
+  window.dispatchEvent(new CustomEvent<OpenContextAgentRequest>("open-context-agent", { detail: request }));
+}
+
+export type AgentThread = {
+  id: string;
+  latest: WikiRun;
+  runs: WikiRun[];
+};
+
+export type LetterRunVersion = {
+  id: string;
+  runId: string;
+  label: string;
+  lensName: string;
+  markdown: string;
+  createdAt: string;
+};
+
+export function letterRunVersions(runs: WikiRun[], pageId: string): LetterRunVersion[] {
+  return runs.flatMap((run) => {
+    const target = run.outputTarget;
+    const markdown = run.status === "completed" ? runFinalAnswer(run) : undefined;
+    if (target?.kind !== "letter-version" || target.pageId !== pageId || !markdown) return [];
+    return [{
+      id: run.id,
+      runId: run.id,
+      label: target.label,
+      lensName: target.lensName,
+      markdown,
+      createdAt: run.result?.completedAt || run.updatedAt || run.createdAt,
+    }];
+  }).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export function groupAgentThreads(runs: WikiRun[]): AgentThread[] {
+  const grouped = new Map<string, WikiRun[]>();
+  for (const run of runs) {
+    const id = run.runtimeSessionId || run.id;
+    grouped.set(id, [...(grouped.get(id) || []), run]);
+  }
+  return [...grouped.entries()].map(([id, threadRuns]) => {
+    const sorted = threadRuns.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return { id, latest: sorted.at(-1)!, runs: sorted };
+  }).sort((a, b) => b.latest.createdAt.localeCompare(a.latest.createdAt));
+}
 
 export const collaborationModes: Record<WikiRun["mode"], {
   short: string;

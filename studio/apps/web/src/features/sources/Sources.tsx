@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useSearchParams } from "react-router-dom";
-import type { SourceImportBatch, SourceImportChannel, WikiPage, WikiPageSummary } from "@the-way-here/shared";
+import type { PaymentJourneySummary, SourceImportBatch, SourceImportChannel, WikiPage, WikiPageSummary } from "@the-way-here/shared";
 import { api, useApi } from "../../api";
 import { graphCategoryNames, type ReturnContext } from "../../app/config";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
+import { openContextAgent } from "../collaboration/model";
 import { EditableDocument, documentIdentity } from "../../shared/markdown";
 import { apiPageHref, PageLink, pageHref } from "../../shared/routing";
 import { CollapsibleIndexPane, Empty, HeroMetric, Icon, Loading, PageHero, PaneCollapseButton } from "../../shared/ui";
 
-type ImportRoute = "files" | "ai" | "wechat";
+type ImportRoute = "files" | "ai" | "wechat" | "bill";
 
-const aiImportProviders: Array<{ id: Exclude<SourceImportChannel, "files" | "wechat">; label: string }> = [
+const aiImportProviders: Array<{ id: Exclude<SourceImportChannel, "files" | "wechat" | "alipay">; label: string }> = [
   { id: "chatgpt", label: "ChatGPT" },
   { id: "gemini", label: "Gemini" },
   { id: "deepseek", label: "DeepSeek" },
@@ -27,9 +28,9 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-function ImportMaterialsModal({ folders, currentFolder, onClose }: { folders: string[]; currentFolder: string; onClose: () => void }) {
+function ImportMaterialsModal({ folders, currentFolder, onClose, onJourney }: { folders: string[]; currentFolder: string; onClose: () => void; onJourney: (journey: PaymentJourneySummary) => void }) {
   const [route, setRoute] = useState<ImportRoute>("files");
-  const [provider, setProvider] = useState<Exclude<SourceImportChannel, "files" | "wechat">>("chatgpt");
+  const [provider, setProvider] = useState<Exclude<SourceImportChannel, "files" | "wechat" | "alipay">>("chatgpt");
   const [files, setFiles] = useState<File[]>([]);
   const [folderMode, setFolderMode] = useState<"existing" | "new">("existing");
   const [targetFolder, setTargetFolder] = useState(currentFolder);
@@ -37,11 +38,12 @@ function ImportMaterialsModal({ folders, currentFolder, onClose }: { folders: st
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [journey, setJourney] = useState<PaymentJourneySummary>();
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
   const folderAttributes = { webkitdirectory: "", directory: "" } as Record<string, string>;
-  const channel: SourceImportChannel = route === "ai" ? provider : route;
-  const acceptedPattern = route === "files" ? /\.(md|txt|zip)$/i : /\.(md|txt|zip|json|html?)$/i;
-  const accept = route === "files" ? ".md,.txt,.zip,text/markdown,text/plain,application/zip" : ".md,.txt,.zip,.json,.html,.htm,text/markdown,text/plain,application/json,text/html,application/zip";
+  const channel: SourceImportChannel = route === "ai" ? provider : route === "bill" ? "alipay" : route;
+  const acceptedPattern = route === "bill" ? /\.csv$/i : route === "files" ? /\.(md|txt|zip)$/i : /\.(md|txt|zip|json|html?)$/i;
+  const accept = route === "bill" ? ".csv,text/csv" : route === "files" ? ".md,.txt,.zip,text/markdown,text/plain,application/zip" : ".md,.txt,.zip,.json,.html,.htm,text/markdown,text/plain,application/json,text/html,application/zip";
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -61,13 +63,14 @@ function ImportMaterialsModal({ folders, currentFolder, onClose }: { folders: st
     setFiles([]);
     setMessage("");
     setError("");
+    setJourney(undefined);
   }
 
   function selectFiles(list: FileList | null) {
-    const selected = [...(list || [])].filter((file) => acceptedPattern.test(file.name));
+    const selected = [...(list || [])].filter((file) => acceptedPattern.test(file.name)).slice(0, route === "bill" ? 1 : undefined);
     setFiles(selected);
     setMessage("");
-    setError(selected.length || !list?.length ? "" : route === "files" ? "请选择 Markdown、TXT 或 ZIP 文件。" : "请选择聊天平台导出的 ZIP、JSON、HTML、TXT 或 Markdown 文件。");
+    setError(selected.length || !list?.length ? "" : route === "bill" ? "请选择支付宝导出的 CSV 账单。" : route === "files" ? "请选择 Markdown、TXT 或 ZIP 文件。" : "请选择聊天平台导出的 ZIP、JSON、HTML、TXT 或 Markdown 文件。");
   }
 
   async function submit(event: React.FormEvent) {
@@ -80,8 +83,8 @@ function ImportMaterialsModal({ folders, currentFolder, onClose }: { folders: st
       setError("这批材料超过 100 MB，请拆分后再导入。");
       return;
     }
-    const destination = folderMode === "new" ? newFolder.trim() : targetFolder;
-    if (folderMode === "new" && !destination) {
+    const destination = route === "bill" ? "消费账单" : folderMode === "new" ? newFolder.trim() : targetFolder;
+    if (route !== "bill" && folderMode === "new" && !destination) {
       setError("请输入新文件夹名称。");
       return;
     }
@@ -92,12 +95,13 @@ function ImportMaterialsModal({ folders, currentFolder, onClose }: { folders: st
       const payload = await Promise.all(files.map(async (file) => ({
         name: file.name,
         relativePath: file.webkitRelativePath || file.name,
-        content: /\.zip$/i.test(file.name) ? await fileToBase64(file) : await file.text(),
-        encoding: /\.zip$/i.test(file.name) ? "base64" as const : "utf8" as const,
+        content: /\.zip$/i.test(file.name) || route === "bill" ? await fileToBase64(file) : await file.text(),
+        encoding: /\.zip$/i.test(file.name) || route === "bill" ? "base64" as const : "utf8" as const,
         mimeType: file.type || undefined,
       })));
       const batch = await api<SourceImportBatch>("/api/imports/files", { method: "POST", body: JSON.stringify({ files: payload, channel, targetFolder: destination }) });
       setMessage(`已导入 ${batch.fileCount} 份材料${destination ? `到「${destination}」` : "到原始知识根目录"}。`);
+      setJourney(batch.journey);
       setFiles([]);
     } catch (reason: any) {
       setError(reason.message);
@@ -110,7 +114,16 @@ function ImportMaterialsModal({ folders, currentFolder, onClose }: { folders: st
     ? "导入单个文件、多个文件，或包含 Markdown 与 TXT 的 ZIP 压缩包。"
     : route === "ai"
       ? "选择聊天平台后，上传官方导出包或常见 JSON、HTML、文本记录。"
-      : "上传导出的微信聊天文本、HTML、JSON 或 ZIP 文件。";
+      : route === "wechat"
+        ? "上传导出的微信聊天文本、HTML、JSON 或 ZIP 文件。"
+        : "上传支付宝交易记录 CSV，把零散消费串成可以继续讲述的旅程。";
+
+  function continueWithAgent() {
+    if (!journey) return;
+    onJourney(journey);
+    onClose();
+    window.setTimeout(() => openContextAgent({ prompt: journey.agentPrompt, mode: "auto" }), 0);
+  }
 
   return <div className="import-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !importing) onClose(); }}>
     <section className="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
@@ -119,27 +132,33 @@ function ImportMaterialsModal({ folders, currentFolder, onClose }: { folders: st
         <div className="import-modal-body">
           <nav className="import-channel-list" aria-label="材料来源">
             <button type="button" className={route === "files" ? "active" : ""} onClick={() => changeRoute("files")}><b>文件与 ZIP</b><span>Markdown、TXT</span></button>
+            <button type="button" className={route === "bill" ? "active" : ""} onClick={() => changeRoute("bill")}><b>消费账单</b><span>从消费找回旅程</span></button>
             <button type="button" className={route === "ai" ? "active" : ""} onClick={() => changeRoute("ai")}><b>AI 对话</b><span>常用聊天平台</span></button>
             <button type="button" className={route === "wechat" ? "active" : ""} onClick={() => changeRoute("wechat")}><b>微信记录</b><span>聊天导出文件</span></button>
           </nav>
           <div className="import-modal-main">
-            <section className="import-modal-section"><h3>{route === "files" ? "选择本地材料" : route === "ai" ? "选择 AI 平台" : "导入微信聊天记录"}</h3><p>{routeDescription}</p>
+            <section className="import-modal-section"><h3>{route === "files" ? "选择本地材料" : route === "ai" ? "选择 AI 平台" : route === "wechat" ? "导入微信聊天记录" : "导入一段消费旅程"}</h3><p>{routeDescription}</p>
+              {journey ? <div className="bill-journey-result">
+                <header><span>已经串成一段旅程</span><h3>{journey.title}</h3><p>聚类只是回忆线索。接下来让 Agent 沿着地点、重复消费和跨类型事件，陪你慢慢讲出背后的故事。</p></header>
+                <dl><div><dt>交易</dt><dd>{journey.transactionCount}</dd></div><div><dt>活跃天数</dt><dd>{journey.activeDays}</dd></div><div><dt>旅程线索</dt><dd>{journey.clusters.length}</dd></div><div><dt>退款</dt><dd>{journey.refundCount}</dd></div></dl>
+                <div className="bill-journey-thread" aria-label="账单聚类线索">{journey.clusters.slice(0, 5).map((item) => <article key={item.id}><i aria-hidden="true" /><div><span>{item.startDate === item.endDate ? item.startDate.slice(5) : `${item.startDate.slice(5)}—${item.endDate.slice(5)}`}</span><b>{item.title}</b><p>{item.summary}</p></div></article>)}</div>
+              </div> : <>
               {route === "ai" ? <div className="import-provider-list" role="group" aria-label="AI 平台">{aiImportProviders.map((item) => <button type="button" key={item.id} className={provider === item.id ? "active" : ""} onClick={() => { setProvider(item.id); setFiles([]); setMessage(""); setError(""); }}>{item.label}</button>)}</div> : null}
               <div className="import-file-actions">
-                <label className="import-file-picker"><b>选择文件</b><span>{route === "files" ? "MD、TXT 或 ZIP" : "ZIP、JSON、HTML 或文本"}</span><input key={`${route}-${provider}-files`} name="import-files" type="file" accept={accept} multiple onChange={(event) => selectFiles(event.target.files)} /></label>
-                <label className="import-file-picker"><b>选择文件夹</b><span>保留文件夹内的层级</span><input key={`${route}-${provider}-folder`} name="import-folder" type="file" accept={accept} multiple {...folderAttributes} onChange={(event) => selectFiles(event.target.files)} /></label>
+                <label className="import-file-picker"><b>{route === "bill" ? "选择支付宝账单" : "选择文件"}</b><span>{route === "bill" ? "支付宝导出的 CSV" : route === "files" ? "MD、TXT 或 ZIP" : "ZIP、JSON、HTML 或文本"}</span><input key={`${route}-${provider}-files`} name="import-files" type="file" accept={accept} multiple={route !== "bill"} onChange={(event) => selectFiles(event.target.files)} /></label>
+                {route !== "bill" ? <label className="import-file-picker"><b>选择文件夹</b><span>保留文件夹内的层级</span><input key={`${route}-${provider}-folder`} name="import-folder" type="file" accept={accept} multiple {...folderAttributes} onChange={(event) => selectFiles(event.target.files)} /></label> : <div className="bill-import-method"><Icon name="spark" size={18} /><b>自动整理</b><span>归并退款，识别重复地点、消费节律与跨类型旅程。</span></div>}
               </div>
               <div className={`import-selection${files.length ? " has-files" : ""}`}>
                 {files.length ? <><div><b>{files.length} 个文件</b><span>{new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024)} MB</span></div><p>{files.slice(0, 4).map((file) => file.webkitRelativePath || file.name).join(" · ")}{files.length > 4 ? ` · 另有 ${files.length - 4} 个` : ""}</p></> : <><b>尚未选择文件</b><p>单次最多 100 MB。ZIP 解压后也需在 100 MB 内。</p></>}
-              </div>
+              </div></>}
             </section>
-            <section className="import-modal-section import-destination"><h3>保存到</h3><p>导入内容会直接进入所选文件夹；同名文件会自动追加序号。</p>
+            {!journey && route === "bill" ? <section className="import-modal-section bill-import-destination"><h3>保存为原始知识</h3><p>原始 CSV 与聚类报告会保存到「消费账单」。报告中的每条线索都能回到具体交易证据。</p></section> : !journey ? <section className="import-modal-section import-destination"><h3>保存到</h3><p>导入内容会直接进入所选文件夹；同名文件会自动追加序号。</p>
               <div className="import-folder-mode" role="group" aria-label="选择保存位置"><button type="button" className={folderMode === "existing" ? "active" : ""} onClick={() => setFolderMode("existing")}>现有文件夹</button><button type="button" className={folderMode === "new" ? "active" : ""} onClick={() => setFolderMode("new")}>新建文件夹</button></div>
               {folderMode === "existing" ? <label className="import-folder-field"><span>目标文件夹</span><select name="target-folder" value={targetFolder} onChange={(event) => setTargetFolder(event.target.value)}><option value="">原始知识根目录</option>{folders.map((name) => <option value={name} key={name}>{name}</option>)}</select></label> : <label className="import-folder-field"><span>新文件夹名称</span><input name="new-import-folder" autoComplete="off" value={newFolder} onChange={(event) => setNewFolder(event.target.value)} placeholder={route === "ai" ? `AI聊天记录/${aiImportProviders.find((item) => item.id === provider)?.label}` : route === "wechat" ? "微信聊天记录" : "导入材料/2026"} /></label>}
-            </section>
+            </section> : null}
           </div>
         </div>
-        <footer className="import-modal-footer"><div aria-live="polite">{error ? <span role="alert">{error}</span> : message ? <b>{message}</b> : "导入后即可在原始知识中阅读和编辑。"}</div><div><button type="button" className="secondary-action" onClick={onClose} disabled={importing}>{message ? "完成" : "取消"}</button><button className="primary-action" disabled={importing || !files.length}>{importing ? "正在导入…" : "开始导入"}</button></div></footer>
+        <footer className="import-modal-footer"><div aria-live="polite">{error ? <span role="alert">{error}</span> : message ? <b>{message}</b> : route === "bill" ? "导入后，Agent 会沿着消费线索陪你讲出人物、动机和变化。" : "导入后即可在原始知识中阅读和编辑。"}</div><div><button type="button" className="secondary-action" onClick={onClose} disabled={importing}>{journey ? "稍后再聊" : message ? "完成" : "取消"}</button>{journey ? <button type="button" className="primary-action" onClick={continueWithAgent}>和 Agent 继续聊<Icon name="arrow" size={15} /></button> : <button className="primary-action" disabled={importing || !files.length}>{importing ? "正在导入…" : "开始导入"}</button>}</div></footer>
       </form>
     </section>
   </div>;
@@ -229,6 +248,7 @@ export function OrganizedSources({ revision }: { revision: number }) {
   const [folderPaneOpen, setFolderPaneOpen] = useState(true);
   const [filePaneOpen, setFilePaneOpen] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [recentJourney, setRecentJourney] = useState<PaymentJourneySummary>();
   if (loading || !data) return <Loading label="正在打开原始知识" />;
   const pages = data;
   const query = params.get("q") || "";
@@ -262,7 +282,7 @@ export function OrganizedSources({ revision }: { revision: number }) {
       <div><h1>原始知识</h1><p>这里保留日记、笔记、对话和其他原始材料。选择文件即可阅读或编辑，修改会自动保存。</p></div>
       <div className="source-workspace-actions"><span><b>{new Intl.NumberFormat("zh-CN").format(pages.length)}</b> 份材料</span><button className="primary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog">导入材料<Icon name="arrow" size={15} /></button></div>
     </header>
-    {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} /> : null}
+    {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} onJourney={setRecentJourney} /> : null}
     <div className={`source-vault${folderPaneOpen ? "" : " folder-pane-collapsed"}${filePaneOpen ? "" : " file-pane-collapsed"}`} aria-label="原始知识工作区">
       <div className={`source-pane-shell source-folder-shell${folderPaneOpen ? "" : " collapsed"}`}>
         <aside className="source-folder-pane"><header><b>文件夹</b><span>{folders.length}</span></header><button className={!folder ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ folder: undefined, file: undefined, limit: undefined }); }}><span>全部材料</span><small>{pages.length}</small></button>{folders.map(([name, count]) => <button key={name} className={folder === name ? "active" : ""} style={{ paddingLeft: 14 + Math.min(name.split("/").length - 1, 3) * 13 }} onClick={() => { setCreatedPageId(undefined); update({ folder: name, file: undefined, limit: undefined }); }}><span>{name.split("/").at(-1)}</span><small>{count}</small></button>)}</aside>
@@ -274,6 +294,6 @@ export function OrganizedSources({ revision }: { revision: number }) {
       </div>
       {selected ? <SourcePreview page={selected} revision={revision} startEditing={selected.id === createdPageId} onRenamed={(renamed) => { setCreatedPageId(undefined); update({ file: renamed.id }); }} /> : <div className="source-preview-empty"><span>没有匹配的来源</span><p>换一个文件夹或搜索词。</p></div>}
     </div>
-    <ContextualAgentDock revision={revision} context={{ scope: "原始知识", title: selected?.title || "原始知识", pageId: selected?.id, summary: selected?.excerpt || `当前有 ${pages.length} 份原始材料。`, defaultMode: "read", launcherLabel: "询问这份材料", suggestions: ["这份记录里有哪些值得沉淀但尚未进入我的知识的内容？", "请概括这份记录，并区分事实、感受和后来的解释。"] }} />
+    <ContextualAgentDock revision={revision} context={recentJourney ? { scope: "消费旅程", title: recentJourney.title, summary: `${recentJourney.transactionCount} 笔消费被串成 ${recentJourney.clusters.length} 组旅程线索。`, defaultMode: "write", launcherLabel: "继续这段消费旅程", suggestions: [recentJourney.agentPrompt, "先从最有画面的一次出行、聚会或生活变化开始，邀请我慢慢讲出来。"] } : { scope: "原始知识", title: selected?.title || "原始知识", pageId: selected?.id, summary: selected?.excerpt || `当前有 ${pages.length} 份原始材料。`, defaultMode: "read", launcherLabel: "询问这份材料", suggestions: ["这份记录里有哪些值得沉淀但尚未进入我的知识的内容？", "请概括这份记录，并区分事实、感受和后来的解释。"] }} />
   </div>;
 }
