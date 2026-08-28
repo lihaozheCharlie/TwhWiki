@@ -276,8 +276,11 @@ export async function loadVaultConfig(vaultRoot: string, requestedKnowledgeBase?
     if (error?.code !== "ENOENT") throw error;
   }
   const configuredBases = isRecord(raw.knowledgeBases) ? raw.knowledgeBases : undefined;
-  const defaultKnowledgeBase = String(raw.defaultKnowledgeBase || Object.keys(configuredBases || {})[0] || "default");
-  const knowledgeBaseId = requestedKnowledgeBase || defaultKnowledgeBase;
+  const configuredIds = Object.keys(configuredBases || {});
+  const configuredDefault = String(raw.defaultKnowledgeBase || configuredIds[0] || "default");
+  const customIds = configuredIds.filter((id) => id.toLowerCase() !== "demo");
+  const preferredCustomId = customIds.includes(configuredDefault) ? configuredDefault : customIds[0];
+  const knowledgeBaseId = requestedKnowledgeBase || preferredCustomId || (configuredIds.includes(configuredDefault) ? configuredDefault : configuredIds[0]) || "default";
   if (!/^[A-Za-z0-9_-]+$/.test(knowledgeBaseId)) throw new Error(`知识库 ID 无效：${knowledgeBaseId}`);
   const version = Number(raw.version ?? DEFAULT_CONFIG.version);
   if (!Number.isInteger(version) || version < 1 || version > 3) throw new Error(`不支持的配置版本：${raw.version}`);

@@ -5,12 +5,22 @@ import { listBuildSkills } from "../modules/skills/skill-catalog.js";
 import { listReasoningLenses } from "../modules/skills/lens-catalog.js";
 import { readSkillFile, readSkillTree, SkillFileRequestError } from "../modules/skills/skill-files.js";
 import { ContentRequestError, PageWriter } from "../modules/content/page-writer.js";
+import { KnowledgeBaseRequestError } from "../modules/knowledge-bases/knowledge-base-manager.js";
 import { KnowledgeRuntime } from "../runtime/knowledge-runtime.js";
 
 export function registerContentRoutes(app: FastifyInstance, knowledge: KnowledgeRuntime, runtimeCatalog: () => Promise<AgentRuntimeDescriptor[]>): void {
   const writer = new PageWriter(knowledge);
   app.get("/api/health", async () => ({ ok: true, vaultRoot: knowledge.vaultRoot, indexedAt: knowledge.index.lastIndexedAt }));
   app.get("/api/vault", async () => knowledge.vaultInfo(await runtimeCatalog()));
+  app.post<{ Body: { name?: string } }>("/api/vault", async (request, reply) => {
+    try {
+      const created = await knowledge.createKnowledgeBase(request.body?.name);
+      return reply.code(201).send({ ...created, knowledgeBaseId: created.id });
+    } catch (error) {
+      if (error instanceof KnowledgeBaseRequestError) return reply.code(error.statusCode).send({ error: error.message });
+      throw error;
+    }
+  });
   app.post<{ Body: { knowledgeBaseId?: string } }>("/api/vault/select", async (request, reply) => {
     const nextId = request.body?.knowledgeBaseId?.trim();
     if (!nextId) return reply.code(400).send({ error: "请选择要打开的知识库" });

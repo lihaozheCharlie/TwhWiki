@@ -8,14 +8,18 @@ import { OrganizedSources } from "../features/sources/Sources";
 import { AdvancedBuild, FocusWorkspace, GrowthHub, KnowledgeHome, Today } from "../features/overview/OverviewPages";
 import { Cards, KnowledgeGraph, Letters, Library, MentalModels, Quotes, Reader, Relationships, SearchResults, Timeline } from "../features/knowledge/KnowledgePages";
 import { RunDetail, Workbench } from "../features/collaboration/Collaboration";
+import { CreateKnowledgeBaseDialog, DemoKnowledgeBaseNotice } from "../features/knowledge-bases/KnowledgeBaseOnboarding";
 
-function GlobalKnowledgeBaseSwitcher({ vault, disabled, onChange }: { vault: VaultInfo; disabled: boolean; onChange: (knowledgeBaseId: string) => void }) {
-  if (vault.knowledgeBases.length < 2) return null;
+const CREATE_KNOWLEDGE_BASE = "__create_knowledge_base__";
+
+function GlobalKnowledgeBaseSwitcher({ vault, disabled, onChange, onCreate }: { vault: VaultInfo; disabled: boolean; onChange: (knowledgeBaseId: string) => void; onCreate: () => void }) {
   return <label className="global-kb-switcher" title="切换知识库">
     <Icon name="library" size={14} />
     <span className="sr-only">当前知识库</span>
-    <select aria-label="切换知识库" value={vault.knowledgeBaseId} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+    <select aria-label="切换或新建知识库" value={vault.knowledgeBaseId} disabled={disabled} onChange={(event) => event.target.value === CREATE_KNOWLEDGE_BASE ? onCreate() : onChange(event.target.value)}>
       {vault.knowledgeBases.map((knowledgeBase) => <option key={knowledgeBase.id} value={knowledgeBase.id}>{knowledgeBase.name}</option>)}
+      <option disabled>────────</option>
+      <option value={CREATE_KNOWLEDGE_BASE}>＋ 新建知识库…</option>
     </select>
     <Icon name="down" size={13} />
   </label>;
@@ -32,6 +36,7 @@ export function AppShell({ revision }: { revision: number }) {
   const [knowledgeBaseSwitching, setKnowledgeBaseSwitching] = useState(false);
   const [switchingKnowledgeBaseName, setSwitchingKnowledgeBaseName] = useState("");
   const [knowledgeBaseError, setKnowledgeBaseError] = useState("");
+  const [createKnowledgeBaseOpen, setCreateKnowledgeBaseOpen] = useState(false);
 
   function submitSearch(event: React.FormEvent) {
     event.preventDefault();
@@ -81,13 +86,31 @@ export function AppShell({ revision }: { revision: number }) {
     }
   }
 
+  async function createKnowledgeBase(name: string) {
+    setKnowledgeBaseSwitching(true);
+    setSwitchingKnowledgeBaseName(name);
+    setKnowledgeBaseError("");
+    try {
+      await api<{ id: string; name: string; knowledgeBaseId: string }>("/api/vault", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      window.location.assign("/");
+    } catch (reason: any) {
+      setKnowledgeBaseSwitching(false);
+      throw reason;
+    }
+  }
+
+  const personalKnowledgeBase = vault?.knowledgeBases.find((item) => item.id.toLowerCase() !== "demo");
+
   return (
     <div className={`app-shell${activeSection?.children.length ? " has-local-nav" : ""}`}>
       <a className="skip-link" href="#main-content">跳到主要内容</a>
       <header className="global-header">
         <div className="global-header-inner">
           <NavLink to="/" className="global-brand" translate="no" aria-label="The Way Here 首页"><span>The Way</span><b>Here</b></NavLink>
-          {vault ? <GlobalKnowledgeBaseSwitcher vault={vault} disabled={knowledgeBaseSwitching} onChange={(knowledgeBaseId) => void switchKnowledgeBase(knowledgeBaseId)} /> : null}
+          {vault ? <GlobalKnowledgeBaseSwitcher vault={vault} disabled={knowledgeBaseSwitching} onChange={(knowledgeBaseId) => void switchKnowledgeBase(knowledgeBaseId)} onCreate={() => setCreateKnowledgeBaseOpen(true)} /> : null}
           <nav id="main-navigation" className="global-navigation" aria-label="主要导航">
             {navigation.map((item) => {
               const active = mainItemActive(item);
@@ -111,6 +134,11 @@ export function AppShell({ revision }: { revision: number }) {
         {knowledgeBaseSwitching ? <div className="knowledge-base-transition" role="status" aria-live="polite"><span />正在打开「{switchingKnowledgeBaseName}」…</div> : null}
         {knowledgeBaseError ? <div className="knowledge-base-error" role="alert">{knowledgeBaseError}</div> : null}
         <div className="page-frame">
+          {vault?.knowledgeBaseId.toLowerCase() === "demo" ? <DemoKnowledgeBaseNotice
+            hasPersonalKnowledgeBase={Boolean(personalKnowledgeBase)}
+            onCreate={() => setCreateKnowledgeBaseOpen(true)}
+            onOpenPersonal={() => personalKnowledgeBase && void switchKnowledgeBase(personalKnowledgeBase.id)}
+          /> : null}
           <Routes>
             <Route path="/" element={<Today revision={revision} />} />
             <Route path="/sources" element={<OrganizedSources revision={revision} />} />
@@ -136,6 +164,7 @@ export function AppShell({ revision }: { revision: number }) {
           </Routes>
         </div>
       </main>
+      {createKnowledgeBaseOpen ? <CreateKnowledgeBaseDialog onClose={() => setCreateKnowledgeBaseOpen(false)} onSubmit={createKnowledgeBase} /> : null}
     </div>
   );
 }

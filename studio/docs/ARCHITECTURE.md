@@ -22,11 +22,11 @@ Project Workspace（用户拥有）
       └─ AGENTS.md：仅适用于 Studio 的工程协作协议
 ```
 
-Studio 不把知识构建规则重新写进 TypeScript。它提供编排、展示和安全边界；归档判断由根 `AGENTS.md`、Skill 注册表与 `knowledge-engine/skills/` 决定。启动时从配置选择知识库，索引、编辑和运行记录只作用于该库声明的内容路径；Skills 与工具不复制到各库。
+Studio 不把知识构建规则重新写进 TypeScript。它提供编排、展示和安全边界；归档判断由根 `AGENTS.md`、Skill 注册表与 `knowledge-engine/skills/` 决定。启动时从配置选择知识库：显式指定的 ID 优先；未指定时优先打开已注册的非 `demo` 知识库，只有不存在个人库时才进入演示库。索引、编辑和运行记录只作用于该库声明的内容路径；Skills 与工具不复制到各库。
 
 ## 数据流
 
-1. 启动时读取根注册表，选择指定或默认知识库，只索引其 Wiki 与来源 Markdown。
+1. 启动时读取根注册表，优先选择显式指定或已注册的个人知识库，只在没有个人库时使用演示库，并只索引所选库的 Wiki 与来源 Markdown。
 2. 浏览器通过本地 API 读取摘要、页面、搜索和派生视图。
 3. 文件监控发现改动后重新索引，并通过 SSE 通知界面刷新。
 4. 工作台或页面 Agent 创建任务；Run 固化 `knowledgeBaseId` 与配置快照。页面 Agent 使用 `auto` 模式，根据用户原话识别读写意图，并预先记录受保护目录快照以便安全收集可能发生的改动。
@@ -70,6 +70,8 @@ agents:
 ## 本地 API
 
 - `GET /api/vault`：当前知识库、可用知识库、数量和 Agent 运行时摘要。
+- `POST /api/vault`：创建与演示库隔离的个人知识库、写入注册表并切换到新库。
+- `POST /api/vault/select`：在当前服务进程中切换活动知识库。
 - `GET /api/agent-runtimes`、`GET /api/agent-models`：可用运行时、当前模型和思考深度。
 - `GET /api/agent-provider-presets`：第三方厂商、模型枚举及每个模型支持的思考深度；官网服务地址不会暴露给前端。
 - `GET /api/agent-settings`、`PUT /api/agent-settings`：读取或更新工作区级全局 Agent 设置；密钥字段只写不读。
@@ -91,6 +93,7 @@ agents:
 - `apps/server/src/runtime/run-coordinator.ts`：运行时无关的任务状态、审批、验证和恢复编排深模块。
 - `apps/server/src/runtime/agent-runtime/`：通用运行时契约与注册表，以及 Codex/Pi 两个适配器；Pi 的模型目录、工具边界和会话仓库保持在适配器内部。
 - `apps/server/src/modules/content/page-writer.ts`：页面创建、保存、重命名与并发安全写入。
+- `apps/server/src/modules/knowledge-bases/knowledge-base-manager.ts`：创建隔离的知识库目录并原子更新工作区注册表。
 - `apps/server/src/modules/imports/`、`modules/skills/`：导入批次和 Skill 目录读取。
 - `apps/server/src/routes/`：HTTP 适配器，只处理请求/响应映射，不保存领域状态。
 - `apps/server/src/services/run-policy.ts`：运行时模式校验与绑定知识库的 Prompt。

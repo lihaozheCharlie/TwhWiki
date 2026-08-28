@@ -2,12 +2,14 @@ import path from "node:path";
 import chokidar, { type FSWatcher } from "chokidar";
 import { WikiIndex } from "@the-way-here/wiki-core";
 import type { AgentRuntimeDescriptor } from "@the-way-here/shared";
+import { createPersonalKnowledgeBase } from "../modules/knowledge-bases/knowledge-base-manager.js";
 import { StudioEvents } from "./studio-events.js";
 
 export class KnowledgeRuntime {
   private activeIndex: WikiIndex;
   private watcher?: FSWatcher;
   private rebuildTimer?: NodeJS.Timeout;
+  private mutationQueue: Promise<void> = Promise.resolve();
 
   private constructor(
     readonly vaultRoot: string,
@@ -46,6 +48,16 @@ export class KnowledgeRuntime {
     this.watcher = this.watch(nextIndex);
     this.events.broadcast("knowledge-base", { knowledgeBaseId: nextId, indexedAt: nextIndex.lastIndexedAt });
     this.events.broadcast("index", { knowledgeBaseId: nextId, at: nextIndex.lastIndexedAt });
+  }
+
+  createKnowledgeBase(name: unknown): Promise<{ id: string; name: string }> {
+    const task = this.mutationQueue.then(async () => {
+      const created = await createPersonalKnowledgeBase(this.vaultRoot, name);
+      await this.activate(created.id);
+      return created;
+    });
+    this.mutationQueue = task.then(() => undefined, () => undefined);
+    return task;
   }
 
   async rebuildIfActive(knowledgeBaseId: string): Promise<void> {

@@ -74,6 +74,46 @@ describe("wiki parser", () => {
     });
   });
 
+  test("prefers a custom knowledge base over the demo at startup", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-config-"));
+    temporaryRoots.push(root);
+    await writeFile(path.join(root, "the-way-here.config.yaml"), `version: 3
+defaultKnowledgeBase: demo
+knowledgeBases:
+  demo:
+    name: Anonymous Demo
+    paths:
+      wiki: vault/demo/wiki
+      sources: vault/demo/sources
+  personal:
+    name: My Knowledge
+    paths:
+      wiki: vault/personal/wiki
+      sources: vault/personal/sources
+`, "utf8");
+
+    await expect(loadVaultConfig(root)).resolves.toMatchObject({
+      knowledgeBaseId: "personal",
+      name: "My Knowledge",
+    });
+    await expect(loadVaultConfig(root, "demo")).resolves.toMatchObject({ knowledgeBaseId: "demo" });
+  });
+
+  test("uses the demo at startup when it is the only configured knowledge base", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-config-"));
+    temporaryRoots.push(root);
+    await writeFile(path.join(root, "the-way-here.config.yaml"), `version: 3
+knowledgeBases:
+  demo:
+    name: Anonymous Demo
+    paths:
+      wiki: vault/demo/wiki
+      sources: vault/demo/sources
+`, "utf8");
+
+    await expect(loadVaultConfig(root)).resolves.toMatchObject({ knowledgeBaseId: "demo" });
+  });
+
   test("loads an anonymous demo with a Pi provider while keeping credentials in the environment", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-config-"));
     temporaryRoots.push(root);

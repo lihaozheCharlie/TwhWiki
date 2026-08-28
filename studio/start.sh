@@ -12,8 +12,6 @@ PYTHON_DEPS_DIR="$STUDIO_DIR/.runtime/python-packages"
 VAULT_DIR="$DEFAULT_VAULT"
 PORT="4321"
 KNOWLEDGE_BASE=""
-VAULT_PROVIDED="false"
-KNOWLEDGE_BASE_PROVIDED="false"
 
 usage() {
   cat <<'EOF'
@@ -23,8 +21,8 @@ the-way-here
   ./start.sh [--vault <工作区路径>] [--knowledge-base <知识库 ID>] [--port <端口>]
 
 参数：
-  --vault <路径>  项目工作区路径；省略时使用 Studio 上一级工作区并打开 demo
-  --knowledge-base <ID>  多知识库工作区中要打开的知识库；省略时使用默认库
+  --vault <路径>  项目工作区路径；省略时使用 Studio 上一级工作区
+  --knowledge-base <ID>  多知识库工作区中要打开的知识库；省略时优先个人库，否则使用 demo
   --port <端口>   本地端口，默认 4321
   -h, --help      显示帮助
 
@@ -38,7 +36,6 @@ while [[ $# -gt 0 ]]; do
     --vault)
       [[ $# -ge 2 ]] || { echo "错误：--vault 后需要提供路径。" >&2; exit 2; }
       VAULT_DIR="$2"
-      VAULT_PROVIDED="true"
       shift 2
       ;;
     --port)
@@ -49,7 +46,6 @@ while [[ $# -gt 0 ]]; do
     --knowledge-base)
       [[ $# -ge 2 ]] || { echo "错误：--knowledge-base 后需要提供知识库 ID。" >&2; exit 2; }
       KNOWLEDGE_BASE="$2"
-      KNOWLEDGE_BASE_PROVIDED="true"
       shift 2
       ;;
     -h|--help)
@@ -63,10 +59,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-if [[ "$VAULT_PROVIDED" == "false" && "$KNOWLEDGE_BASE_PROVIDED" == "false" ]]; then
-  KNOWLEDGE_BASE="demo"
-fi
 
 if [[ "$VAULT_DIR" != /* ]]; then
   VAULT_DIR="$STUDIO_DIR/$VAULT_DIR"

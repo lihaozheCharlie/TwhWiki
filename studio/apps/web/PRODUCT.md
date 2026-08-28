@@ -32,6 +32,7 @@ Unlike a file browser, note graph, or generic AI chat, The Way Here gives raw pe
 - Preserve all current constructed pages, original notes, build Skills, links, and Codex workflows; the GUI adapts to them instead of renaming private files or hard-coding this Vault.
 - Local-first service bound to `127.0.0.1`; no account system and no public-network assumptions.
 - React web client with a Fastify server and Markdown as the durable data format.
+- Current delivery scope is desktop web. Mobile and tablet adaptation, touch-specific interaction, narrow-screen navigation, and mobile visual QA are out of scope until separately prioritized; feature work must not add them incidentally.
 - Full reading must always remain available. Summaries are navigation aids, never replacements for source or synthesis pages.
 - Codex actions must keep query, authorized update, and health-check permissions distinct and expose progress and approval states.
 - Compatibility routes may remain while the primary navigation and task flow change.
@@ -67,5 +68,5 @@ Unlike a file browser, note graph, or generic AI chat, The Way Here gives raw pe
 
 ## Accessibility & Inclusion
 
-- Keyboard navigation, visible focus, semantic headings, readable Chinese typography, sufficient contrast, and reduced-motion support are baseline requirements.
+- Keyboard navigation, visible focus, semantic headings, readable Chinese typography, sufficient contrast, and reduced-motion support are baseline requirements for the desktop experience.
 - The interface must not rely on color alone to distinguish evidence state, attention state, or confirmation status.

@@ -48,6 +48,7 @@ body { color: var(--ink); background: var(--canvas); font-family: var(--font-ui)
 }
 .global-kb-switcher:hover { background: var(--surface-subtle); }
 .global-kb-switcher:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(87, 138, 131, .14); }
+.global-kb-switcher select option[disabled] { color: var(--line-strong); }
 .global-navigation { justify-content: flex-start; margin-left: auto; }
 .global-navigation > a { min-height: 64px; padding: 0 14px; color: var(--muted); font-size: 14px; }
 .global-navigation > a.active { color: var(--ink); font-weight: 600; }
@@ -76,6 +77,40 @@ body { color: var(--ink); background: var(--canvas); font-family: var(--font-ui)
 .main-area textarea:focus-visible, .main-area select:focus-visible { outline: 3px solid rgba(87, 138, 131, .22); outline-offset: 2px; }
 
 .main-area:not(:has(.advanced-page)) :where(h1, h2, h3) { font-family: var(--font-display); font-weight: 500; }
+
+/* Demo library onboarding */
+.demo-kb-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background: var(--accent-attention-soft);
+  border: 1px solid color-mix(in srgb, var(--accent-attention) 32%, var(--line));
+  border-radius: 8px;
+}
+.demo-kb-notice-mark { width: 38px; height: 38px; display: grid; place-items: center; color: var(--watch); background: var(--paper); border-radius: 5px; }
+.main-area .demo-kb-notice h2 { margin: 0 0 4px; font-family: var(--font-ui); font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.demo-kb-notice p { max-width: 72ch; margin: 0; color: color-mix(in srgb, var(--accent-attention) 52%, var(--ink)); font-size: 14px; line-height: 1.65; }
+.demo-kb-notice .primary-action { min-height: 38px; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+
+.kb-dialog-backdrop { position: fixed; inset: 0; z-index: 130; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, var(--ink) 38%, transparent); }
+.kb-dialog { width: min(520px, 100%); overflow: hidden; background: var(--paper); border-radius: 8px; box-shadow: 0 28px 72px rgba(38, 52, 64, .22); }
+.kb-dialog form > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 16px; padding: 26px 26px 22px; border-bottom: 1px solid var(--line); }
+.kb-dialog-symbol { width: 42px; height: 42px; display: grid; place-items: center; color: var(--blue); background: var(--surface-tinted); border-radius: 8px; }
+.kb-dialog h2 { margin: 0 0 6px; font-family: var(--font-display); font-size: 24px; font-weight: 500; letter-spacing: -.025em; }
+.kb-dialog header p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.kb-dialog header .icon-button { width: 36px; height: 36px; color: var(--muted); background: transparent; border: 0; }
+.kb-dialog-body { padding: 24px 26px 28px; }
+.kb-dialog-body label { display: block; margin-bottom: 8px; color: var(--ink); font-size: 14px; font-weight: 650; }
+.kb-dialog-body input { width: 100%; min-height: 46px; box-sizing: border-box; padding: 10px 12px; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: 5px; font: inherit; font-size: 16px; outline: 0; }
+.kb-dialog-body input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(87, 138, 131, .14); }
+.kb-dialog-body > p { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.kb-dialog-error { margin-top: 14px; padding: 10px 12px; color: #8b2d25; background: #fff0ee; border-radius: 5px; font-size: 12px; }
+.kb-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 26px; background: var(--surface-subtle); border-top: 1px solid var(--line); }
+.kb-dialog .secondary-action { min-height: 42px; padding: 9px 17px; color: var(--ink); background: transparent; border: 1px solid var(--line-strong); border-radius: 5px; }
+.kb-dialog button:disabled, .kb-dialog input:disabled { cursor: wait; opacity: .58; }
 .page-header { max-width: none; margin-bottom: 42px; padding-bottom: 30px; border-bottom: 1px solid var(--line); }
 .page-header > div { max-width: 760px; }
 .page-header h1 { max-width: 18ch; margin: 0 0 14px; font-size: clamp(38px, 4.4vw, 58px); font-weight: 500; line-height: 1.08; letter-spacing: -.035em; }
