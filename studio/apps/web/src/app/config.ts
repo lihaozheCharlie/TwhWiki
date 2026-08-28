@@ -1,15 +1,16 @@
 export const navigation = [
   { to: "/", label: "此刻", icon: "now", active: ["/"], children: [] },
-  { to: "/sources", label: "原始知识", icon: "source", active: ["/sources", "/imports/"], children: [] },
-  { to: "/knowledge", label: "我的知识", icon: "library", active: ["/knowledge", "/insights", "/cards/", "/mental-models", "/timeline", "/letters", "/relationships", "/library", "/quotes", "/graph", "/page/"], children: [
+  { to: "/questions", label: "值得聊聊", icon: "spark", active: ["/questions", "/focus/"], children: [] },
+  { to: "/sources", label: "生活记录", icon: "source", active: ["/sources", "/imports/"], children: [] },
+  { to: "/knowledge", label: "已有理解", icon: "library", active: ["/knowledge", "/insights", "/cards/", "/mental-models", "/timeline", "/letters", "/relationships", "/library", "/quotes", "/graph", "/page/", "/advanced"], children: [
     { to: "/knowledge", label: "知识总览", active: ["/knowledge"] },
     { to: "/insights", label: "理解自己", active: ["/insights", "/cards/personal-lines", "/cards/cycles", "/cards/systems", "/mental-models"] },
     { to: "/timeline", label: "回看人生", active: ["/timeline"] },
     { to: "/letters", label: "近况回信", active: ["/letters"] },
     { to: "/relationships", label: "人与世界", active: ["/relationships", "/cards/relationship-roles"] },
     { to: "/library", label: "全部知识", active: ["/library", "/quotes", "/graph"] },
+    { to: "/advanced", label: "构建设置", active: ["/advanced"] },
   ] },
-  { to: "/advanced", label: "高级构建", icon: "controls", active: ["/advanced"], children: [] },
 ] as const;
 
 export const growthTabs = [["/cards/personal-lines", "个人主线"], ["/cards/cycles", "反复循环"], ["/cards/systems", "现实系统"], ["/mental-models", "思维模型"]] as const;
@@ -40,4 +41,5 @@ export type AgentContext = {
   suggestions: string[];
   defaultMode?: "read" | "write";
   launcherLabel?: string;
+  compactLauncher?: boolean;
 };

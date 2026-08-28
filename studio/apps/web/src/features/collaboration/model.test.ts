@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WikiRun } from "@the-way-here/shared";
-import { contextPrompt, groupAgentThreads, letterRunVersions, runDisplayPrompt, runFinalAnswer } from "./model";
+import { contextPrompt, groupAgentThreads, letterRunVersions, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput } from "./model";
 
 describe("collaboration model", () => {
   it("extracts the final answer from Codex events", () => {
@@ -47,5 +47,12 @@ describe("collaboration model", () => {
       expect.objectContaining({ id: "run-1", markdown: "第一版" }),
       expect.objectContaining({ id: "run-2", markdown: "第二版", createdAt: "2026-08-21T11:00:00.000Z" }),
     ]);
+  });
+
+  it("submits Agent input on Enter while preserving Shift+Enter and IME composition", () => {
+    expect(shouldSubmitAgentInput({ key: "Enter", shiftKey: false })).toBe(true);
+    expect(shouldSubmitAgentInput({ key: "Enter", shiftKey: true })).toBe(false);
+    expect(shouldSubmitAgentInput({ key: "Enter", shiftKey: false, isComposing: true })).toBe(false);
+    expect(shouldSubmitAgentInput({ key: "a", shiftKey: false })).toBe(false);
   });
 });

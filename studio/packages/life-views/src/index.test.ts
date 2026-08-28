@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildFocusWorkspace, buildGraph, buildLetters, buildLifeMap, buildRelationships, buildToday, parseQuoteGroups, parseStateSignals, semanticDate, splitMarkdownTableRow } from "./index";
+import { buildFocusWorkspace, buildGraph, buildLetters, buildLifeMap, buildRelationships, buildToday, parseConversationPrompts, parseQuoteGroups, parseStateSignals, semanticDate, splitMarkdownTableRow } from "./index";
 
 const summary = (id: string, title: string, category: string, relativePath = `${id}.md`) => ({
   id, title, category, relativePath, aliases: [], tags: [], locations: [], sources: [], excerpt: `${title}摘要`, modifiedAt: "2026-01-01", isSource: false,
@@ -21,6 +21,37 @@ describe("personal growth views", () => {
     expect(splitMarkdownTableRow("| [[wiki/阶段|初中阶段]] | 初中时期 | 早期底色 |")).toEqual([
       "[[wiki/阶段|初中阶段]]", "初中时期", "早期底色",
     ]);
+  });
+
+  test("reads active conversation prompts with their evidence contract", () => {
+    const prompts = parseConversationPrompts({
+      id: "wiki/11/值得聊聊",
+      sections: [{
+        level: 2,
+        heading: "普通周里的创作",
+        body: "- 问题：没有掌声的时候，你还愿意继续做什么？\n- 当前理解：公开表达已经带回真实反馈。\n- 为什么现在：一次突破还不能说明节奏已经稳定。\n- 仍然未知：低反馈时期会怎样选择。\n- 观察信号：连续两周是否仍有作品进入现实。\n- 相关知识：[[创作系统]]、[[05 第一次公开分享]]\n- 状态：active\n- 权重：4",
+      }],
+      outgoingLinks: [{ raw: "[[创作系统]]", target: "创作系统", label: "创作系统", resolvedId: "wiki/06/创作系统" }],
+    } as any);
+    expect(prompts[0]).toMatchObject({
+      title: "普通周里的创作",
+      question: "没有掌声的时候，你还愿意继续做什么？",
+      weight: 4,
+      status: "active",
+    });
+    expect(prompts[0]!.links[0]!.resolvedId).toBe("wiki/06/创作系统");
+  });
+
+  test("omits incomplete or inactive conversation prompts", () => {
+    const prompts = parseConversationPrompts({
+      id: "wiki/11/值得聊聊",
+      sections: [
+        { level: 2, heading: "缺字段", body: "- 问题：只写了问题\n- 状态：active" },
+        { level: 2, heading: "已归档", body: "- 问题：旧问题\n- 当前理解：旧理解\n- 为什么现在：旧原因\n- 仍然未知：旧未知\n- 状态：archived" },
+      ],
+      outgoingLinks: [],
+    } as any);
+    expect(prompts).toEqual([]);
   });
 
   test("uses the overview order and separates overlapping life tracks", () => {

@@ -8,6 +8,7 @@ export type AgentContext = {
   suggestions: string[];
   defaultMode?: "read" | "write";
   launcherLabel?: string;
+  compactLauncher?: boolean;
 };
 
 export type OpenContextAgentRequest = {
@@ -17,6 +18,10 @@ export type OpenContextAgentRequest = {
   view?: "compose" | "history";
   outputTarget?: AgentOutputTarget;
 };
+
+export function shouldSubmitAgentInput(event: { key: string; shiftKey: boolean; isComposing?: boolean }): boolean {
+  return event.key === "Enter" && !event.shiftKey && !event.isComposing;
+}
 
 export function openContextAgent(request: OpenContextAgentRequest = {}): void {
   window.dispatchEvent(new CustomEvent<OpenContextAgentRequest>("open-context-agent", { detail: request }));
@@ -75,27 +80,27 @@ export const collaborationModes: Record<WikiRun["mode"], {
 }> = {
   auto: {
     short: "协作",
-    title: "直接告诉 Agent 你想做什么",
-    description: "Agent 会根据你的表达判断是回答问题、整理材料还是更新知识。",
+    title: "告诉我你想聊什么，或者想留下什么",
+    description: "我会根据你的话判断是陪你理解、整理记录，还是更新已经形成的理解。",
     boundary: "按请求判断；只有明确要求修改时才会写入",
     placeholder: "问一个问题，或说说希望补充、整理、更新什么…",
-    action: "交给 Agent",
+    action: "从这里开始",
   },
   read: {
     short: "理解",
-    title: "问一个真正想弄明白的问题",
-    description: "沿着已有经历、主线、关系与状态寻找证据，再给出区分事实与推断的回答。",
+    title: "先把事情说清楚",
+    description: "沿着已有经历寻找证据，分开当前理解和仍然未知，再陪你往下想。",
     boundary: "严格只读，不会改动任何文件",
-    placeholder: "例如：最近哪些旧循环又出现了？它们可能在保护我什么？",
-    action: "开始理解",
+    placeholder: "说说最近发生了什么，或者告诉我哪里不准确…",
+    action: "一起聊聊",
   },
   write: {
     short: "沉淀",
-    title: "把新材料变成可继续使用的知识",
-    description: "把日记、新经历或新想法交给现有构建规则，更新真正受影响的页面。",
+    title: "把这段经历好好留下来",
+    description: "把日记、新经历或新想法放回你的来路里，只更新真正受到影响的理解。",
     boundary: "本次明确授权写入；原始笔记正文保持不变",
     placeholder: "粘贴或描述材料，并说明希望如何处理。例如：摄取今天的日记，更新相关页面并生成近况回信。",
-    action: "授权并开始更新",
+    action: "确认并开始整理",
   },
   validate: {
     short: "维护",

@@ -198,6 +198,19 @@ export interface StateSignal {
   reason?: string;
 }
 
+export interface ConversationPrompt {
+  id: string;
+  title: string;
+  question: string;
+  currentUnderstanding: string;
+  reason: string;
+  unknown: string;
+  observation?: string;
+  links: WikiLink[];
+  status: "active" | "paused" | "archived";
+  weight: number;
+}
+
 export interface TodayView {
   currentStage?: WikiPageSummary;
   currentStages: Array<{
@@ -210,6 +223,7 @@ export interface TodayView {
   latestEvent?: WikiPageSummary;
   stateSignals: StateSignal[];
   focusCandidates: StateSignal[];
+  conversationPrompts: ConversationPrompt[];
   focusPages: WikiPageSummary[];
   recentPages: WikiPageSummary[];
   guidingQuestion?: string;

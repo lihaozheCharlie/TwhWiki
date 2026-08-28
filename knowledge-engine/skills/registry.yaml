@@ -29,8 +29,8 @@ skills:
   - id: build-state-tracking
     path: knowledge-engine/skills/build/state-tracking/SKILL.md
     modes: [write]
-    responsibility: "当前状态与趋势证据"
-    triggers: ["状态追踪", "趋势证据", "状态变化"]
+    responsibility: "当前状态、趋势证据与‘值得聊聊’问题池"
+    triggers: ["状态追踪", "趋势证据", "状态变化", "值得聊聊", "对话问题池"]
   - id: build-companion-reflection
     path: knowledge-engine/skills/build/companion-reflection/SKILL.md
     modes: [write]

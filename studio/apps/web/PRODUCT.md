@@ -6,24 +6,29 @@
 
 web
 
-## Users
+## Best-fit user
 
-- Primary: an individual who keeps a long-running Markdown/Obsidian knowledge base and wants to understand their current life, recurring patterns, relationships, choices, and growth without surrendering control of the source material.
-- Secondary: open-source adopters who start the service locally against their own Vault and should not need to understand the repository layout before receiving value.
+- Primary: a reflective individual who has accumulated diaries, conversations, notes, or AI chats and wants somewhere private to keep talking without having to explain their whole history again.
+- Secondary: an open-source adopter with an existing Markdown/Obsidian Vault who values local ownership, traceable understanding, and control over what an Agent may change.
+- Validation gap: this best-fit segment is inferred from the current product and one deep usage context; it has not yet been validated across multiple external users or Vault structures.
 
 ## Product Purpose
 
-The Way Here turns personal records into an evidence-backed growth companion. It should help a user move through a recurring loop: bring in what happened, organize it into durable knowledge, notice what matters now, connect it to longer patterns and lived evidence, and return to life with a better question or next step. Success is not more pages viewed; it is less time spent managing files and more moments where the user can explain what is happening, why it may be recurring, and what they want to examine next.
+The Way Here is a long-term personal companion that remembers where the user came from and becomes more understanding through continued conversation. The recurring loop is: say what happened, talk until the missing context becomes clearer, retain a traceable understanding, and return later without starting over. Success is not more pages viewed or more knowledge generated; it is more honest expression, fewer repeated explanations, more useful corrections, and more moments where the user can describe what is happening in their own words.
 
 ## Positioning
 
-Unlike a file browser, note graph, or generic AI chat, The Way Here gives raw personal material and constructed knowledge distinct places. It compiles the user's own records into traceable life structures and brings evidence, synthesis, and companion reflection together at the moment of inquiry. AI maintains and interprets the knowledge system, but every judgment remains linked to evidence and uncertainty is allowed to remain visible.
+**Core promise:** “有什么，都可以聊聊。我会记得你的来路，也会坦白哪些地方还不懂你。你先说，我们再一起把生活慢慢理清。”
+
+Unlike a generic AI chat that forgets context or a note system that waits to be managed, The Way Here keeps original words, accumulated understanding, unanswered questions, and conversation in one local, traceable relationship. It does not claim to understand the user at first contact; it becomes more useful as the user talks, corrects it, and lets relevant history accumulate.
+
+The friend framing is an experience promise, not a claim of consciousness, emotional reciprocity, therapy, or replacement for human relationships. The Agent must stay honest about uncertainty, preserve provenance, and require explicit authority before changing durable knowledge.
 
 ## Operating Context
 
-- The user runs the service locally and returns after writing new diary entries, during a difficult decision, when a familiar pattern repeats, or when they want to revisit a person or stage of life.
+- The user runs the service locally and returns when something happens that they want to say out loud, during a difficult decision, when a familiar pattern repeats, or when they simply do not want to start the story from the beginning again.
 - The product reads an existing Vault with separate Knowledge Sources and My Knowledge layers.
-- The first import path accepts local Markdown, TXT, and folders. AI conversations and WeChat conversations are visible future connectors, not fake working actions.
+- The import path accepts local Markdown, TXT, folders, and supported payment statements; future connectors must never appear as working actions before they exist.
 - Reading, searching, following knowledge links, inspecting sources, and asking Codex are core recurring workflows.
 - Editing constructed knowledge may happen in the web UI or an external IDE. Original source notes remain read-only after import.
 
@@ -42,32 +47,36 @@ Unlike a file browser, note graph, or generic AI chat, The Way Here gives raw pe
 ## Brand Commitments
 
 - Product name: “The Way Here”. It describes both the path that brought the user here and the traceable path from a judgment back to its evidence.
-- Voice: calm, direct, specific, non-judgmental, and comfortable saying “unknown”. Avoid performance-review language, motivational slogans, therapy claims, and gamified self-scoring.
+- Relationship: a long-term friend who remembers, asks, and accepts correction—not an omniscient analyst, therapist, judge, or life manager.
+- Voice: calm, direct, specific, conversational, non-judgmental, and comfortable saying “I don't know yet”. Prefer “说说看 / 一起聊聊 / 还不懂 / 可以纠正我” over “导入材料 / 处理任务 / 构建画像” on everyday surfaces.
+- Trust: never hide the difference between original records, current understanding, and new inference. Friendliness cannot weaken permission, provenance, or privacy boundaries.
 
 ## Product Layers
 
-1. **Knowledge Sources** — two explicit sublayers. “Raw Import” is an inbox for unorganized Markdown, TXT, and local folders; “Organized Sources” contains already filed records such as diaries and uses a folder tree, file list, and full reading pane. AI and WeChat conversations remain staged connectors. Import count is not capped; a 100 MB batch guard protects the local service.
-2. **My Knowledge** — all constructed outcomes: current state, patterns, life stages, relationships, decisions, models, letters, quotes, and their relationship map. Its stable secondary navigation remains visible under the active primary section.
-3. **Advanced Build** — an opt-in control surface for expert users. Build Skills are grouped by the same knowledge system as My Knowledge: Understand Yourself, Review Life, People & World, and System & Quality. Users adjust one rule through guided goals instead of scanning an undifferentiated card wall.
-4. **At This Moment** — the outcome-oriented daily entry into the user's current state.
-5. **Contextual Agent** — the conversational way to understand, update, or validate the system without leaving the page that supplied the question's context. Compose, current-knowledge-base history, and complete thread detail are modes of the same drawer, while permission boundaries remain explicit for every interaction.
+1. **At This Moment / 此刻** — the conversational home. It states the relationship promise, then directly asks one traceable question the user may care about or want to clarify. A compact Life Records entry for diaries, conversations, and bills provides the other starting path, followed only by a one-line index into Existing Understanding. Current-stage summaries, recent materials, quotes, and knowledge previews belong to their secondary pages rather than the home.
+2. **Worth Talking About / 值得聊聊** — one selected question at a time, grown from what is understood and what is still missing. The full rotating pool stays behind a quiet disclosure instead of becoming a task list, dashboard, diagnosis, or wall of choices.
+3. **Life Records / 生活记录** — the user's original words and evidence. Local files, folders, and supported statements remain readable in full and never become disposable input after processing.
+4. **Existing Understanding / 已有理解** — current themes, stages, patterns, relationships, letters, quotes, and their evidence paths. Every item can be revisited, supplemented, or corrected.
+5. **Contextual Companion** — one Agent drawer across the product. Read mode listens and helps clarify; write mode retains an explicitly authorized update; validation mode checks system health. Conversation history stays within the selected personal space.
+6. **Build Settings / 构建设置** — an opt-in expert surface inside Existing Understanding. Technical construction language belongs here, not in the everyday emotional entry points.
 
 ## Evidence on Hand
 
-- Real Wiki structure and product semantics: `../../../vault/personal/wiki/00 总入口/个人操作系统.md` and `../../../vault/personal/wiki/index.md`.
-- Current-state evidence: `../../../vault/personal/wiki/11 状态追踪/状态追踪总览.md`.
-- Longitudinal structures: life stages, events and decisions, personal lines, recurring cycles, real-life systems, relationship roles, thinking models, letters, and quotes under `../../../vault/personal/wiki/`.
+- Anonymous end-to-end evidence: `../../../vault/demo/sources/` and `../../../vault/demo/wiki/`.
+- Current-state and conversation-prompt evidence: `../../../vault/demo/wiki/11 状态追踪/状态追踪总览.md` and `../../../vault/demo/wiki/11 状态追踪/值得聊聊.md`.
+- Longitudinal structures: life stages, events and decisions, personal lines, recurring cycles, real-life systems, relationship roles, thinking models, letters, and quotes under `../../../vault/demo/wiki/`.
 - Existing functional implementation and server APIs under `apps/web/`, `apps/server/`, and `packages/life-views/`.
 - No user research across multiple external Vaults yet; portability beyond the current adapter remains an explicit validation gap.
 
 ## Product Principles
 
-1. Start from the user's question and source material, not the repository's directory tree.
+1. Ask one concrete, evidence-aware question instead of confronting the user with a blank input or a wall of choices; keep bringing in Life Records visibly available as another path.
 2. Evidence before interpretation; interpretation before advice.
-3. Growth is increased choice and clearer judgment, not a score or streak.
-4. Summaries must lead somewhere: into full evidence, a related pattern, or a useful conversation.
-5. Progressive disclosure over truncation: reduce initial load without hiding the complete knowledge.
-6. Local ownership and reversible edits outrank convenience.
+3. Understanding grows through conversation and correction; never present a cold-start inference as intimacy.
+4. Growth is increased choice and clearer judgment, not a score or streak.
+5. Summaries must lead somewhere: into full evidence, a related pattern, or a useful conversation.
+6. Progressive disclosure over truncation: reduce initial load without hiding the complete knowledge.
+7. Local ownership and reversible edits outrank convenience.
 
 ## Accessibility & Inclusion
 

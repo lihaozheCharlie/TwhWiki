@@ -1,4 +1,5 @@
 import type {
+  ConversationPrompt,
   FocusWorkspaceView,
   GraphData,
   LettersView,
@@ -110,6 +111,42 @@ export function parseStateSignals(page?: WikiPage): StateSignal[] {
   });
 }
 
+function labeledValue(body: string, label: string): string {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return body.match(new RegExp(`^\\s*-\\s*${escaped}[：:]\\s*(.+)$`, "m"))?.[1]?.trim() || "";
+}
+
+export function parseConversationPrompts(page?: WikiPage): ConversationPrompt[] {
+  if (!page) return [];
+  return page.sections.flatMap((section) => {
+    if (section.level !== 2) return [];
+    const question = stripMarkdown(labeledValue(section.body, "问题"));
+    const currentUnderstanding = stripMarkdown(labeledValue(section.body, "当前理解"));
+    const reason = stripMarkdown(labeledValue(section.body, "为什么现在"));
+    const unknown = stripMarkdown(labeledValue(section.body, "仍然未知"));
+    if (!question || !currentUnderstanding || !reason || !unknown) return [];
+    const statusValue = stripMarkdown(labeledValue(section.body, "状态")).toLowerCase();
+    const status: ConversationPrompt["status"] = statusValue === "paused" || statusValue === "archived" ? statusValue : "active";
+    if (status !== "active") return [];
+    const parsedWeight = Number(labeledValue(section.body, "权重"));
+    const weight = Number.isFinite(parsedWeight) ? Math.max(1, Math.min(5, Math.round(parsedWeight))) : 1;
+    const rawLinks = extractWikiLinks(labeledValue(section.body, "相关知识"));
+    const links = rawLinks.map((link) => page.outgoingLinks.find((candidate) => candidate.raw === link.raw || candidate.target === link.target) || link);
+    return [{
+      id: `${page.id}#${stripMarkdown(section.heading)}`,
+      title: stripMarkdown(section.heading),
+      question,
+      currentUnderstanding,
+      reason,
+      unknown,
+      observation: stripMarkdown(labeledValue(section.body, "观察信号")) || undefined,
+      links,
+      status,
+      weight,
+    }];
+  });
+}
+
 function prioritizeSignals(signals: StateSignal[]): StateSignal[] {
   const years = signals.flatMap((signal) => [...`${signal.judgment} ${signal.observation}`.matchAll(/(?:19|20)\d{2}/g)].map((match) => match[0]));
   const fallbackYear = years.sort().at(-1) || String(new Date().getFullYear());
@@ -144,8 +181,10 @@ export function buildToday(index: WikiIndex): TodayView {
   const latestLetter = letters.sort((a, b) => dateKey(b).localeCompare(dateKey(a)))[0];
   const latestEvent = events.sort((a, b) => dateKey(b).localeCompare(dateKey(a)))[0];
   const stateSummary = index.list({ category: "state" }).find((page) => page.title === "状态追踪总览");
+  const conversationPromptPage = index.list({ category: "state" }).find((page) => page.type === "conversation_prompts" || page.title === "值得聊聊");
   const stateSignals = parseStateSignals(stateSummary ? index.get(stateSummary.id) : undefined);
   const focusCandidates = prioritizeSignals(stateSignals);
+  const conversationPrompts = parseConversationPrompts(conversationPromptPage ? index.get(conversationPromptPage.id) : undefined);
   const focusPages = uniquePages((focusCandidates[0]?.links || [])
     .map((link) => resolveLink(index, link)))
     .filter((page) => !page.isSource && !["home", "maintenance", "state"].includes(page.category))
@@ -156,7 +195,7 @@ export function buildToday(index: WikiIndex): TodayView {
     .sort((a, b) => dateKey(b).localeCompare(dateKey(a)))
     .slice(0, 8);
   const guidingQuestion = focusCandidates[0]?.judgment;
-  return { currentStage, currentStages, latestLetter, latestEvent, stateSignals, focusCandidates, focusPages, recentPages, guidingQuestion };
+  return { currentStage, currentStages, latestLetter, latestEvent, stateSignals, focusCandidates, conversationPrompts, focusPages, recentPages, guidingQuestion };
 }
 
 const focusCategoryLabels: Partial<Record<PageCategory, string>> = {

@@ -39,24 +39,46 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [journey, setJourney] = useState<PaymentJourneySummary>();
+  const dialogRef = useRef<HTMLElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef(onClose);
+  const importingRef = useRef(importing);
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
   const folderAttributes = { webkitdirectory: "", directory: "" } as Record<string, string>;
   const channel: SourceImportChannel = route === "ai" ? provider : route === "bill" ? "alipay" : route;
   const acceptedPattern = route === "bill" ? /\.csv$/i : route === "files" ? /\.(md|txt|zip)$/i : /\.(md|txt|zip|json|html?)$/i;
   const accept = route === "bill" ? ".csv,text/csv" : route === "files" ? ".md,.txt,.zip,text/markdown,text/plain,application/zip" : ".md,.txt,.zip,.json,.html,.htm,text/markdown,text/plain,application/json,text/html,application/zip";
 
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => { importingRef.current = importing; }, [importing]);
+
   useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !importing) onClose();
-    };
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
+    const focusDialog = window.setTimeout(() => dialogRef.current?.querySelector<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])")?.focus(), 0);
+    const manageKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !importingRef.current) {
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])];
+      if (!focusable.length) return;
+      const first = focusable[0]!;
+      const last = focusable.at(-1)!;
+      if (!dialogRef.current?.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", manageKeyboard);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
+      window.clearTimeout(focusDialog);
+      window.removeEventListener("keydown", manageKeyboard);
+      if (openerRef.current?.isConnected) openerRef.current.focus();
     };
-  }, [importing, onClose]);
+  }, []);
 
   function changeRoute(next: ImportRoute) {
     setRoute(next);
@@ -100,7 +122,7 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
         mimeType: file.type || undefined,
       })));
       const batch = await api<SourceImportBatch>("/api/imports/files", { method: "POST", body: JSON.stringify({ files: payload, channel, targetFolder: destination }) });
-      setMessage(`已导入 ${batch.fileCount} 份材料${destination ? `到「${destination}」` : "到原始知识根目录"}。`);
+      setMessage(`已带进 ${batch.fileCount} 份记录${destination ? `到「${destination}」` : "到生活记录根目录"}。`);
       setJourney(batch.journey);
       if (batch.journey) onJourney(batch.journey);
       setFiles([]);
@@ -122,28 +144,28 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
   function continueWithAgent() {
     if (!journey) return;
     onClose();
-    window.setTimeout(() => openContextAgent({ prompt: journey.agentPrompt, mode: "auto" }), 0);
+    window.setTimeout(() => openContextAgent({ prompt: `请从「${journey.title}」里最有画面的一段线索开始，一次问我一个关于人物、动机或感受的问题。先陪我把经历说出来，不要修改知识库。`, mode: "read" }), 0);
   }
 
   return <div className="import-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !importing) onClose(); }}>
-    <section className="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
-      <header className="import-modal-header"><div><h2 id="import-modal-title">导入材料</h2><p>选择来源、文件和保存位置。</p></div><button type="button" onClick={onClose} disabled={importing} aria-label="关闭导入弹窗"><Icon name="close" size={18} /></button></header>
+    <section ref={dialogRef} className="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+      <header className="import-modal-header"><div><h2 id="import-modal-title">带进一段记录</h2><p>选择它来自哪里，以及希望保留到什么位置。</p></div><button type="button" onClick={onClose} disabled={importing} aria-label="关闭记录导入窗口"><Icon name="close" size={18} /></button></header>
       <form onSubmit={submit}>
         <div className="import-modal-body">
           <nav className="import-channel-list" aria-label="材料来源">
-            <button type="button" className={route === "files" ? "active" : ""} onClick={() => changeRoute("files")}><b>文件与 ZIP</b><span>Markdown、TXT</span></button>
-            <button type="button" className={route === "bill" ? "active" : ""} onClick={() => changeRoute("bill")}><b>消费账单</b><span>从消费找回旅程</span></button>
-            <button type="button" className={route === "ai" ? "active" : ""} onClick={() => changeRoute("ai")}><b>AI 对话</b><span>常用聊天平台</span></button>
-            <button type="button" className={route === "wechat" ? "active" : ""} onClick={() => changeRoute("wechat")}><b>微信记录</b><span>聊天导出文件</span></button>
+            <button type="button" aria-pressed={route === "files"} className={route === "files" ? "active" : ""} onClick={() => changeRoute("files")}><b>日记与笔记</b><span>Markdown、TXT、ZIP</span></button>
+            <button type="button" aria-pressed={route === "bill"} className={route === "bill" ? "active" : ""} onClick={() => changeRoute("bill")}><b>消费账单</b><span>从消费找回旅程</span></button>
+            <button type="button" aria-pressed={route === "ai"} className={route === "ai" ? "active" : ""} onClick={() => changeRoute("ai")}><b>AI 对话</b><span>常用聊天平台</span></button>
+            <button type="button" aria-pressed={route === "wechat"} className={route === "wechat" ? "active" : ""} onClick={() => changeRoute("wechat")}><b>微信记录</b><span>聊天导出文件</span></button>
           </nav>
           <div className="import-modal-main">
             <section className="import-modal-section"><h3>{route === "files" ? "选择本地材料" : route === "ai" ? "选择 AI 平台" : route === "wechat" ? "导入微信聊天记录" : "导入一段消费旅程"}</h3><p>{routeDescription}</p>
               {journey ? <div className="bill-journey-result">
-                <header><span>已经串成一段旅程</span><h3>{journey.title}</h3><p>聚类只是回忆线索。接下来让 Agent 沿着地点、重复消费和跨类型事件，陪你慢慢讲出背后的故事。</p></header>
+                <header><span>已经串成一段旅程</span><h3>{journey.title}</h3><p>聚类只是回忆线索。接下来可以沿着地点、重复消费和跨类型事件，慢慢讲出背后的故事。</p></header>
                 <dl><div><dt>交易</dt><dd>{journey.transactionCount}</dd></div><div><dt>活跃天数</dt><dd>{journey.activeDays}</dd></div><div><dt>旅程线索</dt><dd>{journey.clusters.length}</dd></div><div><dt>退款</dt><dd>{journey.refundCount}</dd></div></dl>
                 <div className="bill-journey-thread" aria-label="账单聚类线索">{journey.clusters.slice(0, 5).map((item) => <article key={item.id}><i aria-hidden="true" /><div><span>{item.startDate === item.endDate ? item.startDate.slice(5) : `${item.startDate.slice(5)}—${item.endDate.slice(5)}`}</span><b>{item.title}</b><p>{item.summary}</p></div></article>)}</div>
               </div> : <>
-              {route === "ai" ? <div className="import-provider-list" role="group" aria-label="AI 平台">{aiImportProviders.map((item) => <button type="button" key={item.id} className={provider === item.id ? "active" : ""} onClick={() => { setProvider(item.id); setFiles([]); setMessage(""); setError(""); }}>{item.label}</button>)}</div> : null}
+              {route === "ai" ? <div className="import-provider-list" role="group" aria-label="AI 平台">{aiImportProviders.map((item) => <button type="button" key={item.id} aria-pressed={provider === item.id} className={provider === item.id ? "active" : ""} onClick={() => { setProvider(item.id); setFiles([]); setMessage(""); setError(""); }}>{item.label}</button>)}</div> : null}
               <div className="import-file-actions">
                 <label className="import-file-picker"><b>{route === "bill" ? "选择支付宝账单" : "选择文件"}</b><span>{route === "bill" ? "支付宝导出的 CSV" : route === "files" ? "MD、TXT 或 ZIP" : "ZIP、JSON、HTML 或文本"}</span><input key={`${route}-${provider}-files`} name="import-files" type="file" accept={accept} multiple={route !== "bill"} onChange={(event) => selectFiles(event.target.files)} /></label>
                 {route !== "bill" ? <label className="import-file-picker"><b>选择文件夹</b><span>保留文件夹内的层级</span><input key={`${route}-${provider}-folder`} name="import-folder" type="file" accept={accept} multiple {...folderAttributes} onChange={(event) => selectFiles(event.target.files)} /></label> : <div className="bill-import-method"><Icon name="spark" size={18} /><b>自动整理</b><span>归并退款，识别重复地点、消费节律与跨类型旅程。</span></div>}
@@ -152,13 +174,13 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
                 {files.length ? <><div><b>{files.length} 个文件</b><span>{new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024)} MB</span></div><p>{files.slice(0, 4).map((file) => file.webkitRelativePath || file.name).join(" · ")}{files.length > 4 ? ` · 另有 ${files.length - 4} 个` : ""}</p></> : <><b>尚未选择文件</b><p>单次最多 100 MB。ZIP 解压后也需在 100 MB 内。</p></>}
               </div></>}
             </section>
-            {!journey && route === "bill" ? <section className="import-modal-section bill-import-destination"><h3>保存为原始知识</h3><p>原始 CSV 与聚类报告会保存到「消费账单」。报告中的每条线索都能回到具体交易证据。</p></section> : !journey ? <section className="import-modal-section import-destination"><h3>保存到</h3><p>导入内容会直接进入所选文件夹；同名文件会自动追加序号。</p>
-              <div className="import-folder-mode" role="group" aria-label="选择保存位置"><button type="button" className={folderMode === "existing" ? "active" : ""} onClick={() => setFolderMode("existing")}>现有文件夹</button><button type="button" className={folderMode === "new" ? "active" : ""} onClick={() => setFolderMode("new")}>新建文件夹</button></div>
-              {folderMode === "existing" ? <label className="import-folder-field"><span>目标文件夹</span><select name="target-folder" value={targetFolder} onChange={(event) => setTargetFolder(event.target.value)}><option value="">原始知识根目录</option>{folders.map((name) => <option value={name} key={name}>{name}</option>)}</select></label> : <label className="import-folder-field"><span>新文件夹名称</span><input name="new-import-folder" autoComplete="off" value={newFolder} onChange={(event) => setNewFolder(event.target.value)} placeholder={route === "ai" ? `AI聊天记录/${aiImportProviders.find((item) => item.id === provider)?.label}` : route === "wechat" ? "微信聊天记录" : "导入材料/2026"} /></label>}
+            {!journey && route === "bill" ? <section className="import-modal-section bill-import-destination"><h3>保存到生活记录</h3><p>原始 CSV 与聚类报告会保存在「消费账单」中，每条线索都能回到具体交易证据。</p></section> : !journey ? <section className="import-modal-section import-destination"><h3>保存到</h3><p>记录会进入所选文件夹；同名文件会自动追加序号。</p>
+              <div className="import-folder-mode" role="group" aria-label="选择保存位置"><button type="button" aria-pressed={folderMode === "existing"} className={folderMode === "existing" ? "active" : ""} onClick={() => setFolderMode("existing")}>现有文件夹</button><button type="button" aria-pressed={folderMode === "new"} className={folderMode === "new" ? "active" : ""} onClick={() => setFolderMode("new")}>新建文件夹</button></div>
+              {folderMode === "existing" ? <label className="import-folder-field"><span>目标文件夹</span><select name="target-folder" value={targetFolder} onChange={(event) => setTargetFolder(event.target.value)}><option value="">生活记录根目录</option>{folders.map((name) => <option value={name} key={name}>{name}</option>)}</select></label> : <label className="import-folder-field"><span>新文件夹名称</span><input name="new-import-folder" autoComplete="off" value={newFolder} onChange={(event) => setNewFolder(event.target.value)} placeholder={route === "ai" ? `AI聊天记录/${aiImportProviders.find((item) => item.id === provider)?.label}` : route === "wechat" ? "微信聊天记录" : "导入记录/2026"} /></label>}
             </section> : null}
           </div>
         </div>
-        <footer className="import-modal-footer"><div aria-live="polite">{error ? <span role="alert">{error}</span> : message ? <b>{message}</b> : route === "bill" ? "导入后，Agent 会沿着消费线索陪你讲出人物、动机和变化。" : "导入后即可在原始知识中阅读和编辑。"}</div><div><button type="button" className="secondary-action" onClick={onClose} disabled={importing}>{journey ? "稍后再聊" : message ? "完成" : "取消"}</button>{journey ? <button type="button" className="primary-action" onClick={continueWithAgent}>和 Agent 继续聊<Icon name="arrow" size={15} /></button> : <button className="primary-action" disabled={importing || !files.length}>{importing ? "正在导入…" : "开始导入"}</button>}</div></footer>
+        <footer className="import-modal-footer"><div aria-live="polite">{error ? <span role="alert">{error}</span> : message ? <b>{message}</b> : route === "bill" ? "带进来后，可以沿着消费线索慢慢找回人物、动机和变化。" : "带进来后即可在生活记录中查看，并保留原始来源。"}</div><div><button type="button" className="secondary-action" onClick={onClose} disabled={importing}>{journey ? "稍后再聊" : message ? "完成" : "取消"}</button>{journey ? <button type="button" className="primary-action" onClick={continueWithAgent}>聊聊这段旅程<Icon name="arrow" size={15} /></button> : <button className="primary-action" disabled={importing || !files.length}>{importing ? "正在带进来…" : "带进来"}</button>}</div></footer>
       </form>
     </section>
   </div>;
@@ -233,7 +255,7 @@ function NewSourceForm({ folder, onCancel, onCreated }: { folder: string; onCanc
   }
 
   return <form className="new-source-form" onSubmit={create}>
-    <header><div><span>新建原始知识</span><b>创建 Markdown 文件</b></div><button type="button" onClick={onCancel} aria-label="关闭新建文件">×</button></header>
+    <header><div><span>写一条生活记录</span><b>创建 Markdown 文件</b></div><button type="button" onClick={onCancel} aria-label="关闭新建文件">×</button></header>
     <label>文件名<input name="new-source-title" autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：今天的观察…" /></label>
     <label>保存到<input name="new-source-folder" autoComplete="off" value={targetFolder} onChange={(event) => setTargetFolder(event.target.value)} placeholder="例如：日记/2026…" /></label>
     <footer><span aria-live="polite">{error || "创建后会直接进入编辑，内容自动保存。"}</span><button disabled={creating}>{creating ? "正在创建…" : "创建文件"}</button></footer>
@@ -249,7 +271,7 @@ export function OrganizedSources({ revision }: { revision: number }) {
   const [filePaneOpen, setFilePaneOpen] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [recentJourney, setRecentJourney] = useState<PaymentJourneySummary>();
-  if (loading || !data) return <Loading label="正在打开原始知识" />;
+  if (loading || !data) return <Loading label="正在打开生活记录" />;
   const pages = data;
   const query = params.get("q") || "";
   const folder = params.get("folder") || "";
@@ -279,21 +301,21 @@ export function OrganizedSources({ revision }: { revision: number }) {
   }
   return <div className="organized-sources-page">
     <header className="source-workspace-intro">
-      <div><h1>原始知识</h1><p>这里保留日记、笔记、对话和其他原始材料。选择文件即可阅读或编辑，修改会自动保存。</p></div>
-      <div className="source-workspace-actions"><span><b>{new Intl.NumberFormat("zh-CN").format(pages.length)}</b> 份材料</span><button className="primary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog">导入材料<Icon name="arrow" size={15} /></button></div>
+      <div><h1>生活记录</h1><p>日记、笔记、对话和其他原话都留在这里。它们让我记得你的来路，也让每一次理解都能回到真正发生过的生活。</p></div>
+      <div className="source-workspace-actions"><span><b>{new Intl.NumberFormat("zh-CN").format(pages.length)}</b> 份记录</span><button className="primary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog">带进一段记录<Icon name="arrow" size={15} /></button></div>
     </header>
     {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} onJourney={setRecentJourney} /> : null}
-    <div className={`source-vault${folderPaneOpen ? "" : " folder-pane-collapsed"}${filePaneOpen ? "" : " file-pane-collapsed"}`} aria-label="原始知识工作区">
+    <div className={`source-vault${folderPaneOpen ? "" : " folder-pane-collapsed"}${filePaneOpen ? "" : " file-pane-collapsed"}`} aria-label="生活记录工作区">
       <div className={`source-pane-shell source-folder-shell${folderPaneOpen ? "" : " collapsed"}`}>
         <aside className="source-folder-pane"><header><b>文件夹</b><span>{folders.length}</span></header><button className={!folder ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ folder: undefined, file: undefined, limit: undefined }); }}><span>全部材料</span><small>{pages.length}</small></button>{folders.map(([name, count]) => <button key={name} className={folder === name ? "active" : ""} style={{ paddingLeft: 14 + Math.min(name.split("/").length - 1, 3) * 13 }} onClick={() => { setCreatedPageId(undefined); update({ folder: name, file: undefined, limit: undefined }); }}><span>{name.split("/").at(-1)}</span><small>{count}</small></button>)}</aside>
         <PaneCollapseButton open={folderPaneOpen} onToggle={() => setFolderPaneOpen((value) => !value)} label="文件夹栏" />
       </div>
       <div className={`source-pane-shell source-file-shell${filePaneOpen ? "" : " collapsed"}`}>
-        <section className="source-file-pane"><div className="source-file-tools"><label><Icon name="search" size={16} /><input name="organized-source-search" autoComplete="off" aria-label="搜索原始知识" value={query} onChange={(event) => { setCreatedPageId(undefined); update({ q: event.target.value || undefined, file: undefined, limit: undefined }); }} placeholder="搜索当前文件夹…" /></label><button onClick={() => setCreatingSource((value) => !value)} aria-expanded={creatingSource}>{creatingSource ? "取消" : "新建"}</button></div>{creatingSource ? <NewSourceForm folder={folder} onCancel={() => setCreatingSource(false)} onCreated={(page) => { const nextFolder = cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/"); setCreatingSource(false); setCreatedPageId(page.id); update({ q: undefined, folder: nextFolder || undefined, file: page.id, limit: undefined }); }} /> : null}<div className="source-file-pane-meta"><b>{folder ? folder.split("/").at(-1) : "全部材料"}</b><span>{filtered.length} 份</span></div><div className="source-file-list">{visiblePages.map((page) => { const fileName = documentIdentity(page.relativePath).fileName; return <button key={page.id} aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}`} className={selected?.id === page.id ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}><span><b>{fileName}</b><time>{new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}</time></span><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small></button>; })}{visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}</div></section>
+        <section className="source-file-pane"><div className="source-file-tools"><label><Icon name="search" size={16} /><input name="organized-source-search" autoComplete="off" aria-label="搜索生活记录" value={query} onChange={(event) => { setCreatedPageId(undefined); update({ q: event.target.value || undefined, file: undefined, limit: undefined }); }} placeholder="搜索当前文件夹…" /></label><button onClick={() => setCreatingSource((value) => !value)} aria-expanded={creatingSource}>{creatingSource ? "取消" : "新建"}</button></div>{creatingSource ? <NewSourceForm folder={folder} onCancel={() => setCreatingSource(false)} onCreated={(page) => { const nextFolder = cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/"); setCreatingSource(false); setCreatedPageId(page.id); update({ q: undefined, folder: nextFolder || undefined, file: page.id, limit: undefined }); }} /> : null}<div className="source-file-pane-meta"><b>{folder ? folder.split("/").at(-1) : "全部记录"}</b><span>{filtered.length} 份</span></div><div className="source-file-list">{visiblePages.map((page) => { const fileName = documentIdentity(page.relativePath).fileName; return <button key={page.id} aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}`} className={selected?.id === page.id ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}><span><b>{fileName}</b><time>{new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}</time></span><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small></button>; })}{visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}</div></section>
         <PaneCollapseButton open={filePaneOpen} onToggle={() => setFilePaneOpen((value) => !value)} label="文件列表" />
       </div>
       {selected ? <SourcePreview page={selected} revision={revision} startEditing={selected.id === createdPageId} onRenamed={(renamed) => { setCreatedPageId(undefined); update({ file: renamed.id }); }} /> : <div className="source-preview-empty"><span>没有匹配的来源</span><p>换一个文件夹或搜索词。</p></div>}
     </div>
-    <ContextualAgentDock revision={revision} context={recentJourney ? { scope: "消费旅程", title: recentJourney.title, summary: `${recentJourney.transactionCount} 笔消费被串成 ${recentJourney.clusters.length} 组旅程线索。`, defaultMode: "write", launcherLabel: "继续这段消费旅程", suggestions: [recentJourney.agentPrompt, "先从最有画面的一次出行、聚会或生活变化开始，邀请我慢慢讲出来。"] } : { scope: "原始知识", title: selected?.title || "原始知识", pageId: selected?.id, summary: selected?.excerpt || `当前有 ${pages.length} 份原始材料。`, defaultMode: "read", launcherLabel: "询问这份材料", suggestions: ["这份记录里有哪些值得沉淀但尚未进入我的知识的内容？", "请概括这份记录，并区分事实、感受和后来的解释。"] }} />
+    <ContextualAgentDock revision={revision} context={recentJourney ? { scope: "消费旅程", title: recentJourney.title, summary: `${recentJourney.transactionCount} 笔消费被串成 ${recentJourney.clusters.length} 组旅程线索。`, defaultMode: "read", launcherLabel: "聊聊这段旅程", suggestions: [`请从「${recentJourney.title}」里最有画面的一段线索开始，一次问我一个关于人物、动机或感受的问题。先陪我把经历说出来，不要修改知识库。`, "先从最有画面的一次出行、聚会或生活变化开始，邀请我慢慢讲出来。"] } : { scope: "生活记录", title: selected?.title || "生活记录", pageId: selected?.id, summary: selected?.excerpt || `当前有 ${pages.length} 份原始记录。`, defaultMode: "read", launcherLabel: "聊聊这份记录", suggestions: ["这份记录里有哪些还没有真正说清楚、值得我继续补充的地方？", "请概括这份记录，并区分事实、感受和后来的解释。"] }} />
   </div>;
 }

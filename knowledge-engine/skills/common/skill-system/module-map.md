@@ -21,7 +21,7 @@ source:
 | `knowledge-engine/skills/build/life-review/SKILL.md` | `wiki/01`、`02`、`03`、`04`、`09` 和 `13` 模板的唯一负责人 | 个人主线、人生阶段、事件决策、反复循环、思维模型和金句参考文件 |
 | `knowledge-engine/skills/build/people/SKILL.md` | 人物页、别名、`wiki/05 人物关系图谱/` 和 `wiki/07` 人物分支的唯一负责人 | 分层人物模板和证据收集脚本 |
 | `knowledge-engine/skills/build/life-experience/SKILL.md` | 现实系统、生活过的城市、组织/项目和出现过的地点的唯一负责人 | 现实系统及城市/组织/地点模板 |
-| `knowledge-engine/skills/build/state-tracking/SKILL.md` | 当前状态跟进、状态趋势证据和日记状态评估 | 状态追踪配方 |
+| `knowledge-engine/skills/build/state-tracking/SKILL.md` | 当前状态跟进、状态趋势证据、日记状态评估和可追溯的“值得聊聊”问题池 | 状态追踪与对话问题池配方 |
 | `knowledge-engine/skills/build/companion-reflection/SKILL.md` | `wiki/12 近况对话/` 的朋友式洞见回信层，以日记和少量 wiki 证据为基础；主视角决定完整推理，辅助视角只做有边界的盲点校验 | 朋友声音、回信语义回归和重复样式审计；人物库由共享推理视角统一维护 |
 | `knowledge-engine/skills/build/knowledge-adjustment/SKILL.md` | 用户明确授权的 wiki、模板或 Skill 调整；不处理仅分析请求 | 受影响的负责 Skill 与质量门 |
 

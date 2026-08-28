@@ -244,7 +244,6 @@
 .letter-origin-facts > div { display: grid; gap: 4px; }
 .letter-origin-facts dt { color: var(--faint); font-size: 10px; }
 .letter-origin-facts dd { margin: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
-.letter-origin-note { max-width: 74ch; margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.75; }
 .letter-origin-themes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
 .letter-origin-themes a { padding: 5px 8px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 4px; font-size: 10px; }
 .letter-origin-lens { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }

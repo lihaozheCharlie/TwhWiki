@@ -258,7 +258,7 @@ export function Letters({ revision }: { revision: number }) {
   const selectVersion = (id?: string) => { setParams((current) => { const next = new URLSearchParams(current); if (!id || id === latestVersion?.id) next.delete("version"); else next.set("version", id); return next; }, { replace: true }); };
   return (
     <div>
-      <PageHeader title="近况回信" description="不是绩效复盘，而是一面了解你走过的经历、仍尊重未知的对话镜子。既可以按写信时间回看，也可以沿着同一个生命主题跨年阅读。" />
+      <PageHeader title="近况回信" description="按写信时间或生命主题回看经历。每封信都来自相应材料，也可以借不同人物的思考方式重读同一份证据。" />
       <div className="view-switch"><button className={view === "chronology" ? "active" : ""} onClick={() => { setView("chronology"); selectLetter(undefined, true); }}>按时间阅读</button><button className={view === "themes" ? "active" : ""} onClick={() => { setView("themes"); selectLetter(undefined, true); }}>沿主题追踪 <span>{data.threads.length}</span></button></div>
       {view === "chronology" ? <div className="letter-filters">{["全部", ...data.years].map((item) => <button key={item} className={year === item ? "active" : ""} onClick={() => { setYear(item); selectLetter(undefined, true); }}>{item}<span>{item === "全部" ? data.letters.length : data.letters.filter((letter) => letter.letterDate.startsWith(item)).length}</span></button>)}</div> : <><div className="letter-thread-note"><span>先显示回信最多的主题</span><button onClick={() => setShowAllThreads((value) => !value)}>{showAllThreads ? "收起长尾主题" : `查看全部 ${data.threads.length} 个主题`}</button></div><div className="letter-threads">{[{ id: "全部", title: "全部主题", letters: data.letters.map((letter) => letter.page.id), latestDate: "", category: "uncategorized" as const }, ...(showAllThreads ? data.threads : data.threads.slice(0, 14))].map((item) => <button key={item.id} className={thread === item.id ? "active" : ""} onClick={() => { setThread(item.id); selectLetter(undefined, true); }}><b>{item.title}</b><span>{item.letters.length} 封</span></button>)}</div></>}
       <div className={`letter-explorer${indexOpen ? "" : " index-collapsed"}`}>
@@ -273,7 +273,6 @@ export function Letters({ revision }: { revision: number }) {
             {selected.evidenceFrom && <div><dt>回看的材料范围</dt><dd>{selected.evidenceFrom}{selected.evidenceTo && selected.evidenceTo !== selected.evidenceFrom ? ` — ${selected.evidenceTo}` : ""}</dd></div>}
             <div><dt>涵盖主题</dt><dd>{selected.themes.length > 0 ? `${selected.themes.length} 个` : "未标注"}</dd></div>
           </dl>
-          <p className="letter-origin-note">这封信由 The Way Here 读完上面这段时间的材料后写成。正文保持一位了解你来路的朋友口吻；下方还可以调用不同人物的思考方式，从另一种注意力和推理路径重读同一份证据。</p>
           {selected.themes.length > 0 && <div className="letter-origin-themes">{selected.themes.slice(0, 6).map((theme) => <PageLink key={theme.id} page={theme}>{theme.title}</PageLink>)}</div>}
           {(lenses || []).length > 0 && <div className="letter-origin-lens">
             <button type="button" className={lensOpen ? "open" : ""} aria-expanded={lensOpen} onClick={() => setLensOpen((value) => !value)}>用 {lensExamples} 等 {(lenses || []).length} 种人物视角重读 <Icon name="down" size={14} /></button>
@@ -397,9 +396,9 @@ export function SearchResults({ revision }: { revision: number }) {
   return (
     <div>
       <PageHeader title={`“${query}”`} description={`找到 ${data.length} 项结果，已按构建知识与原始材料分组。`} />
-      {knowledge.length > 0 && <section className="search-group"><SectionHeading title={`我的知识 · ${knowledge.length}`} action={<NavLink to="/knowledge">进入我的知识</NavLink>} /><div className="search-results">{knowledge.map((page) => <PageLink page={page} key={page.id} className="search-result"><small>{graphCategoryNames[page.category] || page.category}</small><h2>{page.title}</h2><p>{page.excerpt}</p></PageLink>)}</div></section>}
-      {sources.length > 0 && <section className="search-group"><SectionHeading title={`原始知识 · ${sources.length}`} action={<NavLink to="/sources">查看全部原始知识</NavLink>} /><div className="search-results">{sources.map((page) => <PageLink page={page} key={page.id} className="search-result"><small>原始知识 · {page.relativePath}</small><h2>{page.title}</h2><p>{page.excerpt}</p></PageLink>)}</div></section>}
-      {!data.length && <Empty>没有找到相关内容。换一个关键词，或者先导入新的原始知识。</Empty>}
+      {knowledge.length > 0 && <section className="search-group"><SectionHeading title={`已有理解 · ${knowledge.length}`} action={<NavLink to="/knowledge">进入已有理解</NavLink>} /><div className="search-results">{knowledge.map((page) => <PageLink page={page} key={page.id} className="search-result"><small>{graphCategoryNames[page.category] || page.category}</small><h2>{page.title}</h2><p>{page.excerpt}</p></PageLink>)}</div></section>}
+      {sources.length > 0 && <section className="search-group"><SectionHeading title={`生活记录 · ${sources.length}`} action={<NavLink to="/sources">查看全部生活记录</NavLink>} /><div className="search-results">{sources.map((page) => <PageLink page={page} key={page.id} className="search-result"><small>生活记录 · {page.relativePath}</small><h2>{page.title}</h2><p>{page.excerpt}</p></PageLink>)}</div></section>}
+      {!data.length && <Empty>没有找到相关内容。换一个关键词，或者先带进一段新的生活记录。</Empty>}
     </div>
   );
 }
@@ -422,7 +421,7 @@ export function Reader({ revision }: { revision: number }) {
   return (
     <div className="reader-layout">
       <article className="reader">
-        <button className="context-back" onClick={goBack}><Icon name="back" size={16} />{returnContext?.returnLabel || (page.isSource ? "返回原始材料" : "返回我的知识")}</button>
+        <button className="context-back" onClick={goBack}><Icon name="back" size={16} />{returnContext?.returnLabel || (page.isSource ? "返回生活记录" : "返回已有理解")}</button>
         <div className="reader-meta"><span>{page.category}</span><time>{page.end || page.start || ""}</time></div>
         <EditableDocument page={page} onRenamed={(renamed) => navigate(pageHref(renamed.id), { replace: true, state: returnContext })} />
       </article>

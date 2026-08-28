@@ -8,11 +8,17 @@ import { useReturnContext } from "../../shared/routing";
 import { Icon, Loading } from "../../shared/ui";
 import { AiConfiguration, reasoningLabels, useAgentSelection } from "./AgentSettings";
 import { localWikiHref } from "./local-page-link";
-import { collaborationModes, contextPrompt, groupAgentThreads, plainPreview, runConversation, runDisplayPrompt, runFinalAnswer, runTechnicalEvents, type AgentContext, type AgentThread, type OpenContextAgentRequest } from "./model";
+import { collaborationModes, contextPrompt, groupAgentThreads, plainPreview, runConversation, runDisplayPrompt, runFinalAnswer, runTechnicalEvents, shouldSubmitAgentInput, type AgentContext, type AgentThread, type OpenContextAgentRequest } from "./model";
 
 const defaultAgentModel = "gpt-5.6-sol";
 const defaultAgentEffort: AgentReasoningEffort = "high";
 type DockView = "compose" | "history";
+
+function submitAgentFormOnEnter(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
+  if (!shouldSubmitAgentInput({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) return;
+  event.preventDefault();
+  event.currentTarget.form?.requestSubmit();
+}
 
 export function ContextualAgentDock({ revision, context }: { revision: number; context: AgentContext }) {
   const { data: vault, loading: vaultLoading } = useApi<VaultInfo>("/api/vault", revision);
@@ -22,7 +28,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   const [view, setView] = useState<DockView>("compose");
   const [draft, setDraft] = useState("");
   const [runId, setRunId] = useState("");
-  const [mode, setMode] = useState<WikiRun["mode"]>("auto");
+  const [mode, setMode] = useState<WikiRun["mode"]>(context.defaultMode || "read");
   const [outputTarget, setOutputTarget] = useState<AgentOutputTarget>();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -47,12 +53,12 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
       setRunId("");
       setView(request.view || "compose");
       if (request.prompt !== undefined) setDraft(request.prompt);
-      if (request.mode) setMode(request.mode);
+      setMode(request.mode || context.defaultMode || "read");
       setOutputTarget(request.outputTarget);
     };
     window.addEventListener("open-context-agent", openDock);
     return () => window.removeEventListener("open-context-agent", openDock);
-  }, []);
+  }, [context.defaultMode]);
 
   useEffect(() => {
     if (!open) {
@@ -92,17 +98,17 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   useEffect(() => {
     setDraft("");
     setRunId("");
-    setMode("auto");
+    setMode(context.defaultMode || "read");
     setOutputTarget(undefined);
     setView("compose");
     setError("");
-  }, [context.pageId, context.title]);
+  }, [context.defaultMode, context.pageId, context.title]);
 
   function startNewQuestion() {
     setRunId("");
     setView("compose");
     setDraft("");
-    setMode("auto");
+    setMode(context.defaultMode || "read");
     setOutputTarget(undefined);
     setError("");
   }
@@ -110,7 +116,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (mode !== "validate" && !draft.trim()) {
-      setError("先说说你想让 Agent 做什么。");
+      setError("先写下你想从哪里开始。");
       return;
     }
     setSubmitting(true);
@@ -142,22 +148,22 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   }
 
   return <>
-    {!open && <button ref={launcherRef} className="context-agent-launcher" onClick={() => { openerRef.current = launcherRef.current; setOpen(true); }} aria-label={`${context.launcherLabel || "和知识助手处理这里"}，已带入当前页面`}><Icon name="spark" size={16} /><b>{context.launcherLabel || "和知识助手处理这里"}</b></button>}
+    {!open && <button ref={launcherRef} className={`context-agent-launcher${context.compactLauncher ? " compact" : ""}`} title={context.launcherLabel || "找我聊聊"} onClick={() => { openerRef.current = launcherRef.current; setOpen(true); }} aria-label={`${context.launcherLabel || "找我聊聊"}，已带入当前页面`}><Icon name="spark" size={16} />{!context.compactLauncher && <b>{context.launcherLabel || "找我聊聊"}</b>}</button>}
     {open && <div className="context-agent-layer">
-      <button className="context-agent-backdrop" aria-label="关闭 Agent 窗口背景" onClick={() => setOpen(false)} />
+      <button className="context-agent-backdrop" aria-label="关闭对话窗口" onClick={() => setOpen(false)} />
       <aside ref={panelRef} className="context-agent-panel" role="dialog" aria-modal="true" aria-labelledby="context-agent-title">
-        <header className="context-agent-header"><div><h2 id="context-agent-title">知识 Agent</h2><p><span>{vault?.name || context.scope}</span><i aria-hidden="true">·</i>{context.title}</p></div><button className="icon-button" aria-label="关闭 Agent 窗口" onClick={() => setOpen(false)}><Icon name="close" /></button></header>
-        <nav className="context-agent-nav" aria-label="Agent 窗口">
-          <button type="button" className={!runId && view === "compose" ? "active" : ""} onClick={startNewQuestion}><Icon name="spark" size={14} />新对话</button>
-          <button type="button" className={runId || view === "history" ? "active" : ""} onClick={() => { setRunId(""); setView("history"); }}><Icon name="library" size={14} />对话历史<span>{threads.length}</span></button>
+        <header className="context-agent-header"><div><h2 id="context-agent-title">一起往下想</h2><p><span>{vault?.name || context.scope}</span><i aria-hidden="true">·</i>{context.title}</p></div><button className="icon-button" aria-label="关闭对话窗口" onClick={() => setOpen(false)}><Icon name="close" /></button></header>
+        <nav className="context-agent-nav" aria-label="对话窗口">
+          <button type="button" aria-pressed={!runId && view === "compose"} className={!runId && view === "compose" ? "active" : ""} onClick={startNewQuestion}><Icon name="spark" size={14} />新话题</button>
+          <button type="button" aria-pressed={Boolean(runId) || view === "history"} className={runId || view === "history" ? "active" : ""} onClick={() => { setRunId(""); setView("history"); }}><Icon name="library" size={14} />聊过的事<span>{threads.length}</span></button>
         </nav>
         {runId ? <ContextualRunPanel runId={runId} revision={revision} runList={runList || []} onRunId={setRunId} onNew={startNewQuestion} /> : view === "history" ? <AgentHistory threads={threads} loading={runsLoading} error={runsError} knowledgeBaseName={vault?.name} onOpen={setRunId} onNew={startNewQuestion} /> : <form className="context-agent-compose" onSubmit={submit}>
           <section className="context-current-context"><span>已带入当前页面</span><b>{context.title}</b><small>{context.scope}</small>{context.summary && <p>{context.summary}</p>}</section>
           {outputTarget?.kind === "letter-version" && <div className="context-output-target"><Icon name="library" size={15} /><div><b>将保留为「{outputTarget.label}」</b><span>完成后会成为这封回信的最新版本，原始回信仍可随时切换查看。</span></div></div>}
-          <label htmlFor={`context-prompt-${context.pageId || context.scope}`}>想让 Agent 做什么？</label>
+          <label htmlFor={`context-prompt-${context.pageId || context.scope}`}>想从哪里开始？</label>
           {mode === "validate" ? <div className="context-validate-summary"><b>检查当前知识库</b><p>运行既有标签、链接与结构检查，不生成新的知识内容。</p></div> : <>
-            <textarea ref={textareaRef} id={`context-prompt-${context.pageId || context.scope}`} name="context-prompt" autoComplete="off" value={draft} onChange={(event) => { setDraft(event.target.value); if (error) setError(""); }} placeholder="问一个问题，或说说希望补充、整理、更新什么…" />
-            <div className="context-suggestions"><span>可以这样开始</span>{context.suggestions.slice(0, 2).map((suggestion) => <button key={suggestion} type="button" onClick={() => { setDraft(suggestion); setMode("auto"); setOutputTarget(undefined); }}>{suggestion}</button>)}</div>
+            <textarea ref={textareaRef} id={`context-prompt-${context.pageId || context.scope}`} name="context-prompt" autoComplete="off" value={draft} onChange={(event) => { setDraft(event.target.value); if (error) setError(""); }} onKeyDown={submitAgentFormOnEnter} placeholder={collaborationModes[mode].placeholder} />
+            <div className="context-suggestions"><span>可以这样开始</span>{context.suggestions.slice(0, 2).map((suggestion) => <button key={suggestion} type="button" onClick={() => { setDraft(suggestion); setMode(context.defaultMode || "read"); setOutputTarget(undefined); }}>{suggestion}</button>)}</div>
           </>}
           {mode !== "validate" && <details className="context-agent-options">
             <summary><span>AI 设置</span><b>{agent.runtimeId === "codex" ? "Codex" : agent.providerDisplayName} · {reasoningLabels[agent.effort]}</b><Icon name="down" size={14} /></summary>
@@ -165,8 +171,8 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
           </details>}
           <p className="context-agent-boundary">{collaborationModes[mode].boundary}</p>
           {error && <p className="context-agent-error" role="alert">{error}</p>}
-          <button className="primary-action context-agent-submit" disabled={submitting || (mode !== "validate" && !draft.trim()) || vaultLoading || (mode !== "validate" && agent.loading) || !vault?.agentAvailable}>{submitting ? "正在开始…" : vaultLoading || agent.loading ? "正在连接 Agent…" : collaborationModes[mode].action}<Icon name="arrow" size={16} /></button>
-          {!vaultLoading && !vault?.agentAvailable && <p className="context-agent-offline">没有可用的 Agent；安装 Codex 或配置 Pi 模型后即可使用。</p>}
+          <button className="primary-action context-agent-submit" disabled={submitting || (mode !== "validate" && !draft.trim()) || vaultLoading || (mode !== "validate" && agent.loading) || !vault?.agentAvailable}>{submitting ? "正在开始…" : vaultLoading || agent.loading ? "正在连接…" : collaborationModes[mode].action}<Icon name="arrow" size={16} /></button>
+          {!vaultLoading && !vault?.agentAvailable && <p className="context-agent-offline">暂时无法开始对话；安装 Codex 或配置 Pi 模型后即可使用。</p>}
         </form>}
       </aside>
     </div>}
@@ -175,7 +181,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
 
 function AgentHistory({ threads, loading, error, knowledgeBaseName, onOpen, onNew }: { threads: AgentThread[]; loading: boolean; error?: string; knowledgeBaseName?: string; onOpen: (id: string) => void; onNew: () => void }) {
   return <section className="context-agent-history">
-    <header><h3>这个知识库里的对话</h3><p>{knowledgeBaseName ? `仅显示「${knowledgeBaseName}」中的记录。` : "仅显示当前知识库中的记录。"}</p></header>
+    <header><h3>我们聊过的事</h3><p>{knowledgeBaseName ? `这些对话只留在「${knowledgeBaseName}」。` : "这里只显示当前个人空间里的对话。"}</p></header>
     {loading ? <Loading label="正在整理对话历史" /> : error ? <div className="context-history-empty"><b>暂时无法读取对话历史</b><p>{error}</p></div> : threads.length ? <div className="context-history-list">{threads.map((thread) => {
       const answer = runFinalAnswer(thread.latest);
       return <button type="button" key={thread.id} onClick={() => onOpen(thread.latest.id)}>
@@ -184,7 +190,7 @@ function AgentHistory({ threads, loading, error, knowledgeBaseName, onOpen, onNe
         <p>{plainPreview(answer, thread.latest.error || (thread.latest.status === "completed" ? "已完成，打开查看回答" : "任务仍在进行"))}</p>
         <small>{thread.latest.outputTarget?.kind === "letter-version" ? thread.latest.outputTarget.label : collaborationModes[thread.latest.mode].short}{thread.runs.length > 1 ? ` · ${thread.runs.length} 轮对话` : ""}</small>
       </button>;
-    })}</div> : <div className="context-history-empty"><b>还没有对话记录</b><p>从当前页面问一个真实问题，回答会留在这里。</p><button type="button" onClick={onNew}>开始第一段对话</button></div>}
+    })}</div> : <div className="context-history-empty"><b>我们还没有聊过</b><p>从现在真正想说的事开始，这段对话会留在这里。</p><button type="button" onClick={onNew}>开始聊聊</button></div>}
   </section>;
 }
 
@@ -258,7 +264,7 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
       const isCurrent = threadRun.id === activeRun.id;
       return <section className="context-thread-turn" key={threadRun.id}>
         <div className="context-user-message"><span>你</span><p>{runDisplayPrompt(threadRun)}</p><time>{new Date(threadRun.createdAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time></div>
-        {answer ? <article className="context-run-answer"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => { const local = localWikiHref(href); return local ? <NavLink to={local} state={returnContext}>{children}</NavLink> : <a href={href} target="_blank" rel="noreferrer">{children}</a>; } }}>{answer}</ReactMarkdown></article> : isCurrent && active ? <section className="context-run-working" aria-live="polite"><span className="working-mark"><i /><i /><i /></span><div><b>{run.status === "waiting-approval" ? "需要你确认后继续" : run.status === "validating" ? "正在检查知识库" : "知识助手正在沿着证据工作"}</b><p>{latest || "你可以关闭窗口，任务仍会继续；稍后从对话历史回来即可。"}</p></div></section> : <div className="context-run-missing"><b>{threadRun.error ? "这次没有顺利完成" : "这轮没有留下可读回答"}</b><p>{threadRun.error || "可以在下方继续追问，补充更具体的范围。"}</p></div>}
+        {answer ? <article className="context-run-answer"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => { const local = localWikiHref(href); return local ? <NavLink to={local} state={returnContext}>{children}</NavLink> : <a href={href} target="_blank" rel="noreferrer">{children}</a>; } }}>{answer}</ReactMarkdown></article> : isCurrent && active ? <section className="context-run-working" aria-live="polite"><span className="working-mark"><i /><i /><i /></span><div><b>{run.status === "waiting-approval" ? "需要你确认后继续" : run.status === "validating" ? "正在检查知识库" : "正在沿着你的来路慢慢梳理"}</b><p>{latest || "你可以关闭窗口，我会继续；稍后从聊过的事里回来即可。"}</p></div></section> : <div className="context-run-missing"><b>{threadRun.error ? "这次没有顺利完成" : "这轮没有留下可读回答"}</b><p>{threadRun.error || "可以在下方继续聊，或者把范围说得更具体一些。"}</p></div>}
       </section>;
     })}</div>
     {activeRun.approvals.map((approval) => <section className="context-approval-box" key={String(approval.requestId)} aria-live="polite"><span>需要你决定</span><h3>{approval.title}</h3><p>{approval.detail || String(approval.params?.reason || approval.params?.command || approval.method || approval.operation)}</p><small>允许只对这一次请求生效；拒绝后会保留现状。</small><div><button type="button" onClick={() => approve(approval.requestId, "deny")}>拒绝这一步</button><button type="button" className="primary-action" onClick={() => approve(approval.requestId, "allow-once")}>允许一次</button></div></section>)}
@@ -270,7 +276,7 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
       <section><h3>技术记录</h3>{technicalEvents.length ? <div className="context-technical-list">{technicalEvents.map((event) => <div key={event.id}><time>{new Date(event.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</time><p>{event.message || event.method || event.kind}</p></div>)}</div> : <p>暂无技术记录。</p>}</section>
     </details>}
     {active && activeRun.status !== "validating" && <button type="button" className="context-stop-run" onClick={interrupt}>停止这次任务</button>}
-    {activeRun.mode !== "validate" && <form className="context-run-reply" onSubmit={followUp}><label htmlFor={`context-run-reply-${run.id}`}>{active ? "补充方向" : "沿着结果继续"}</label><textarea id={`context-run-reply-${run.id}`} name="context-run-reply" autoComplete="off" value={reply} onChange={(event) => setReply(event.target.value)} placeholder={active ? "补充范围、证据或希望避免的方向…" : "继续追问，或补充一段新材料…"} /><button className="primary-action" disabled={sending || !reply.trim()}>{sending ? "正在发送…" : active ? "补充给知识助手" : activeRun.mode === "write" ? "再次授权并继续" : "继续询问"}</button></form>}
+    {activeRun.mode !== "validate" && <form className="context-run-reply" onSubmit={followUp}><label htmlFor={`context-run-reply-${run.id}`}>{active ? "再补充一句" : "沿着这件事继续聊"}</label><textarea id={`context-run-reply-${run.id}`} name="context-run-reply" autoComplete="off" value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={submitAgentFormOnEnter} placeholder={active ? "补充范围、来路，或者告诉我希望避开什么…" : "继续说说，或者补充一段新的经历…"} /><button className="primary-action" disabled={sending || !reply.trim()}>{sending ? "正在发送…" : active ? "补充一句" : activeRun.mode === "write" ? "再次授权并继续" : "继续聊聊"}</button></form>}
     {actionError && <p className="context-agent-error" role="alert">{actionError}</p>}
     {hasFailed && <button type="button" className="context-retry-run" onClick={onNew}>带着新问题重新开始</button>}
   </div>;
