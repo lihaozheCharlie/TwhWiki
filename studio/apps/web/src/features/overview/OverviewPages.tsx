@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import type { FocusWorkspaceView, GraphData, LifeMapView, QuotesView, ReasoningLens, SectionedPageView, SkillFileContent, SkillTreeNode, StateSignal, StructuredCard, TodayView, VaultInfo, WikiPageSummary } from "@the-way-here/shared";
+import type { FocusWorkspaceView, GraphData, LifeMapView, PaymentJourneySummary, QuotesView, SectionedPageView, SkillFileContent, SkillTreeNode, SourceImportBatch, StateSignal, StructuredCard, TodayView, VaultInfo, WikiPageSummary } from "@the-way-here/shared";
 import { useApi } from "../../api";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent } from "../collaboration/model";
 import { LifeStageRoute } from "../knowledge/LifeStageRoute";
+import { cleanSourcePath, ImportMaterialsModal } from "../sources/Sources";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
 import { Empty, Icon, Loading, PageHeader, PageHero, HeroMetric, ParentBack } from "../../shared/ui";
@@ -200,15 +201,27 @@ export function AdvancedBuild({ revision }: { revision: number }) {
   </div>;
 }
 
+function formatImportRecency(createdAt?: string): string {
+  if (!createdAt) return "还没有导入记录";
+  const timestamp = new Date(createdAt).getTime();
+  if (!Number.isFinite(timestamp)) return "已有导入记录";
+  const days = Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000));
+  if (days === 0) return "上次导入于今天";
+  if (days === 1) return "上次导入于昨天";
+  return `上次导入于 ${days} 天前`;
+}
+
 export function Today({ revision }: { revision: number }) {
   const navigate = useNavigate();
+  const [importOpen, setImportOpen] = useState(false);
+  const [importedJourney, setImportedJourney] = useState<PaymentJourneySummary>();
   const { data, loading, error } = useApi<TodayView>("/api/views/today", revision);
   const { data: lifeMap } = useApi<LifeMapView>("/api/views/life-map", revision);
   const personalLines = useApi<StructuredCard[]>("/api/views/cards/personal-lines", revision);
   const { data: vault } = useApi<VaultInfo>("/api/vault", revision);
   const { data: quotes } = useApi<QuotesView>("/api/views/quotes", revision);
   const { data: sourcePages } = useApi<WikiPageSummary[]>("/api/pages?sources=true", revision);
-  const { data: lenses } = useApi<ReasoningLens[]>("/api/lenses", revision);
+  const { data: importBatches } = useApi<SourceImportBatch[]>("/api/imports", revision);
   if (loading || personalLines.loading) return <Loading label="正在整理你的知识概览" />;
   if (error || !data) return <Empty>{error || "暂无数据"}</Empty>;
   const displayedCurrentStages = data.currentStages.length ? data.currentStages : data.currentStage ? [{ page: data.currentStage, range: [data.currentStage.start, data.currentStage.end].filter(Boolean).join(" — ") || "当前阶段", focus: data.currentStage.excerpt, lane: 0 }] : [];
@@ -225,7 +238,6 @@ export function Today({ revision }: { revision: number }) {
   const recent = (sourcePages || []).slice().sort((left, right) => right.modifiedAt.localeCompare(left.modifiedAt)).slice(0, 4);
   const personalQuotes = quotes?.groups.flatMap((group) => group.entries).filter((entry) => entry.confirmed).slice(0, 3) || [];
   const countText = (value: number) => new Intl.NumberFormat("zh-CN").format(value);
-  const letterCount = vault?.categories.letters || 0;
   const peopleCount = vault?.categories.entities || 0;
   const stageCount = lifeMap?.stages.length || vault?.categories["life-stages"] || 0;
   const knowledgeMetric = [
@@ -234,26 +246,29 @@ export function Today({ revision }: { revision: number }) {
     `${countText(vault?.pageCount || 0)} 个知识页面`,
   ].filter(Boolean).join(" · ");
   const hasMaterial = (vault?.sourceCount || 0) > 0;
-  const buildSteps = [
-    { to: "/sources", title: "导入你的材料", detail: "日记、AI 对话记录、聊天记录，原文始终保留，可随时回看。", metric: hasMaterial ? `${countText(vault!.sourceCount)} 份原始材料` : "还没有材料", action: hasMaterial ? "继续导入" : "从这里开始" },
-    { to: "/knowledge", title: "解析成结构化的你", detail: "识别人生阶段、反复出现的模式、关系网络与现实系统，每个判断都链回原文。", metric: hasMaterial ? knowledgeMetric : "等待第一份材料", action: "浏览构建结果" },
-    { to: "/letters", title: "收到对近况的回应", detail: "把一段时间的材料读完之后，写成一封回信；也可以换一种思考方式重读。", metric: letterCount > 0 ? `${countText(letterCount)} 封回信` : "尚未生成回信", action: "读近况回信" },
-  ];
-  const featuredLenses = (lenses || []).slice(0, 4);
-  const lensPrompt = (lens: ReasoningLens) => `请用「${lens.displayName}」的思考方式，重读我最近的近况与相关材料。这个视角特别关注：${lens.attention}。请只依据我知识库里的原始材料和已有判断来回答，指出我自己可能忽略的地方，并说明每一条判断来自哪些证据。不要替我下结论。`;
+  const latestImport = importBatches?.[0];
+  const recentJourney = importedJourney || importBatches?.find((batch) => batch.journey)?.journey;
+  const prioritySignal = data.focusCandidates[0];
+  const focusCandidates = data.focusCandidates.slice(0, 4);
+  const pendingCount = recentJourney ? recentJourney.clusters.length : data.focusCandidates.length;
+  const importFolders = [...new Set((sourcePages || []).map((page) => cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/")).filter(Boolean))].sort((left, right) => left.localeCompare(right, "zh-CN"));
+  const focusPrompt = prioritySignal
+    ? `我想继续聊清楚「${prioritySignal.name}」。当前知识库的阶段性判断是：${prioritySignal.judgment}。为什么是现在：${prioritySignal.reason || prioritySignal.observation}。请先区分已有证据、未知信息和推断，再一次只问我一个最值得补充的问题。得到回答后，帮我把可以确认的细节沉淀为可追溯知识。`
+    : "我想补充一段最近生活里还没有被记录清楚的细节。请先一次只问我一个具体问题，帮我讲清人物、处境、动机和变化，再把可以确认的部分沉淀为可追溯知识。";
+  const agentPrompt = recentJourney?.agentPrompt || focusPrompt;
+  const portraitPrompt = (card: typeof portraitCards[number]) => `我想完善知识库里的「${card.label}」。目前的阶段性理解是「${card.title}」：${card.excerpt}。请先说明这段理解已有的证据和仍然未知的部分，再一次只问我一个具体问题，帮我补充能够被原始经历支持的细节。得到确认后，再建议如何沉淀到知识库。`;
   return (
     <div className="home-overview">
+      {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="bill" onClose={() => setImportOpen(false)} onJourney={setImportedJourney} /> : null}
       <section className="home-intro">
         <div className="home-intro-copy">
           <span>个人知识库</span>
-          <h1>走过的路，会成为更了解自己的方式。</h1>
+          <h1>走过的路，值得被继续讲清楚</h1>
           <div className="home-intro-description">
-            <p>你留下的每一段文字，都在讲述你是如何走到今天的。</p>
-            <p>The Way Here把散落的日记与对话，整理成你的人生脉络，并写给此刻的你。</p>
+            <p>记录不会自己变成理解——把材料交出来，和 Agent 把没说透的部分聊开。</p>
+            <p>The Way Here 负责整理与追溯，你负责提供细节和判断。</p>
           </div>
-          <div className="home-intro-actions">{hasMaterial
-            ? <><NavLink className="primary-action" to="/knowledge">浏览我的知识 <Icon name="arrow" size={16} /></NavLink><NavLink to="/sources">导入新材料</NavLink></>
-            : <><NavLink className="primary-action" to="/sources">导入我的材料 <Icon name="arrow" size={16} /></NavLink><NavLink to="/knowledge">先看看会构建出什么</NavLink></>}</div>
+          <div className="home-intro-actions"><button type="button" className="primary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog">导入生活细节 <Icon name="arrow" size={16} /></button><button type="button" className="home-intro-agent" onClick={() => openContextAgent({ mode: "write", prompt: focusPrompt })}>自己发起一个话题</button></div>
         </div>
         <aside className="home-now-panel">
           <span>你正在这里</span>
@@ -266,41 +281,35 @@ export function Today({ revision }: { revision: number }) {
       </section>
 
       <section className="home-build-flow" aria-labelledby="home-flow-title">
-        <header><span>它怎么工作</span><h2 id="home-flow-title">从原始记录，到能回答你的知识</h2></header>
-        <ol>{buildSteps.map((step) => <li key={step.to}>
-          <NavLink to={step.to} state={{ returnTo: "/", returnLabel: "返回此刻" }}>
-            <h3>{step.title}</h3>
-            <p>{step.detail}</p>
-            <em>{step.metric}</em>
-            <b>{step.action} <Icon name="arrow" size={14} /></b>
+        <header><h2 id="home-flow-title">从今天的生活，继续往知识里走</h2><p>导入、聊透、沉淀不是一次性的流程。每次回来，都可以从最省力的一步继续。</p></header>
+        <div className="home-action-grid">
+          <button type="button" className="home-action-card" onClick={() => setImportOpen(true)} aria-haspopup="dialog">
+            <span className="home-action-step">01</span><h3>先把材料交出来</h3><p>导入日记、AI 对话、微信记录或消费账单。账单会自动聚类成消费旅程，不用先手写整理。</p><em>{formatImportRecency(latestImport?.createdAt)} · {countText(vault?.sourceCount || 0)} 份材料</em><b>打开统一导入 <Icon name="arrow" size={14} /></b>
+          </button>
+          <button type="button" className="home-action-card" onClick={() => openContextAgent({ mode: "write", prompt: agentPrompt })}>
+            <span className="home-action-step">02{pendingCount > 0 && <span className="home-action-attention" aria-label={`${pendingCount} 个待处理项`}><i aria-hidden="true" />{pendingCount}</span>}</span><h3>有些细节，Agent 需要你补一句</h3><p>{recentJourney ? `${recentJourney.clusters.length} 条消费旅程线索还值得补全人物、动机和变化。` : prioritySignal ? `「${prioritySignal.name}」已经出现了阶段性判断，还需要你补充具体处境。` : "从一件最近发生的小事开始，把人物、动机和变化慢慢说清楚。"}</p><em>{recentJourney ? recentJourney.title : prioritySignal?.reason || "现在就可以开始"}</em><b>带着上下文继续聊 <Icon name="arrow" size={14} /></b>
+          </button>
+          <NavLink className="home-action-card" to="/knowledge" state={{ returnTo: "/", returnLabel: "返回此刻" }}>
+            <span className="home-action-step">03</span><h3>知识在怎么长出来</h3><p>回看已经形成的人生阶段、人物、长期主线与近期变化，每条判断都能回到原始材料。</p><em>{hasMaterial ? knowledgeMetric : "等待第一份材料"}</em><b>查看构建结果 <Icon name="arrow" size={14} /></b>
           </NavLink>
-        </li>)}</ol>
+        </div>
       </section>
 
-      {featuredLenses.length > 0 && <section className="home-lenses" aria-labelledby="home-lenses-title">
-        <header>
-          <div><span>名人回信</span><h2 id="home-lenses-title">换一个人的思考方式，重读你的经历</h2><p>这些视角不会替你增加事实，只改变提问的角度。选一个视角，它会带着自己惯常关注的东西，重新读一遍你的材料。</p></div>
-          <NavLink to="/letters">读全部近况回信 <Icon name="arrow" size={15} /></NavLink>
-        </header>
-        <div className="home-lens-grid">{featuredLenses.map((lens) => <button type="button" key={lens.id} className="home-lens-card" onClick={() => openContextAgent({ mode: "read", prompt: lensPrompt(lens) })}>
-          <h3>{lens.displayName}</h3>
-          <p>{lens.attention}</p>
-          {lens.signals.length > 0 && <ul>{lens.signals.slice(0, 3).map((signal) => <li key={signal}>{signal}</li>)}</ul>}
-          <b>用这个视角重读 <Icon name="arrow" size={14} /></b>
-        </button>)}</div>
-      </section>}
-
-      {lifeMap?.stages.length ? <section className="home-life-route" aria-labelledby="home-trail-title"><header><div><span>你的轨迹</span><h2 id="home-trail-title">一条主线，也有同时生长的人生</h2><p>主线记录依次发生的阶段；家庭与其他长期身份会在对应时间点分岔并行。</p></div><NavLink to="/timeline">完整回看人生 <Icon name="arrow" size={15} /></NavLink></header><LifeStageRoute compact stages={lifeMap.stages} selectedId={currentStage?.page.id} ariaLabel="首页人生阶段轨迹" onSelect={(id) => navigate(`/timeline?stage=${encodeURIComponent(id)}`)} /></section> : null}
+      <section className="home-focus" aria-labelledby="home-focus-title">
+        <header><div><h2 id="home-focus-title">值得现在追问的问题</h2><p>每一条都能回到具体证据。Agent 会先说清楚已知和未知，再陪你往下想。</p></div></header>
+        {focusCandidates.length > 0 ? <div className="home-focus-list">{focusCandidates.map((signal) => <NavLink key={signal.id} to={`/focus/${encodeURIComponent(signal.id)}`} state={{ returnTo: "/", returnLabel: "返回此刻" }} className="home-focus-card"><span>{signal.name}</span><h3>{signal.judgment}</h3><p>{signal.reason || signal.observation}</p><b>打开证据与判断 <Icon name="arrow" size={14} /></b></NavLink>)}</div> : <div className="home-focus-empty"><div><h3>问题会从新的材料里浮现</h3><p>导入更多材料后，这里会开始出现值得追问的问题。</p></div><button type="button" onClick={() => setImportOpen(true)} aria-haspopup="dialog">导入更多材料 <Icon name="arrow" size={14} /></button></div>}
+      </section>
 
       <section className="home-portrait" aria-labelledby="portrait-title">
         <header><div><h2 id="portrait-title">知识库现在怎么理解你</h2><p>这不是固定标签，而是阶段性的理解，随着材料增加会被修正。每一项都能回到原文。</p></div><NavLink to="/knowledge">查看完整知识 <Icon name="arrow" size={15} /></NavLink></header>
-        <div className="home-portrait-grid">{portraitCards.map((card) => <NavLink key={card.label} to={card.to} state={{ returnTo: "/", returnLabel: "返回此刻" }} className="home-portrait-card"><span>{card.label}</span><h3>{card.title}</h3><p>{card.excerpt}</p><Icon name="arrow" size={17} /></NavLink>)}</div>
+        <div className="home-portrait-list">{portraitCards.map((card) => <article key={card.label} className="home-portrait-row"><span>{card.label}</span><NavLink to={card.to} state={{ returnTo: "/", returnLabel: "返回此刻" }}><h3>{card.title}</h3><p>{card.excerpt}</p></NavLink><button type="button" onClick={() => openContextAgent({ mode: "write", prompt: portraitPrompt(card) })}>完善这条 <Icon name="arrow" size={13} /></button></article>)}</div>
+        {lifeMap?.stages.length ? <div className="home-portrait-route" aria-labelledby="home-trail-title"><header><div><h3 id="home-trail-title">人生阶段轨迹</h3><p>主线记录依次发生的阶段；家庭与其他长期身份会在对应时间点分岔并行。</p></div><NavLink to="/timeline">完整回看人生 <Icon name="arrow" size={14} /></NavLink></header><LifeStageRoute compact stages={lifeMap.stages} selectedId={currentStage?.page.id} ariaLabel="首页人生阶段轨迹" onSelect={(id) => navigate(`/timeline?stage=${encodeURIComponent(id)}`)} /></div> : null}
       </section>
       {(recent.length > 0 || personalQuotes.length > 0) && <section className="home-library-glimpse">
         <div className="home-recent"><header><h2>最近加入的材料</h2><NavLink to="/sources">全部材料</NavLink></header><div>{recent.map((page) => <PageLink page={page} key={page.id}><span><b>{page.title}</b><time>{new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}</time></span><p>{page.excerpt}</p></PageLink>)}</div></div>
         {personalQuotes.length > 0 && <aside><h2>你自己写过的话</h2>{personalQuotes.map((entry) => <blockquote key={entry.title}><p>{entry.quote.replace(/^>\s*/gm, "").replace(/[*_`]/g, "")}</p><cite>{entry.source || entry.title}</cite></blockquote>)}</aside>}
       </section>}
-      <ContextualAgentDock revision={revision} context={{ scope: "此刻", title: "从走过的路里更了解自己", summary: "结合个人主线、优势、人生阶段与最近近况，浏览当前知识库的整体轮廓。", defaultMode: "read", launcherLabel: "和我的知识聊聊", suggestions: ["结合我的个人主线和当前人生阶段，概括我正在成为一个怎样的人。", "从已有经历中总结我的三个优势，并分别说明证据和适用情境。", "最近的记录为已有的自我理解带来了哪些新变化？"] }} />
+      <ContextualAgentDock revision={revision} context={{ scope: "此刻", title: "继续讲清生活细节", summary: recentJourney ? `${recentJourney.transactionCount} 笔消费形成了 ${recentJourney.clusters.length} 条可以继续讲述的旅程线索。` : "从导入材料、补充细节到沉淀知识，继续当前最值得讲清楚的一步。", defaultMode: "write", launcherLabel: "发起一个新话题", suggestions: [agentPrompt, "我想讲一件最近发生、但还没有被知识库记录清楚的事。请一次问我一个具体问题。"] }} />
     </div>
   );
 }

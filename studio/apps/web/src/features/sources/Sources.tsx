@@ -9,7 +9,7 @@ import { EditableDocument, documentIdentity } from "../../shared/markdown";
 import { apiPageHref, PageLink, pageHref } from "../../shared/routing";
 import { CollapsibleIndexPane, Empty, HeroMetric, Icon, Loading, PageHero, PaneCollapseButton } from "../../shared/ui";
 
-type ImportRoute = "files" | "ai" | "wechat" | "bill";
+export type ImportRoute = "files" | "ai" | "wechat" | "bill";
 
 const aiImportProviders: Array<{ id: Exclude<SourceImportChannel, "files" | "wechat" | "alipay">; label: string }> = [
   { id: "chatgpt", label: "ChatGPT" },
@@ -28,8 +28,8 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-function ImportMaterialsModal({ folders, currentFolder, onClose, onJourney }: { folders: string[]; currentFolder: string; onClose: () => void; onJourney: (journey: PaymentJourneySummary) => void }) {
-  const [route, setRoute] = useState<ImportRoute>("files");
+export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "files", onClose, onJourney }: { folders: string[]; currentFolder: string; initialRoute?: ImportRoute; onClose: () => void; onJourney: (journey: PaymentJourneySummary) => void }) {
+  const [route, setRoute] = useState<ImportRoute>(initialRoute);
   const [provider, setProvider] = useState<Exclude<SourceImportChannel, "files" | "wechat" | "alipay">>("chatgpt");
   const [files, setFiles] = useState<File[]>([]);
   const [folderMode, setFolderMode] = useState<"existing" | "new">("existing");
@@ -102,6 +102,7 @@ function ImportMaterialsModal({ folders, currentFolder, onClose, onJourney }: { 
       const batch = await api<SourceImportBatch>("/api/imports/files", { method: "POST", body: JSON.stringify({ files: payload, channel, targetFolder: destination }) });
       setMessage(`已导入 ${batch.fileCount} 份材料${destination ? `到「${destination}」` : "到原始知识根目录"}。`);
       setJourney(batch.journey);
+      if (batch.journey) onJourney(batch.journey);
       setFiles([]);
     } catch (reason: any) {
       setError(reason.message);
@@ -120,7 +121,6 @@ function ImportMaterialsModal({ folders, currentFolder, onClose, onJourney }: { 
 
   function continueWithAgent() {
     if (!journey) return;
-    onJourney(journey);
     onClose();
     window.setTimeout(() => openContextAgent({ prompt: journey.agentPrompt, mode: "auto" }), 0);
   }
@@ -164,7 +164,7 @@ function ImportMaterialsModal({ folders, currentFolder, onClose, onJourney }: { 
   </div>;
 }
 
-function cleanSourcePath(relativePath: string): string {
+export function cleanSourcePath(relativePath: string): string {
   const parts = relativePath.replace(/\\/g, "/").split("/").filter(Boolean);
   const sourceRoot = parts.findIndex((part) => /^(原始知识库|sources?)$/i.test(part));
   const logical = sourceRoot >= 0 ? parts.slice(sourceRoot + 1) : parts;
