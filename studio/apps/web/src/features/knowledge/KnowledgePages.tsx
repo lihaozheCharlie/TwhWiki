@@ -23,7 +23,7 @@ export function Timeline({ revision }: { revision: number }) {
     <div className="life-map-page">
       <section className="life-atlas" aria-labelledby="life-atlas-title">
         <header className="life-atlas-head">
-          <div><h1 id="life-atlas-title">你走过的，不只是一条时间线</h1><p>主线记录依次发生的人生阶段；家庭与其他长期身份在下方并行生长。选择一个坐标，回到当时的处境、转折和证据。</p></div>
+          <div><h1 id="life-atlas-title">按人生阶段回看经历</h1><p>这里按时间排列人生阶段，也保留家庭、工作等并行线索。选择一个阶段，查看当时发生的事、相关记录和已经形成的理解。</p></div>
           <div className="atlas-key"><span><i className="main" />人生主线</span><span><i className="parallel" />并行人生线</span><b>{data.stages.length} 个人生阶段</b></div>
         </header>
         <LifeStageRoute stages={data.stages} selectedId={selected?.page.id} onSelect={selectStage} ariaLabel="人生主线" />

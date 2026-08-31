@@ -296,15 +296,19 @@ function talkingQuestions(data: TodayView, recentJourney?: PaymentJourneySummary
 }
 
 export function Today({ revision }: { revision: number }) {
+  const [importOpen, setImportOpen] = useState(false);
+  const [importedJourney, setImportedJourney] = useState<PaymentJourneySummary>();
   const [questionOffset, setQuestionOffset] = useState(0);
   const [conversationDraft, setConversationDraft] = useState("");
   const { data, loading, error } = useApi<TodayView>("/api/views/today", revision);
+  const { data: sourcePages } = useApi<WikiPageSummary[]>("/api/pages?sources=true", revision);
   const { data: importBatches } = useApi<SourceImportBatch[]>("/api/imports", revision);
   if (loading) return <Loading label="正在找回我们上次聊到的地方" />;
   if (error || !data) return <Empty>{error || "暂无数据"}</Empty>;
-  const recentJourney = importBatches?.find((batch) => batch.journey)?.journey;
+  const recentJourney = importedJourney || importBatches?.find((batch) => batch.journey)?.journey;
   const questions = talkingQuestions(data, recentJourney);
   const featuredQuestion = questions[questionOffset % questions.length]!;
+  const importFolders = [...new Set((sourcePages || []).map((page) => cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/")).filter(Boolean))].sort((left, right) => left.localeCompare(right, "zh-CN"));
   const journeyPrompt = recentJourney
     ? `最近的账单记录里出现了 ${recentJourney.clusters.length} 段可能的生活旅程。交易只能说明时间、地点和发生过什么，不能说明人物、动机和感受。请从最有画面的一条线索开始，一次问我一个问题，先陪我把这段经历说出来，不要修改知识库。`
     : "";
@@ -322,6 +326,7 @@ export function Today({ revision }: { revision: number }) {
 
   return (
     <div className="home-overview">
+      {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onJourney={setImportedJourney} /> : null}
       <section className="home-intro-card" aria-labelledby="home-intro-title">
         <div className="home-intro-main">
           <span className="friend-mark" aria-hidden="true"><Icon name="message" size={22} /></span>
@@ -330,7 +335,11 @@ export function Today({ revision }: { revision: number }) {
             <p>我们聊得越多，我就越懂你。<br />你也可以把日记、聊天记录带给我看，帮我更快跟上你。</p>
           </div>
         </div>
-        <div className="home-intro-ways"><span><Icon name="message" size={16} />和你聊天</span><span><Icon name="library" size={16} />读你的日记</span><span><Icon name="journal" size={16} />看你的记录</span></div>
+        <div className="home-intro-ways">
+          <button type="button" onClick={() => openContextAgent({ mode: "read" })}><Icon name="message" size={16} />和你聊天</button>
+          <button type="button" aria-haspopup="dialog" onClick={() => setImportOpen(true)}><Icon name="library" size={16} />读你的日记</button>
+          <button type="button" aria-haspopup="dialog" onClick={() => setImportOpen(true)}><Icon name="journal" size={16} />看你的记录</button>
+        </div>
       </section>
 
       <section className="home-opener" aria-labelledby="home-opener-title">
