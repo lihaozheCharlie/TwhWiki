@@ -58,8 +58,6 @@ The friend framing is an experience promise, not a claim of consciousness, emoti
 3. **Life Records / 生活记录** — the user's original words and evidence. Local files, folders, and supported statements remain readable in full and never become disposable input after processing.
 4. **Existing Understanding / 已有理解** — current themes, stages, patterns, relationships, letters, quotes, and their evidence paths. Every item can be revisited, supplemented, or corrected.
 5. **Contextual Companion** — one Agent drawer across the product. Read mode listens and helps clarify; write mode retains an explicitly authorized update; validation mode checks system health. Conversation history stays within the selected personal space.
-6. **Build Settings / 构建设置** — an opt-in expert surface inside Existing Understanding. Technical construction language belongs here, not in the everyday emotional entry points.
-
 ## Evidence on Hand
 
 - Anonymous end-to-end evidence: `../../../vault/demo/sources/` and `../../../vault/demo/wiki/`.

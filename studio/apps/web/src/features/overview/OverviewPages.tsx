@@ -1,13 +1,13 @@
 import React, { useRef, useState } from "react";
-import { NavLink, useParams, useSearchParams } from "react-router-dom";
-import type { ConversationPrompt, FocusWorkspaceView, GraphData, PaymentJourneySummary, SectionedPageView, SkillFileContent, SkillTreeNode, SourceImportBatch, StateSignal, StructuredCard, TodayView, VaultInfo, WikiPageSummary } from "@the-way-here/shared";
+import { NavLink, useParams } from "react-router-dom";
+import type { ConversationPrompt, FocusWorkspaceView, GraphData, PaymentJourneySummary, SectionedPageView, SourceImportBatch, StateSignal, StructuredCard, TodayView, VaultInfo, WikiPageSummary } from "@the-way-here/shared";
 import { useApi } from "../../api";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent, shouldSubmitAgentInput } from "../collaboration/model";
 import { cleanSourcePath, ImportMaterialsModal } from "../sources/Sources";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
-import { Empty, Icon, Loading, PageHeader, PageHero, ParentBack } from "../../shared/ui";
+import { Empty, Icon, Loading, PageHero, ParentBack } from "../../shared/ui";
 import { dailyPromptSeed, stablePromptOrder } from "./conversation-prompts";
 import { UnderstandingBanner, UnderstandingGlyph } from "../knowledge/UnderstandingLayout";
 
@@ -21,12 +21,11 @@ export function KnowledgeHome({ revision }: { revision: number }) {
     { to: "/insights", tone: "self" as const, title: "理解自己", description: "把个人主线、反复循环、现实系统与思维模型放在同一张判断地图里。", count: selfCount, label: "条自我理解" },
     { to: "/timeline", tone: "life" as const, title: "人生轨迹", description: "沿着阶段、转折和近况回信，回到一段经历当时真实的处境。", count: lifeCount, label: "个阶段与片段" },
     { to: "/relationships", tone: "people" as const, title: "人与世界", description: "看见具体的人，也看见一段关系在生命中长期承担的功能。", count: peopleCount, label: "个人与关系页面" },
-    { to: "/library", tone: "all" as const, title: "全部资料", description: "一起检索已有知识与构建规则，随时回到结论的来源和形成方式。", count: vault.pageCount, label: "条已有理解" },
   ];
   return <div className="knowledge-home understanding-overview">
     <header className="understanding-overview-lede">
       <h1>已有理解</h1>
-      <p>这里汇总系统从你的生活记录中持续读出的四类内容：关于你自己的判断、关于人生的轨迹、关于身边人的记录，以及支撑这些理解的知识与构建规则。</p>
+      <p>这里汇总系统从你的生活记录中持续读出的三类内容：关于你自己的判断、关于人生的轨迹，以及关于身边人与关系的记录。</p>
       <span>{vault.pageCount} 条理解 · 来自 {vault.sourceCount} 份生活记录</span>
     </header>
     <section className="understanding-entry-grid" aria-label="已有理解分类">
@@ -40,174 +39,7 @@ export function KnowledgeHome({ revision }: { revision: number }) {
       <div><h2>这些理解会继续变化</h2><p>新的生活记录可能补充证据，也可能让旧判断失效。你随时可以打开一条理解，说明哪里不像你。</p></div>
       <button type="button" onClick={() => openContextAgent({ mode: "read" })}><Icon name="spark" size={16} />一起核对</button>
     </section>
-    <ContextualAgentDock revision={revision} context={{ scope: "已有理解", title: "全部资料", summary: `当前有 ${vault.pageCount} 条已有理解，来自 ${vault.sourceCount} 份生活记录。`, defaultMode: "read", launcherLabel: "一起往下想", suggestions: ["当前哪些理解证据最充分，哪些地方还需要我亲自补充？", "结合最近更新的内容，现在最值得继续聊什么？"] }} />
-  </div>;
-}
-
-const skillGroupLabels: Record<string, { label: string; description: string }> = {
-  build: { label: "构建知识", description: "把原始材料读成知识页面的规则" },
-  common: { label: "共用能力", description: "被多条规则复用的判断标准与视角" },
-  consume: { label: "读取与问答", description: "只读检索，不写入任何知识" },
-};
-
-function flattenSkillFiles(nodes: SkillTreeNode[]): SkillTreeNode[] {
-  return nodes.flatMap((node) => (node.kind === "file" ? [node] : flattenSkillFiles(node.children || [])));
-}
-
-function findSkillNode(nodes: SkillTreeNode[], target: string): SkillTreeNode | undefined {
-  for (const node of nodes) {
-    if (node.path === target) return node;
-    const nested = node.children ? findSkillNode(node.children, target) : undefined;
-    if (nested) return nested;
-  }
-  return undefined;
-}
-
-function formatBytes(bytes?: number): string {
-  if (!bytes) return "0 B";
-  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
-}
-
-export function AdvancedBuild({ revision }: { revision: number }) {
-  const { data: tree, loading } = useApi<SkillTreeNode[]>("/api/build/skill-tree", revision);
-  const { data: vault } = useApi<VaultInfo>("/api/vault", revision);
-  const [params, setParams] = useSearchParams();
-  const [query, setQuery] = useState("");
-  const [checked, setChecked] = useState<string[]>([]);
-  const [expanded, setExpanded] = useState<string[]>([]);
-  const [guideOpen, setGuideOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem("advanced-guide-dismissed") !== "1";
-    } catch {
-      return true;
-    }
-  });
-  const requestedDir = params.get("dir") || "";
-  const requestedFile = params.get("file") || "";
-  const { data: file, loading: fileLoading, error: fileError } = useApi<SkillFileContent>(requestedFile ? `/api/build/skill-file?path=${encodeURIComponent(requestedFile)}` : "", revision);
-  if (loading || !tree) return <Loading label="正在读取构建规则文件" />;
-
-  const allFiles = flattenSkillFiles(tree);
-  const treeGroups = tree.filter((node) => node.kind === "directory");
-  const rootFiles = tree.filter((node) => node.kind === "file");
-  const activeDir = findSkillNode(tree, requestedDir);
-  const trimmedQuery = query.trim().toLocaleLowerCase();
-  const listedFiles = trimmedQuery
-    ? allFiles.filter((item) => `${item.path} ${item.skillName || ""}`.toLocaleLowerCase().includes(trimmedQuery))
-    : activeDir?.children
-      ? flattenSkillFiles(activeDir.children)
-      : allFiles;
-  const listTitle = trimmedQuery ? "搜索结果" : activeDir ? activeDir.skillName || activeDir.name : "全部规则文件";
-  const listHint = trimmedQuery ? `在 ${allFiles.length} 个文件中匹配` : activeDir ? activeDir.path : "先从左侧选择一个规则，或直接搜索";
-
-  function openDir(node: SkillTreeNode) {
-    setExpanded((current) => (current.includes(node.path) ? current.filter((item) => item !== node.path) : [...current, node.path]));
-    if (node.children?.some((child) => child.kind === "file")) setParams({ dir: node.path }, { replace: true });
-    setQuery("");
-  }
-  function openFile(path: string) {
-    setParams(requestedDir && !trimmedQuery ? { dir: requestedDir, file: path } : { file: path }, { replace: true });
-  }
-  function toggleChecked(path: string) {
-    setChecked((current) => (current.includes(path) ? current.filter((item) => item !== path) : [...current, path]));
-  }
-  function dismissGuide() {
-    setGuideOpen(false);
-    try {
-      window.localStorage.setItem("advanced-guide-dismissed", "1");
-    } catch {
-      /* ignore storage failures */
-    }
-  }
-
-  const buildPrompt = checked.length
-    ? `我想基于下面这些构建规则文件重新构建知识，请先只读地说明每个文件负责什么、会写入哪些知识页面，然后逐项确认我的目标，得到确认后才执行，并展示文件差异与质量检查结果：\n\n${checked.map((item) => `- ${item}`).join("\n")}`
-    : "";
-  const explainPrompt = file ? `请以只读方式解释构建规则文件 ${file.path}：它何时触发、读取哪些来源、写入哪些知识页面，以及有哪些安全边界。请用产品语言回答，不要修改任何文件。` : "";
-  const adjustPrompt = file ? `我想调整构建规则文件 ${file.path}。请先解释它当前的行为和影响范围，再逐项询问我的目标；得到明确目标后才修改，并展示差异与质量检查结果。` : "";
-
-  return <div className="advanced-page understanding-advanced-page">
-    <UnderstandingBanner tone="all" title="构建规则" description="这里是 The Way Here 当前使用的真实规则。先读懂一条规则会读取什么、写入哪里，再决定是否调整。" count={allFiles.length} countLabel="个规则文件">
-      <span className={`understanding-agent-status ${vault?.agentAvailable ? "ready" : "offline"}`}><i />{vault?.agentAvailable ? "Agent 已就绪" : "Agent 暂不可用"}</span>
-    </UnderstandingBanner>
-
-    {guideOpen
-      ? <section className="skill-guide-bar" aria-labelledby="skill-guide-title">
-        <div><span>怎么用这一页</span><h2 id="skill-guide-title">读懂规则，再决定改什么</h2></div>
-        <ol><li><b>浏览文件</b><span>左侧按规则分组，中间列出文件，右侧显示原文</span></li><li><b>勾选范围</b><span>选中要一起处理的文件，可跨规则组合</span></li><li><b>交给 Agent</b><span>它先解释再确认，改动前会展示差异</span></li></ol>
-        <button type="button" onClick={dismissGuide} aria-label="收起使用说明">知道了</button>
-      </section>
-      : <button type="button" className="skill-guide-reopen" onClick={() => setGuideOpen(true)}>怎么用这一页？</button>}
-
-    <section className="skill-browser" aria-label="构建规则文件浏览器">
-      <aside className="skill-tree-pane">
-        <header><b>规则目录</b><span>{treeGroups.length} 个分组</span></header>
-        <div>{treeGroups.map((group) => {
-          const meta = skillGroupLabels[group.name];
-          const isOpen = expanded.includes(group.path) || !expanded.length;
-          return <section key={group.path}>
-            <button type="button" className={`skill-tree-group ${isOpen ? "open" : ""}`} onClick={() => setExpanded((current) => (current.includes(group.path) ? current.filter((item) => item !== group.path) : [...current, group.path]))}>
-              <span><b>{meta?.label || group.name}</b><small>{meta?.description || group.path}</small></span><em>{group.fileCount}</em>
-            </button>
-            {isOpen && <ul>{(group.children || []).filter((child) => child.kind === "directory").map((skill) => <li key={skill.path}>
-              <button type="button" className={requestedDir === skill.path ? "active" : ""} onClick={() => openDir(skill)}>
-                <span><b>{skill.skillName || skill.name}</b><small>{skill.name}</small></span><em>{skill.fileCount}</em>
-              </button>
-            </li>)}</ul>}
-          </section>;
-        })}
-        {rootFiles.length > 0 && <ul className="skill-tree-loose">{rootFiles.map((item) => <li key={item.path}>
-          <button type="button" className={requestedFile === item.path ? "active" : ""} onClick={() => openFile(item.path)}>
-            <span><b>{item.name}</b><small>规则清单</small></span>
-          </button>
-        </li>)}</ul>}</div>
-      </aside>
-
-      <section className="skill-files-pane">
-        <label><Icon name="search" size={16} /><input name="skill-file-search" autoComplete="off" aria-label="搜索全部构建规则文件" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索全部规则文件…" /></label>
-        <header><div><b>{listTitle}</b><span>{listHint}</span></div><small>{listedFiles.length} 个文件</small></header>
-        <div>{listedFiles.length
-          ? listedFiles.map((item) => <div key={item.path} className={`skill-file-row ${requestedFile === item.path ? "active" : ""}`}>
-            <input type="checkbox" id={`pick-${item.path}`} checked={checked.includes(item.path)} onChange={() => toggleChecked(item.path)} aria-label={`选择 ${item.path}`} />
-            <button type="button" onClick={() => openFile(item.path)}>
-              <b>{item.name}</b>
-              <small>{item.skillName || item.path}</small>
-              <time>{formatBytes(item.bytes)}</time>
-            </button>
-          </div>)
-          : <Empty>没有匹配的规则文件。</Empty>}</div>
-        {checked.length > 0 && <footer className="skill-files-selection">
-          <span>已选 <b>{checked.length}</b> 个文件</span>
-          <button type="button" onClick={() => setChecked([])}>清空</button>
-          <button type="button" className="primary-action" onClick={() => openContextAgent({ mode: "write", prompt: buildPrompt })}>交给 Agent 处理 <Icon name="arrow" size={15} /></button>
-        </footer>}
-      </section>
-
-      <article className="skill-preview-pane">
-        {!requestedFile
-          ? <Empty>选择一个文件，这里会显示它的原文。</Empty>
-          : fileLoading
-            ? <Loading label="正在读取文件" />
-            : fileError || !file
-              ? <Empty>{fileError || "无法读取这个文件"}</Empty>
-              : <>
-                <header>
-                  <span>{file.path}</span>
-                  <h2>{file.skillName || file.name}</h2>
-                  {file.description && <p>{file.description}</p>}
-                  <dl><div><dt>大小</dt><dd>{formatBytes(file.bytes)}</dd></div><div><dt>更新于</dt><dd>{new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "short", day: "numeric" }).format(new Date(file.modifiedAt))}</dd></div></dl>
-                </header>
-                <pre>{file.content}</pre>
-                <footer>
-                  <button type="button" onClick={() => openContextAgent({ mode: "read", prompt: explainPrompt })}>让 Agent 解释</button>
-                  <button type="button" className="primary-action" onClick={() => openContextAgent({ mode: "write", prompt: adjustPrompt })}>调整这条规则 <Icon name="arrow" size={15} /></button>
-                </footer>
-              </>}
-      </article>
-    </section>
-
-    <section className="advanced-safety"><div><span>不确定规则是否健康？</span><h2>先运行只读检查，不修改任何知识内容</h2></div><button type="button" onClick={() => openContextAgent({ mode: "validate" })}>运行知识健康检查 <Icon name="arrow" size={16} /></button></section>
-    <ContextualAgentDock revision={revision} context={{ scope: "高级构建", title: file ? `构建规则 ${file.name}` : "构建规则文件", summary: file ? `正在查看 ${file.path}。` : `共有 ${allFiles.length} 个构建规则文件，分布在 ${tree.length} 个分组中。`, defaultMode: "read", launcherLabel: "询问构建规则", suggestions: ["这些构建规则里，哪一条决定了我的近况回信怎么写？", "如果我想让知识页面更强调证据来源，应该调整哪条规则？"] }} />
+    <ContextualAgentDock revision={revision} context={{ scope: "已有理解", title: "已有理解总览", summary: `当前有 ${vault.pageCount} 条已有理解，来自 ${vault.sourceCount} 份生活记录。`, defaultMode: "read", launcherLabel: "一起往下想", suggestions: ["当前哪些理解证据最充分，哪些地方还需要我亲自补充？", "结合最近更新的内容，现在最值得继续聊什么？"] }} />
   </div>;
 }
 

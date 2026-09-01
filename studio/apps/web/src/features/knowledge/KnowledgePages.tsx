@@ -2,30 +2,31 @@ import React, { useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { GraphData, LettersView, LifeMapView, QuotesView, ReasoningLens, RelationshipsView, SectionedPageView, SkillTreeNode, StructuredCard, WikiPage, WikiPageSummary, WikiRun } from "@the-way-here/shared";
+import type { LettersView, LifeMapView, ReasoningLens, RelationshipsView, SectionedPageView, StructuredCard, WikiPage, WikiPageSummary, WikiRun } from "@the-way-here/shared";
 import { useApi } from "../../api";
-import { categoryMeta, graphCategoryNames, growthTabs, knowledgeTabs, type ReturnContext } from "../../app/config";
+import { categoryMeta, graphCategoryNames, growthTabs, type ReturnContext } from "../../app/config";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { letterRunVersions, openContextAgent, type LetterRunVersion } from "../collaboration/model";
 import { DocumentOutline, EditableDocument, MarkdownBody, documentHeadingPrefix } from "../../shared/markdown";
-import { apiPageHref, PageLink, pageHref, useReturnContext } from "../../shared/routing";
+import { apiPageHref, PageLink, pageHref } from "../../shared/routing";
 import { CollapsibleIndexPane, Empty, Icon, Loading, PageHeader, SectionHeading, SectionTabs } from "../../shared/ui";
-import { LifeViewSwitch, UnderstandingBanner } from "./UnderstandingLayout";
+import { UnderstandingBanner } from "./UnderstandingLayout";
+import { orderLifeStagesFromPresent } from "./life-atlas";
 
 export function Timeline({ revision }: { revision: number }) {
   const { data, loading, error } = useApi<LifeMapView>("/api/views/life-map", revision);
   const [params, setParams] = useSearchParams();
   if (loading) return <Loading label="正在展开人生地图" />;
   if (error || !data) return <Empty>{error || "暂无人生阶段"}</Empty>;
-  const selected = data.stages.find((stage) => stage.page.id === params.get("stage")) || data.stages.find((stage) => stage.current && stage.lane === 0) || data.stages[0];
+  const orderedStages = orderLifeStagesFromPresent(data.stages);
+  const selected = orderedStages.find((stage) => stage.page.id === params.get("stage")) || orderedStages.find((stage) => stage.current && stage.lane === 0) || orderedStages[0];
   const selectStage = (id: string) => setParams((current) => { const next = new URLSearchParams(current); next.set("stage", id); return next; });
   return (
     <div className="life-map-page understanding-life-page">
-      <UnderstandingBanner tone="life" title="人生轨迹" description="阶段、转折与近况回信共同组成一条可回看的路径。这里保留时间顺序，也保留同一时期并行发生的人生线索。" count={data.stages.length + data.events.length} countLabel="个阶段与转折" />
-      <LifeViewSwitch active="timeline" />
+      <UnderstandingBanner tone="life" title="人生轨迹" description="沿着阶段与转折回看一路走来的变化。这里保留时间顺序，也保留同一时期并行发生的人生线索。" count={data.stages.length + data.events.length} countLabel="个阶段与转折" />
       <section className="understanding-timeline" aria-label="人生阶段时间线">
-        <div className="understanding-timeline-item is-now"><i /><div><span>现在</span><p>从此刻向前回看，新的经历会继续补入这条时间线。</p></div></div>
-        {data.stages.map((stage) => {
+        <div className="understanding-timeline-item is-now"><i /><div><span>现在</span><p>从此刻向过去回看，新的经历会继续补在最上方。</p></div></div>
+        {orderedStages.map((stage) => {
           const isSelected = selected?.page.id === stage.page.id;
           return <button type="button" key={stage.page.id} className={`understanding-timeline-item${isSelected ? " is-selected" : ""}${stage.relatedEvents.length ? " is-turning" : ""}${stage.lane > 0 ? " is-parallel" : ""}`} onClick={() => selectStage(stage.page.id)}>
             <i /><div><span>{stage.range}</span><b>{stage.page.title}</b><p>{stage.focus}</p><small>{stage.lane > 0 ? "并行人生线" : "人生主线"}{stage.relatedEvents.length ? ` · ${stage.relatedEvents.length} 个转折` : ""}</small></div>
@@ -42,87 +43,6 @@ export function Timeline({ revision }: { revision: number }) {
         ] as Array<[string, WikiPageSummary[]]>).map(([label, pages]) => pages.length ? <div key={label}><b>{label}</b><span>{pages.slice(0, 5).map((page) => <PageLink key={page.id} page={page}>{page.title}</PageLink>)}</span></div> : null)}</div>
       </section>}
       <ContextualAgentDock revision={revision} context={{ scope: "人生地图", title: selected?.page.title || "人生阶段", pageId: selected?.page.id, summary: selected?.focus, defaultMode: "write", launcherLabel: "补充这个阶段", suggestions: ["我想起一件属于这个阶段的重要经历，请帮我判断应该补充到哪里。", "结合这个阶段的证据，帮我梳理它如何影响了后来的选择。", "这个阶段还有一条并行的人生线没有记录，请帮我补充。"] }} />
-    </div>
-  );
-}
-
-const graphColors = ["#416b59", "#a36e38", "#496f86", "#a6534c", "#75658b", "#77874c", "#9b6551", "#427d78"];
-
-export function KnowledgeGraph({ revision }: { revision: number }) {
-  const [params, setParams] = useSearchParams();
-  const focusId = params.get("focus") || "";
-  const { data, loading } = useApi<GraphData>(`/api/views/graph${focusId ? `?focus=${encodeURIComponent(focusId)}` : ""}`, revision);
-  const [category, setCategory] = useState("all");
-  const returnContext = useReturnContext();
-  const focusNode = data?.nodes.find((node) => node.id === data.focusId);
-  const prepared = useMemo(() => {
-    if (!data) return undefined;
-    const degree = new Map<string, number>();
-    for (const link of data.links) {
-      degree.set(link.source, (degree.get(link.source) || 0) + 1);
-      degree.set(link.target, (degree.get(link.target) || 0) + 1);
-    }
-    const primary = category === "all"
-      ? data.nodes.filter((node) => (degree.get(node.id) || 0) > 0).sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0)).slice(0, 96)
-      : data.nodes.filter((node) => node.category === category);
-    const primaryIds = new Set(primary.map((node) => node.id));
-    const neighborIds = new Set<string>();
-    if (category !== "all") for (const link of data.links) {
-      if (primaryIds.has(link.source)) neighborIds.add(link.target);
-      if (primaryIds.has(link.target)) neighborIds.add(link.source);
-    }
-    const selected = category === "all" ? primary : [...primary, ...data.nodes.filter((node) => neighborIds.has(node.id) && !primaryIds.has(node.id)).slice(0, 60)];
-    const nodes = selected.slice(0, 120);
-    const ids = new Set(nodes.map((node) => node.id));
-    const categories = [...new Set(nodes.map((node) => node.category))];
-    const positions = new Map<string, { x: number; y: number; color: string }>();
-    categories.forEach((name, categoryIndex) => {
-      const group = nodes.filter((node) => node.category === name);
-      const groupAngle = (Math.PI * 2 * categoryIndex) / Math.max(categories.length, 1) - Math.PI / 2;
-      const centerX = 480 + Math.cos(groupAngle) * (categories.length === 1 ? 0 : 245);
-      const centerY = 310 + Math.sin(groupAngle) * (categories.length === 1 ? 0 : 205);
-      group.forEach((node, index) => {
-        const ring = Math.floor(index / 12) + 1;
-        const angle = (Math.PI * 2 * (index % 12)) / Math.min(group.length, 12) + groupAngle;
-        const radius = group.length === 1 ? 0 : 22 + ring * 17;
-        positions.set(node.id, { x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius, color: graphColors[categoryIndex % graphColors.length]! });
-      });
-    });
-    return { nodes, positions, links: data.links.filter((link) => ids.has(link.source) && ids.has(link.target)), degree };
-  }, [data, category]);
-  if (loading || !data || !prepared) return <Loading label="正在梳理知识关系" />;
-  const counts = data.nodes.reduce<Record<string, number>>((result, node) => ((result[node.category] = (result[node.category] || 0) + 1), result), {});
-  return (
-    <div>
-      <SectionTabs items={knowledgeTabs} />
-      <PageHeader title="关系地图" description="线不是装饰：它表示知识页面之间真实存在的引用。选择一种结构，可以同时看见它连接到哪些经历、人物与判断。" />
-      {focusNode && <div className="graph-focus-bar"><div><span>正在查看局部关系</span><b>{focusNode.title}</b></div><button onClick={() => setParams({})}>回到核心网络</button></div>}
-      <div className="graph-filters">
-        <button className={category === "all" ? "active" : ""} onClick={() => setCategory("all")}><b>核心网络</b><span>{data.nodes.length} 个页面</span></button>
-        {Object.entries(counts).filter(([key]) => graphCategoryNames[key]).map(([key, count]) => (
-          <button key={key} className={category === key ? "active" : ""} onClick={() => setCategory(key)}><b>{graphCategoryNames[key]}</b><span>{count}</span></button>
-        ))}
-      </div>
-      <div className="graph-canvas">
-        <svg viewBox="0 0 960 620" role="img" aria-label="知识页面关系图">
-          <g className="graph-links">{prepared.links.map((link) => {
-            const source = prepared.positions.get(link.source)!; const target = prepared.positions.get(link.target)!;
-            return <line key={`${link.source}-${link.target}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />;
-          })}</g>
-          <g>{prepared.nodes.map((node) => {
-            const position = prepared.positions.get(node.id)!;
-            const important = (prepared.degree.get(node.id) || 0) > 3;
-            return <g key={node.id} className="graph-node" role="button" tabIndex={0} aria-label={`查看 ${node.title} 的局部关系`} transform={`translate(${position.x} ${position.y})`} onClick={() => { setParams({ focus: node.id }); setCategory("all"); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setParams({ focus: node.id }); setCategory("all"); } }}>
-              <circle r={important ? 8 : 5} fill={position.color} />
-              {(important || category !== "all") && <text x="11" y="4">{node.title.slice(0, 12)}</text>}
-              <title>{node.title} · {graphCategoryNames[node.category] || node.category}</title>
-            </g>;
-          })}</g>
-        </svg>
-        <div className="graph-note">显示 {prepared.nodes.length} 个页面、{prepared.links.length} 条真实引用；点击节点继续收拢到它的局部关系。</div>
-      </div>
-      <div className="graph-adjacency"><b>当前网络中的页面</b><p>关系图之外的可访问入口；打开原文不会改变当前筛选。</p><div>{[...prepared.nodes].sort((a, b) => (prepared.degree.get(b.id) || 0) - (prepared.degree.get(a.id) || 0)).slice(0, 24).map((node) => <NavLink key={node.id} to={pageHref(node.id)} state={returnContext}><span>{graphCategoryNames[node.category] || node.category} · {prepared.degree.get(node.id) || 0} 个连接</span><b>{node.title}</b></NavLink>)}</div></div>
-      <ContextualAgentDock revision={revision} context={{ scope: "我的知识 · 关系地图", title: category === "all" ? "核心知识关系" : graphCategoryNames[category] || category, summary: `当前显示 ${prepared.nodes.length} 个页面与 ${prepared.links.length} 条真实引用。`, defaultMode: "read", launcherLabel: "询问这张关系图", suggestions: ["这张关系图里哪些页面连接最关键？它们共同说明了什么？", "当前分类与其他人生结构之间有哪些值得追查的连接？"] }} />
     </div>
   );
 }
@@ -244,8 +164,7 @@ export function Relationships({ revision }: { revision: number }) {
   </div>;
 }
 
-export function Cards({ revision }: { revision: number }) {
-  const { category = "cycles" } = useParams();
+export function Cards({ revision, category }: { revision: number; category: "personal-lines" | "cycles" | "systems" }) {
   const meta = categoryMeta[category] || { title: category, intro: "" };
   const { data, loading } = useApi<StructuredCard[]>(`/api/views/cards/${category}`, revision);
   if (loading || !data) return <Loading />;
@@ -282,8 +201,7 @@ export function Letters({ revision }: { revision: number }) {
   const selectVersion = (id?: string) => { setParams((current) => { const next = new URLSearchParams(current); if (!id || id === latestVersion?.id) next.delete("version"); else next.set("version", id); return next; }, { replace: true }); };
   return (
     <div className="understanding-life-page understanding-letters-page">
-      <UnderstandingBanner tone="life" title="人生轨迹" description="阶段、转折与近况回信共同组成一条可回看的路径。回信让过去的材料与此刻重新发生联系。" count={data.letters.length} countLabel="封近况回信" />
-      <LifeViewSwitch active="letters" />
+      <UnderstandingBanner tone="life" title="近况回信" description="从过去的记录回望此刻，让当时的经历与现在重新发生联系。" count={data.letters.length} countLabel="封近况回信" />
       <div className="view-switch"><button className={view === "chronology" ? "active" : ""} onClick={() => { setView("chronology"); selectLetter(undefined, true); }}>按时间阅读</button><button className={view === "themes" ? "active" : ""} onClick={() => { setView("themes"); selectLetter(undefined, true); }}>沿主题追踪 <span>{data.threads.length}</span></button></div>
       {view === "chronology" ? <div className="letter-filters">{["全部", ...data.years].map((item) => <button key={item} className={year === item ? "active" : ""} onClick={() => { setYear(item); selectLetter(undefined, true); }}>{item}<span>{item === "全部" ? data.letters.length : data.letters.filter((letter) => letter.letterDate.startsWith(item)).length}</span></button>)}</div> : <><div className="letter-thread-note"><span>先显示回信最多的主题</span><button onClick={() => setShowAllThreads((value) => !value)}>{showAllThreads ? "收起长尾主题" : `查看全部 ${data.threads.length} 个主题`}</button></div><div className="letter-threads">{[{ id: "全部", title: "全部主题", letters: data.letters.map((letter) => letter.page.id), latestDate: "", category: "uncategorized" as const }, ...(showAllThreads ? data.threads : data.threads.slice(0, 14))].map((item) => <button key={item.id} className={thread === item.id ? "active" : ""} onClick={() => { setThread(item.id); selectLetter(undefined, true); }}><b>{item.title}</b><span>{item.letters.length} 封</span></button>)}</div></>}
       <div className={`letter-explorer${indexOpen ? "" : " index-collapsed"}`}>
@@ -353,98 +271,7 @@ export function MentalModels({ revision }: { revision: number }) {
   );
 }
 
-export function Quotes({ revision }: { revision: number }) {
-  const { data: view, loading, error } = useApi<QuotesView>("/api/views/quotes", revision);
-  if (loading) return <Loading label="正在整理能唤回判断的话" />;
-  if (error || !view) return <Empty>{error || "暂无金句"}</Empty>;
-  const { page, groups } = view;
-  return (
-    <div>
-      <SectionTabs items={knowledgeTabs} />
-      <PageHeader title="金句集锦" description="这里区分你明确保留的表达、过去认可过的话与尚待确认的候选，不把它们混成一面通用名言墙。" />
-      <div className="quote-summary">
-        {groups.map((group) => <a href={`#${encodeURIComponent(group.title)}`} key={group.title}><b>{group.title.replace(/^这次|^过去|^从/, "")}</b><span>{group.entries.length} 条</span></a>)}
-      </div>
-      <div className="quote-groups">
-        {groups.map((group) => (
-          <section key={group.title} id={encodeURIComponent(group.title)}>
-            <div className="quote-group-heading"><h2>{group.title}</h2><span>{group.entries.length}</span></div>
-            <div className="quote-grid">
-              {group.entries.map((entry) => {
-                return <article className="quote-card" key={`${group.title}-${entry.title}`}>
-                  <div className="quote-card-meta"><span className={entry.confirmed ? "confirmed" : "candidate"}>{entry.confirmed ? "已确认" : "候选"}</span><b>{entry.title}</b></div>
-                  <blockquote><ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.quote}</ReactMarkdown></blockquote>
-                  {entry.usage && <p className="quote-usage">{entry.usage}</p>}
-                  {entry.source && <small>{entry.source}</small>}
-                </article>;
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
-      <PageLink page={page} className="source-page-link">阅读完整收录说明与来源 →</PageLink>
-      <ContextualAgentDock revision={revision} context={{ scope: "我的知识 · 金句集锦", title: "金句集锦", pageId: page.id, summary: "区分明确确认、过去认可与待确认候选的耐久表达。", defaultMode: "write", launcherLabel: "补充或核对一句话", suggestions: ["我有一句最近反复想到的话，请帮我判断它是否值得进入金句集锦。", "请核对当前候选金句的来源和确认状态，不要把推断写成我已认可。"] }} />
-    </div>
-  );
-}
-
-function flattenMaterialSkills(nodes: SkillTreeNode[]): SkillTreeNode[] {
-  return nodes.flatMap((node) => node.kind === "file" ? [node] : flattenMaterialSkills(node.children || []));
-}
-
-export function Library({ revision }: { revision: number }) {
-  const [category, setCategory] = useState("all");
-  const [query, setQuery] = useState("");
-  const [visibleCount, setVisibleCount] = useState(30);
-  const [expandedSkills, setExpandedSkills] = useState<string[]>([]);
-  const { data, loading } = useApi<WikiPageSummary[]>("/api/pages?sources=false", revision);
-  const { data: skillTree, loading: skillsLoading } = useApi<SkillTreeNode[]>("/api/build/skill-tree", revision);
-  if (loading || !data || skillsLoading || !skillTree) return <Loading label="正在汇总知识与构建规则" />;
-  const counts = data.reduce<Record<string, number>>((result, page) => ((result[page.category] = (result[page.category] || 0) + 1), result), {});
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const filtered = data.filter((page) => (category === "all" || page.category === category) && `${page.title} ${page.aliases.join(" ")} ${page.excerpt}`.toLocaleLowerCase().includes(normalizedQuery));
-  const skillFiles = flattenMaterialSkills(skillTree);
-  const matchedSkills = normalizedQuery ? skillFiles.filter((file) => `${file.skillName || ""} ${file.name} ${file.path}`.toLocaleLowerCase().includes(normalizedQuery)) : [];
-  function toggleSkill(path: string) { setExpandedSkills((current) => current.includes(path) ? current.filter((item) => item !== path) : [...current, path]); }
-  return (
-    <div className="understanding-library-page">
-      <UnderstandingBanner tone="all" title="全部资料" description="已有知识和构建规则放在一起，方便从一个结论回到它的内容、来源与形成方式。" count={data.length + skillFiles.length} countLabel="个知识页面与规则文件" />
-      <div className="understanding-library-toolbar"><label><Icon name="search" size={17} /><input name="knowledge-search" autoComplete="off" aria-label="搜索全部知识与构建规则" value={query} onChange={(event) => { setQuery(event.target.value); setVisibleCount(30); }} placeholder="搜索 Wiki 知识与 Skill 规则…" /></label><span>{filtered.length + (normalizedQuery ? matchedSkills.length : skillFiles.length)} 项</span></div>
-      <nav className="understanding-library-chips" aria-label="资料分类">
-        <button className={category === "all" ? "active" : ""} onClick={() => { setCategory("all"); setVisibleCount(30); }}>全部 <b>{data.length}</b></button>
-        {Object.entries(counts).filter(([key]) => graphCategoryNames[key] && !["maintenance", "sources"].includes(key)).map(([key, count]) => <button key={key} className={category === key ? "active" : ""} onClick={() => { setCategory(key); setVisibleCount(30); }}>{graphCategoryNames[key]} <b>{count}</b></button>)}
-        <NavLink to="/quotes">金句</NavLink><NavLink to="/graph">关系网络</NavLink>
-      </nav>
-      <div className="understanding-library-columns">
-        <section className="understanding-material-column understanding-material-column--skills">
-          <header><span>Skill 规则</span><h2>知识如何被构建</h2><p>查看每条规则负责读取什么、怎样形成页面，以及它的安全边界。</p></header>
-          <div className="understanding-material-tree">
-            {normalizedQuery ? <div className="understanding-material-results">{matchedSkills.slice(0, 40).map((file) => <NavLink key={file.path} to={`/advanced?file=${encodeURIComponent(file.path)}`}><b>{file.name}</b><small>{file.skillName || file.path}</small></NavLink>)}{!matchedSkills.length ? <Empty>没有匹配的规则文件。</Empty> : null}</div> : skillTree.map((group) => {
-              const open = expandedSkills.includes(group.path);
-              const children = group.children || [];
-              return <div className={`understanding-material-group${open ? " is-open" : ""}`} key={group.path}>
-                <button type="button" onClick={() => toggleSkill(group.path)} aria-expanded={open}><Icon name="down" size={14} /><span><b>{group.skillName || group.name}</b><small>{group.kind === "directory" ? `${group.fileCount || flattenMaterialSkills(children).length} 个规则文件` : group.path}</small></span></button>
-                {open ? <div>{children.map((child) => <NavLink key={child.path} to={child.kind === "file" ? `/advanced?file=${encodeURIComponent(child.path)}` : `/advanced?dir=${encodeURIComponent(child.path)}`}><b>{child.skillName || child.name}</b><small>{child.kind === "file" ? child.path : `${child.fileCount || flattenMaterialSkills(child.children || []).length} 个文件`}</small></NavLink>)}</div> : null}
-              </div>;
-            })}
-          </div>
-          <footer><NavLink to="/advanced">打开完整规则浏览器 <Icon name="arrow" size={14} /></NavLink></footer>
-        </section>
-        <section className="understanding-material-column understanding-material-column--wiki">
-          <header><span>Wiki 知识</span><h2>已经形成的理解</h2><p>只展示经过构建的知识页面，每一条都可以继续回到原始材料核对。</p></header>
-          <div className="understanding-wiki-list">
-            {filtered.slice(0, visibleCount).map((page) => <PageLink page={page} key={page.id}><span>{graphCategoryNames[page.category] || page.category}</span><div><b>{page.title}</b><p>{page.excerpt}</p></div><Icon name="arrow" size={14} /></PageLink>)}
-            {!filtered.length ? <Empty>没有匹配的知识页面。</Empty> : null}
-          </div>
-          {visibleCount < filtered.length ? <footer><button type="button" onClick={() => setVisibleCount((value) => value + 30)}>继续显示 {Math.min(30, filtered.length - visibleCount)} 条</button></footer> : null}
-        </section>
-      </div>
-      <ContextualAgentDock revision={revision} context={{ scope: `全部资料 · ${category === "all" ? "已有知识与规则" : graphCategoryNames[category] || category}`, title: query ? `搜索“${query}”的当前结果` : "全部资料", summary: `当前筛选显示 ${filtered.length} 个知识页面与 ${normalizedQuery ? matchedSkills.length : skillFiles.length} 个规则文件。`, defaultMode: "read", launcherLabel: "询问当前资料", suggestions: ["请基于当前知识范围，帮我找到与最近状态最相关的三条证据。", "当前哪些判断缺少足够的原始材料支持？"] }} />
-    </div>
-  );
-}
-
-export function SearchResults({ revision }: { revision: number }) {
+ export function SearchResults({ revision }: { revision: number }) {
   const [params] = useSearchParams();
   const query = params.get("q") || "";
   const { data, loading } = useApi<WikiPageSummary[]>(`/api/search?q=${encodeURIComponent(query)}`, revision);

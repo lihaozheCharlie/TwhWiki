@@ -1,3 +1,5 @@
+import type { LifeStageView } from "@the-way-here/shared";
+
 const VIEWBOX_WIDTH = 1000;
 const FIRST_BRANCH_Y = 188;
 const BRANCH_ROW_GAP = 82;
@@ -14,6 +16,15 @@ function stageInterval(range: string): { start: number; end: number } | undefine
     start: years[0]!,
     end: /至今|现在|current/i.test(range) ? Number.POSITIVE_INFINITY : years.at(-1)!,
   };
+}
+
+export function orderLifeStagesFromPresent(stages: LifeStageView[]): LifeStageView[] {
+  return [...stages].sort((a, b) => {
+    if (a.current !== b.current) return Number(b.current) - Number(a.current);
+    const aStart = stageInterval(a.range)?.start ?? Number.NEGATIVE_INFINITY;
+    const bStart = stageInterval(b.range)?.start ?? Number.NEGATIVE_INFINITY;
+    return bStart - aStart || b.order - a.order;
+  });
 }
 
 export interface ParallelStageRoute {

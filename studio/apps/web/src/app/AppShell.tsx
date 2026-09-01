@@ -5,8 +5,8 @@ import { api, useApi } from "../api";
 import { navigation, type ReturnContext } from "./config";
 import { Icon } from "../shared/ui";
 import { OrganizedSources } from "../features/sources/Sources";
-import { AdvancedBuild, FocusWorkspace, GrowthHub, KnowledgeHome, QuestionsHub, Today } from "../features/overview/OverviewPages";
-import { Cards, KnowledgeGraph, Letters, Library, MentalModels, Quotes, Reader, Relationships, SearchResults, Timeline } from "../features/knowledge/KnowledgePages";
+import { FocusWorkspace, GrowthHub, KnowledgeHome, QuestionsHub, Today } from "../features/overview/OverviewPages";
+import { Cards, Letters, MentalModels, Reader, Relationships, SearchResults, Timeline } from "../features/knowledge/KnowledgePages";
 import { CreateKnowledgeBaseDialog, DemoKnowledgeBaseNotice } from "../features/knowledge-bases/KnowledgeBaseOnboarding";
 
 const CREATE_KNOWLEDGE_BASE = "__create_knowledge_base__";
@@ -91,8 +91,6 @@ export function AppShell({ revision }: { revision: number }) {
   }
 
   function childItemActive(child: { readonly to: string; readonly active: readonly string[] }): boolean {
-    if (child.to === "/sources") return location.pathname === "/sources" || location.pathname === "/sources/materials" || (Boolean(isSourceReader) && !readerReturnContext?.returnTo.startsWith("/sources/import"));
-    if (child.to === "/sources/import") return location.pathname.startsWith("/sources/import") || (Boolean(isSourceReader) && Boolean(readerReturnContext?.returnTo.startsWith("/sources/import")));
     return child.active.some((prefix) => location.pathname.startsWith(prefix));
   }
 
@@ -116,7 +114,6 @@ export function AppShell({ revision }: { revision: number }) {
       let destination = location.pathname;
       if (destination.startsWith("/page/")) destination = isSourceReader ? "/sources" : "/knowledge";
       else if (destination.startsWith("/focus/")) destination = "/questions";
-      else if (destination.startsWith("/workbench")) destination = "/";
       window.location.assign(destination);
     } catch (reason: any) {
       setKnowledgeBaseSwitching(false);
@@ -187,23 +184,19 @@ export function AppShell({ revision }: { revision: number }) {
             <Route path="/questions" element={<QuestionsHub revision={revision} />} />
             <Route path="/sources" element={<OrganizedSources revision={revision} />} />
             <Route path="/sources/materials" element={<OrganizedSources revision={revision} />} />
-            <Route path="/sources/import" element={<Navigate to="/sources" replace />} />
             <Route path="/knowledge" element={<KnowledgeHome revision={revision} />} />
-            <Route path="/advanced" element={<AdvancedBuild revision={revision} />} />
             <Route path="/focus/:signalId" element={<FocusWorkspace revision={revision} />} />
             <Route path="/insights" element={<GrowthHub revision={revision} />} />
             <Route path="/timeline" element={<Timeline revision={revision} />} />
             <Route path="/relationships" element={<Relationships revision={revision} />} />
-            <Route path="/graph" element={<KnowledgeGraph revision={revision} />} />
-            <Route path="/cards/relationship-roles" element={<Relationships revision={revision} />} />
-            <Route path="/cards/:category" element={<Cards revision={revision} />} />
+            <Route path="/cards/personal-lines" element={<Cards revision={revision} category="personal-lines" />} />
+            <Route path="/cards/cycles" element={<Cards revision={revision} category="cycles" />} />
+            <Route path="/cards/systems" element={<Cards revision={revision} category="systems" />} />
             <Route path="/letters" element={<Letters revision={revision} />} />
             <Route path="/mental-models" element={<MentalModels revision={revision} />} />
-            <Route path="/quotes" element={<Quotes revision={revision} />} />
-            <Route path="/library" element={<Library revision={revision} />} />
             <Route path="/search" element={<SearchResults revision={revision} />} />
             <Route path="/page/*" element={<Reader revision={revision} />} />
-            <Route path="/workbench/*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </main>

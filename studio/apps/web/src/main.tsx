@@ -5,7 +5,7 @@ import "@fontsource-variable/noto-sans-sc";
 import App from "./App";
 import "./styles/base.css";
 import "./styles/features.css";
-import "./styles/theme.css";
+import "./styles/archive-foundation.css";
 import "./styles/refinements.css";
 import "./styles/archive-theme.css";
 import "./styles/understanding.css";

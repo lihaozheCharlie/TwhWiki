@@ -2,25 +2,20 @@ export const navigation = [
   { to: "/", label: "此刻", icon: "now", active: ["/"], children: [] },
   { to: "/questions", label: "值得聊聊", icon: "spark", active: ["/questions", "/focus/"], children: [] },
   { to: "/sources", label: "生活记录", icon: "source", active: ["/sources", "/imports/"], children: [] },
-  { to: "/knowledge", label: "已有理解", icon: "library", active: ["/knowledge", "/insights", "/cards/", "/mental-models", "/timeline", "/letters", "/relationships", "/library", "/quotes", "/graph", "/page/", "/advanced"], children: [
+  { to: "/knowledge", label: "已有理解", icon: "library", active: ["/knowledge", "/insights", "/cards/", "/mental-models", "/timeline", "/letters", "/relationships", "/page/"], children: [
     { to: "/knowledge", label: "总览", active: ["/knowledge"] },
     { to: "/insights", label: "理解自己", active: ["/insights", "/cards/personal-lines", "/cards/cycles", "/cards/systems", "/mental-models"] },
-    { to: "/timeline", label: "人生轨迹", active: ["/timeline", "/letters"] },
-    { to: "/relationships", label: "人与世界", active: ["/relationships", "/cards/relationship-roles"] },
-    { to: "/library", label: "全部资料", active: ["/library", "/quotes", "/graph", "/advanced"] },
+    { to: "/timeline", label: "人生轨迹", active: ["/timeline"] },
+    { to: "/letters", label: "近况回信", active: ["/letters"] },
+    { to: "/relationships", label: "人与世界", active: ["/relationships"] },
   ] },
 ] as const;
 
 export const growthTabs = [["/cards/personal-lines", "个人主线"], ["/cards/cycles", "反复循环"], ["/cards/systems", "现实系统"], ["/mental-models", "思维模型"]] as const;
-export const knowledgeTabs = [["/library", "全部资料"], ["/quotes", "金句"], ["/graph", "关系网络"]] as const;
-
 export const categoryMeta: Record<string, { title: string; intro: string }> = {
   "personal-lines": { title: "个人主线", intro: "这一生反复在解决什么，以及它怎样穿过不同阶段。" },
   cycles: { title: "反复循环", intro: "看见触发、惯性反应、代价与真实有效的中断方式。" },
   systems: { title: "现实系统", intro: "职业、家庭、身体、资产、注意力与表达怎样共同运行。" },
-  "relationship-roles": { title: "人与关系", intro: "人物不是通讯录，而是在你生命里承担不同功能的节点。" },
-  "mental-models": { title: "思维模型", intro: "能够解释经历、限制误判并接受反例检验的个人判断工具。" },
-  quotes: { title: "金句集锦", intro: "能在关键时刻迅速唤回判断与行动边界的表达。" },
 };
 
 export const graphCategoryNames: Record<string, string> = {

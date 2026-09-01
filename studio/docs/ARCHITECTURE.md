@@ -105,7 +105,7 @@ agents:
 - `apps/server/src/services/validation-runner.ts`：按 Run 上下文执行质量命令。
 - `apps/web/src/app/`：应用壳、路由装配和稳定导航配置。
 - `apps/web/src/features/sources/`：原始材料导入、浏览和编辑。
-- `apps/web/src/features/overview/`：此刻、理解自己、问题工作区与高级构建入口。
+- `apps/web/src/features/overview/`：此刻、已有理解总览、理解自己与问题依据工作区。
 - `apps/web/src/features/knowledge/`：人生地图、人物、回信、卡片、图谱、阅读与搜索。
 - `apps/web/src/features/collaboration/`：统一上下文 Agent 抽屉、对话历史、结果目标及纯展示模型。
 - `apps/web/src/shared/`：共享 Markdown 阅读编辑深模块、路由语义和基础展示模块；`EditableDocument` 统一双击激活、自动保存、页面级滚动与章节跟踪，页面只传正文和展示变体。
