@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
-export type IconName = "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "back" | "close" | "down" | "check";
+export type IconName = "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "history" | "plus" | "back" | "close" | "down" | "check";
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -21,6 +21,8 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     journal: <><path d="M6 3h11a2 2 0 0 1 2 2v16H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M8 3v18M11 8h5M11 12h5" /></>,
     message: <><path d="M4 5h16v11H9l-5 4V5Z" /><path d="M8 9h8M8 12h6" /></>,
     receipt: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" /><path d="M9 8h6M9 12h6M9 16h4" /></>,
+    history: <><path d="M4.7 7.8A8 8 0 1 1 4 12" /><path d="M4 4v4h4M12 8v4l2.7 1.6" /></>,
+    plus: <path d="M12 5v14M5 12h14" />,
     back: <><path d="M19 12H5M10 7l-5 5 5 5" /></>,
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
     down: <path d="m7 9 5 5 5-5" />,

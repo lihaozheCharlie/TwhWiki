@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WikiRun } from "@the-way-here/shared";
-import { contextPrompt, groupAgentThreads, letterRunVersions, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput } from "./model";
+import { contextPrompt, groupAgentThreads, letterRunVersions, resolveComposerMode, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput } from "./model";
 
 describe("collaboration model", () => {
   it("extracts the final answer from Codex events", () => {
@@ -54,5 +54,13 @@ describe("collaboration model", () => {
     expect(shouldSubmitAgentInput({ key: "Enter", shiftKey: true })).toBe(false);
     expect(shouldSubmitAgentInput({ key: "Enter", shiftKey: false, isComposing: true })).toBe(false);
     expect(shouldSubmitAgentInput({ key: "a", shiftKey: false })).toBe(false);
+  });
+
+  it("lets Agent infer every normal conversation while preserving validation", () => {
+    expect(resolveComposerMode()).toBe("auto");
+    expect(resolveComposerMode("read")).toBe("auto");
+    expect(resolveComposerMode("write")).toBe("auto");
+    expect(resolveComposerMode("auto")).toBe("auto");
+    expect(resolveComposerMode("validate")).toBe("validate");
   });
 });

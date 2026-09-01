@@ -36,14 +36,14 @@ function returnLabelForPath(pathname: string): string {
   if (pathname === "/questions" || pathname.startsWith("/focus/")) return "返回值得聊聊";
   if (pathname === "/insights") return "返回理解自己";
   if (pathname === "/timeline") return "返回人生地图";
-  if (pathname === "/letters") return "返回近况回信";
+  if (pathname === "/letters") return "返回人生轨迹";
   if (pathname === "/relationships" || pathname === "/cards/relationship-roles") return "返回人与世界";
   if (pathname === "/mental-models") return "返回思维模型";
   if (pathname === "/quotes") return "返回金句集锦";
   if (pathname === "/graph") return "返回关系地图";
   if (pathname.startsWith("/sources")) return "返回生活记录";
   if (pathname === "/knowledge" || pathname === "/library") return "返回已有理解";
-  if (pathname === "/advanced") return "返回构建设置";
+  if (pathname === "/advanced") return "返回全部资料";
   if (pathname === "/search") return "返回搜索结果";
   if (pathname.startsWith("/cards/personal-lines")) return "返回个人主线";
   if (pathname.startsWith("/cards/cycles")) return "返回反复循环";

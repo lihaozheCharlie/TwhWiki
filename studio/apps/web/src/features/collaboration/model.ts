@@ -27,6 +27,10 @@ export function openContextAgent(request: OpenContextAgentRequest = {}): void {
   window.dispatchEvent(new CustomEvent<OpenContextAgentRequest>("open-context-agent", { detail: request }));
 }
 
+export function resolveComposerMode(requested?: WikiRun["mode"]): WikiRun["mode"] {
+  return requested === "validate" ? "validate" : "auto";
+}
+
 export type AgentThread = {
   id: string;
   latest: WikiRun;
@@ -79,10 +83,10 @@ export const collaborationModes: Record<WikiRun["mode"], {
   action: string;
 }> = {
   auto: {
-    short: "协作",
+    short: "自动判断",
     title: "告诉我你想聊什么，或者想留下什么",
     description: "我会根据你的话判断是陪你理解、整理记录，还是更新已经形成的理解。",
-    boundary: "按请求判断；只有明确要求修改时才会写入",
+    boundary: "我会先理解你的意图；只有明确要求修改时才会写入",
     placeholder: "问一个问题，或说说希望补充、整理、更新什么…",
     action: "从这里开始",
   },

@@ -8,6 +8,7 @@ import "./styles/features.css";
 import "./styles/theme.css";
 import "./styles/refinements.css";
 import "./styles/archive-theme.css";
+import "./styles/understanding.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

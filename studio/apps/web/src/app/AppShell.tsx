@@ -166,7 +166,10 @@ export function AppShell({ revision }: { revision: number }) {
       {activeSection && activeSection.children.length > 0 ? <div className="local-navigation">
         <div className="local-navigation-inner">
           <nav id="local-navigation-links" aria-label={`${activeSection.label}分类`}>
-            {activeSection.children.map((child) => <NavLink key={child.to} to={child.to} end={child.to === "/knowledge"} aria-current={childItemActive(child) ? "page" : undefined} className={childItemActive(child) ? "active" : ""}>{child.label}</NavLink>)}
+            {activeSection.children.map((child, index) => <React.Fragment key={child.to}>
+              <NavLink to={child.to} end={child.to === "/knowledge"} aria-current={childItemActive(child) ? "page" : undefined} className={`${childItemActive(child) ? "active" : ""}${index === 0 ? " root-tab" : ""}`}>{child.label}</NavLink>
+              {index === 0 ? <span className="local-navigation-separator" aria-hidden="true" /> : null}
+            </React.Fragment>)}
           </nav>
         </div>
       </div> : null}
