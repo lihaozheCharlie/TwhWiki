@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WikiRun } from "@the-way-here/shared";
-import { contextPrompt, groupAgentThreads, letterRunVersions, resolveComposerMode, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput } from "./model";
+import { attachedContextPrompt, contextPrompt, groupAgentThreads, letterRunVersions, resolveAgentAutoSubmission, resolveComposerMode, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput } from "./model";
 
 describe("collaboration model", () => {
   it("extracts the final answer from Codex events", () => {
@@ -21,6 +21,18 @@ describe("collaboration model", () => {
     const run = { title: "任务", prompt: "边界\n用户请求：\n真实问题", events: [] } as unknown as WikiRun;
     expect(runDisplayPrompt(run)).toBe("真实问题");
     expect(contextPrompt({ scope: "人物", title: "甲", suggestions: [] }, "继续查证")).toContain("用户请求：\n继续查证");
+  });
+
+  it("keeps attached topic context separate from the user's own words", () => {
+    const prompt = attachedContextPrompt({
+      title: "你愿意把哪一种身体信号当作底线？",
+      currentUnderstanding: "身体恢复仍不稳定。",
+      reason: "近期记录还不足以确认稳定节奏。",
+    }, "我想先说说最近一次晚睡。");
+
+    expect(prompt).toContain("不是用户已经说过的话");
+    expect(prompt).toContain("话题：你愿意把哪一种身体信号当作底线？");
+    expect(prompt).toContain("用户这次想说：\n我想先说说最近一次晚睡。");
   });
 
   it("groups multiple turns from one Agent session into one conversation", () => {
@@ -54,6 +66,17 @@ describe("collaboration model", () => {
     expect(shouldSubmitAgentInput({ key: "Enter", shiftKey: true })).toBe(false);
     expect(shouldSubmitAgentInput({ key: "Enter", shiftKey: false, isComposing: true })).toBe(false);
     expect(shouldSubmitAgentInput({ key: "a", shiftKey: false })).toBe(false);
+  });
+
+  it("turns an explicit auto-submit request into one ready-to-send Agent message", () => {
+    expect(resolveAgentAutoSubmission({ prompt: "  带上下文的问题  ", displayPrompt: "  我真正输入的话  ", mode: "read", autoSubmit: true })).toEqual({
+      prompt: "带上下文的问题",
+      displayPrompt: "我真正输入的话",
+      mode: "auto",
+      outputTarget: undefined,
+    });
+    expect(resolveAgentAutoSubmission({ prompt: "只预填，不发送" })).toBeUndefined();
+    expect(resolveAgentAutoSubmission({ prompt: "   ", autoSubmit: true })).toBeUndefined();
   });
 
   it("lets Agent infer every normal conversation while preserving validation", () => {

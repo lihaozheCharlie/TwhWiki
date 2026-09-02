@@ -11,11 +11,27 @@ export type AgentContext = {
   compactLauncher?: boolean;
 };
 
+export type AgentAttachedContext = {
+  title: string;
+  currentUnderstanding: string;
+  reason: string;
+};
+
 export type OpenContextAgentRequest = {
   prompt?: string;
+  displayPrompt?: string;
+  attachedContext?: AgentAttachedContext;
+  autoSubmit?: boolean;
   mode?: WikiRun["mode"];
   runId?: string;
   view?: "compose" | "history";
+  outputTarget?: AgentOutputTarget;
+};
+
+export type AgentAutoSubmission = {
+  prompt: string;
+  displayPrompt: string;
+  mode: WikiRun["mode"];
   outputTarget?: AgentOutputTarget;
 };
 
@@ -25,6 +41,31 @@ export function shouldSubmitAgentInput(event: { key: string; shiftKey: boolean; 
 
 export function openContextAgent(request: OpenContextAgentRequest = {}): void {
   window.dispatchEvent(new CustomEvent<OpenContextAgentRequest>("open-context-agent", { detail: request }));
+}
+
+export function attachedContextPrompt(attachedContext: AgentAttachedContext, request: string): string {
+  return [
+    "以下是系统随话题带入的背景资料，不是用户已经说过的话：",
+    `- 话题：${attachedContext.title}`,
+    `- 已有理解：${attachedContext.currentUnderstanding}`,
+    `- 为什么值得聊：${attachedContext.reason}`,
+    "",
+    "请把这份资料当作背景，先听用户表达具体经历，再结合相关证据帮用户理清线索；一次只问一个真正需要用户补充的具体问题。",
+    "",
+    "用户这次想说：",
+    request.trim(),
+  ].join("\n");
+}
+
+export function resolveAgentAutoSubmission(request: OpenContextAgentRequest, defaultMode?: WikiRun["mode"]): AgentAutoSubmission | undefined {
+  const prompt = request.prompt?.trim();
+  if (!request.autoSubmit || !prompt) return undefined;
+  return {
+    prompt,
+    displayPrompt: request.displayPrompt?.trim() || prompt,
+    mode: resolveComposerMode(request.mode || defaultMode),
+    outputTarget: request.outputTarget,
+  };
 }
 
 export function resolveComposerMode(requested?: WikiRun["mode"]): WikiRun["mode"] {
@@ -86,7 +127,7 @@ export const collaborationModes: Record<WikiRun["mode"], {
     short: "自动判断",
     title: "告诉我你想聊什么，或者想留下什么",
     description: "我会根据你的话判断是陪你理解、整理记录，还是更新已经形成的理解。",
-    boundary: "我会先理解你的意图；只有明确要求修改时才会写入",
+    boundary: "我会判断是继续聊清，还是把值得留下的新理解放回 Wiki",
     placeholder: "问一个问题，或说说希望补充、整理、更新什么…",
     action: "从这里开始",
   },
@@ -102,9 +143,9 @@ export const collaborationModes: Record<WikiRun["mode"], {
     short: "沉淀",
     title: "把这段经历好好留下来",
     description: "把日记、新经历或新想法放回你的来路里，只更新真正受到影响的理解。",
-    boundary: "本次明确授权写入；原始笔记正文保持不变",
+    boundary: "只更新真正受影响的理解；原始笔记正文保持不变",
     placeholder: "粘贴或描述材料，并说明希望如何处理。例如：摄取今天的日记，更新相关页面并生成近况回信。",
-    action: "确认并开始整理",
+    action: "开始整理",
   },
   validate: {
     short: "维护",
@@ -176,7 +217,7 @@ export function contextPrompt(context: AgentContext, request: string): string {
     `- 对应知识页面：${context.pageId || "当前类目（请按仓库规则定位具体页面）"}`,
     context.summary ? `- 当前摘要：${context.summary}` : "",
     "",
-    "请把以上上下文作为本次任务的起点，并继续遵守仓库 AGENTS.md、相关 Skill、证据追溯和写入授权边界。不要只依据摘要作判断；需要时读取对应页面与来源。",
+    "请把以上上下文作为本次任务的起点，并继续遵守仓库 AGENTS.md、相关 Skill、证据追溯、原始笔记保护和变更范围边界。不要只依据摘要作判断；需要时读取对应页面与来源。",
     "",
     "用户请求：",
     request.trim(),

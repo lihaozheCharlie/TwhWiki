@@ -22,7 +22,7 @@ The Way Here is a long-term personal companion that remembers where the user cam
 
 Unlike a generic AI chat that forgets context or a note system that waits to be managed, The Way Here keeps original words, accumulated understanding, unanswered questions, and conversation in one local, traceable relationship. It does not claim to understand the user at first contact; it becomes more useful as the user talks, corrects it, and lets relevant history accumulate.
 
-The friend framing is an experience promise, not a claim of consciousness, emotional reciprocity, therapy, or replacement for human relationships. The Agent must stay honest about uncertainty, preserve provenance, and require explicit authority before changing durable knowledge.
+The friend framing is an experience promise, not a claim of consciousness, emotional reciprocity, therapy, or replacement for human relationships. The Agent must stay honest about uncertainty, preserve provenance, and use durable value, evidence quality, and impact scope to decide whether a conversation should update durable knowledge.
 
 ## Operating Context
 
@@ -40,7 +40,7 @@ The friend framing is an experience promise, not a claim of consciousness, emoti
 - Current delivery scope is desktop web. Mobile and tablet adaptation, touch-specific interaction, narrow-screen navigation, and mobile visual QA are out of scope until separately prioritized; feature work must not add them incidentally.
 - Full reading must always remain available. Summaries are navigation aids, never replacements for source or synthesis pages.
 - A completed person-perspective reread of a letter remains in the current knowledge base's Agent conversation history and is also retained as a durable letter version. The original letter is never overwritten; the reading surface defaults to the latest completed version and offers a provenance-labelled history switcher only when at least two versions exist.
-- Codex actions must keep query, authorized update, and health-check permissions distinct and expose progress and approval states.
+- Agent actions must keep query, scoped knowledge updates, and health checks distinct, while exposing progress, actual changes, and any high-impact confirmation states.
 - All Agent interactions use one bottom-right contextual drawer. It carries the current page context and keeps new questions, current-knowledge-base conversation history, and full thread detail in the same surface; closing it returns focus to the control that opened it.
 - The standalone Workbench / co-creation page is no longer part of the product. Legacy `/workbench` URLs redirect to home instead of opening a parallel Agent surface.
 
@@ -49,7 +49,7 @@ The friend framing is an experience promise, not a claim of consciousness, emoti
 - Product name: “The Way Here”. It describes both the path that brought the user here and the traceable path from a judgment back to its evidence.
 - Relationship: a long-term friend who remembers, asks, and accepts correction—not an omniscient analyst, therapist, judge, or life manager.
 - Voice: calm, direct, specific, conversational, non-judgmental, and comfortable saying “I don't know yet”. Prefer “说说看 / 一起聊聊 / 还不懂 / 可以纠正我” over “导入材料 / 处理任务 / 构建画像” on everyday surfaces.
-- Trust: never hide the difference between original records, current understanding, and new inference. Friendliness cannot weaken permission, provenance, or privacy boundaries.
+- Trust: never hide the difference between original records, current understanding, and new inference. Friendliness cannot weaken provenance, privacy, or change-scope boundaries.
 
 ## Product Layers
 
@@ -57,7 +57,7 @@ The friend framing is an experience promise, not a claim of consciousness, emoti
 2. **Worth Talking About / 值得聊聊** — one selected question at a time, grown from what is understood and what is still missing. The full rotating pool stays behind a quiet disclosure instead of becoming a task list, dashboard, diagnosis, or wall of choices.
 3. **Life Records / 生活记录** — the user's original words and evidence. Local files, folders, and supported statements remain readable in full and never become disposable input after processing.
 4. **Existing Understanding / 已有理解** — current themes, stages, patterns, relationships, letters, quotes, and their evidence paths. Every item can be revisited, supplemented, or corrected.
-5. **Contextual Companion** — one Agent drawer across the product. Read mode listens and helps clarify; write mode retains an explicitly authorized update; validation mode checks system health. Conversation history stays within the selected personal space.
+5. **Contextual Companion** — one Agent drawer across the product. The Agent listens first, then decides whether the conversation only needs an answer or contains durable, well-supported understanding worth retaining; validation mode checks system health. Conversation history stays within the selected personal space.
 ## Evidence on Hand
 
 - Anonymous end-to-end evidence: `../../../vault/demo/sources/` and `../../../vault/demo/wiki/`.

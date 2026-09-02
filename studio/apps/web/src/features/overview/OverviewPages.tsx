@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { NavLink, useParams } from "react-router-dom";
 import type { ConversationPrompt, FocusWorkspaceView, GraphData, PaymentJourneySummary, SectionedPageView, SourceImportBatch, StateSignal, StructuredCard, TodayView, VaultInfo, WikiPageSummary } from "@the-way-here/shared";
 import { useApi } from "../../api";
@@ -7,8 +7,9 @@ import { openContextAgent, shouldSubmitAgentInput } from "../collaboration/model
 import { cleanSourcePath, ImportMaterialsModal } from "../sources/Sources";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
+import { resizeComposerTextarea } from "../../shared/composer-input";
 import { Empty, Icon, Loading, PageHero, ParentBack } from "../../shared/ui";
-import { dailyPromptSeed, stablePromptOrder } from "./conversation-prompts";
+import { dailyPromptSeed, groundedConversationReplyPrompt, stablePromptOrder } from "./conversation-prompts";
 import { UnderstandingBanner, UnderstandingGlyph } from "../knowledge/UnderstandingLayout";
 
 export function KnowledgeHome({ revision }: { revision: number }) {
@@ -44,16 +45,23 @@ export function KnowledgeHome({ revision }: { revision: number }) {
 }
 
 function signalConversationPrompt(signal: StateSignal): string {
-  return `我想从「${signal.name}」说起。现在的阶段性理解是：${signal.judgment}。之所以在此刻提起，是因为：${signal.reason || signal.observation}。请先区分已有证据、当前理解和仍然未知，再从最需要我亲自补充的地方开始，一次只问我一个具体问题。先陪我把事情说清楚，不要修改知识库。`;
+  return `我想从「${signal.name}」说起。现在的阶段性理解是：${signal.judgment}。之所以在此刻提起，是因为：${signal.reason || signal.observation}。请先区分已有证据、当前理解和仍然未知，再从最需要我亲自补充的地方开始，一次只问我一个具体问题。`;
 }
 
 function wikiConversationPrompt(prompt: ConversationPrompt): string {
   const evidence = prompt.links.map((link) => link.label).join("、");
-  return `我想聊聊这个问题：“${prompt.question}”\n\n当前已有理解：${prompt.currentUnderstanding}\n为什么现在值得聊：${prompt.reason}\n仍然未知：${prompt.unknown}${evidence ? `\n相关知识：${evidence}` : ""}\n\n请先让我表达具体经历，再结合相关证据帮我理清线索；一次只问我一个具体问题，不要修改知识库。`;
+  return `我想聊聊这个问题：“${prompt.question}”\n\n当前已有理解：${prompt.currentUnderstanding}\n为什么现在值得聊：${prompt.reason}\n仍然未知：${prompt.unknown}${evidence ? `\n相关知识：${evidence}` : ""}\n\n请先让我表达具体经历，再结合相关证据帮我理清线索；一次只问我一个具体问题。`;
 }
 
-function openLifeConversation(prompt: string): void {
-  openContextAgent({ mode: "read", prompt });
+function openLifeConversation(question: TalkingQuestion): void {
+  openContextAgent({
+    mode: "read",
+    attachedContext: {
+      title: question.question,
+      currentUnderstanding: question.currentUnderstanding,
+      reason: question.reason,
+    },
+  });
 }
 
 function updateLabel(value?: string): string {
@@ -73,6 +81,7 @@ type TalkingQuestion = {
   reason: string;
   unknown: string;
   agentPrompt: string;
+  pageId?: string;
   sourceHref?: string;
   sourceLabel?: string;
   basis: string[];
@@ -92,7 +101,7 @@ const conversationTopicKinds: Record<ConversationTopicKind, { label: string; des
 
 const todayOpeners = [
   { id: "noticed-small-thing", question: "最近有没有哪件小事，让你比平时更在意？", agentPrompt: "我想从最近一件让我比平时更在意的小事开始。请接着我的回答，一次只问一个关于人物、处境或感受的具体问题。" },
-  { id: "stayed-in-mind", question: "今天过去以后，哪一个瞬间还留在你心里？", agentPrompt: "我想说说今天过去以后还留在心里的一个瞬间。请接着我的回答问细节，不要急着分析或总结。" },
+  { id: "stayed-in-mind", question: "今天过去以后，哪一个瞬间还留在你心里？", agentPrompt: "我想说说今天过去以后还留在心里的一个瞬间。请接着我的回答问细节。" },
   { id: "almost-said", question: "最近有没有一句差点说出口、最后又收回去的话？", agentPrompt: "我想从最近一句差点说出口、最后又收回去的话开始。请一次只问一个问题，陪我把当时的处境和顾虑说清楚。" },
   { id: "unexpected-ease", question: "这两天有没有什么时刻，让你意外地松了一口气？", agentPrompt: "我想说说这两天一个让我意外松了口气的时刻。请顺着我的回答继续问具体细节。" },
   { id: "keep-returning", question: "最近脑子里反复回来的一件事，是什么？", agentPrompt: "我想说说最近脑子里反复回来的一件事。请先陪我还原发生了什么，一次只问一个问题。" },
@@ -111,6 +120,7 @@ function talkingQuestions(data: TodayView, recentJourney?: PaymentJourneySummary
       reason: prompt.reason,
       unknown: prompt.unknown,
       agentPrompt: wikiConversationPrompt(prompt),
+      pageId: evidence?.resolvedId,
       sourceHref: evidence?.resolvedId ? pageHref(evidence.resolvedId) : undefined,
       sourceLabel: evidence?.resolvedId ? "看看依据" : undefined,
       basis: prompt.links.map((link) => link.label).filter(Boolean).slice(0, 2),
@@ -119,21 +129,25 @@ function talkingQuestions(data: TodayView, recentJourney?: PaymentJourneySummary
       weight: prompt.weight,
     };
   });
-  const signalQuestions = data.focusCandidates.map((signal) => ({
-    id: `signal:${signal.id}`,
-    title: signal.name,
-    question: signal.observation || `关于「${signal.name}」，你最想补充或纠正的是什么？`,
-    currentUnderstanding: signal.judgment,
-    reason: signal.reason || "这是一处仍在验证、需要回到你的真实经历中继续理解的地方。",
-    unknown: signal.observation || "还不知道这条理解在你今天的生活里是否仍然成立。",
-    agentPrompt: signalConversationPrompt(signal),
-    sourceHref: `/focus/${encodeURIComponent(signal.id)}`,
-    sourceLabel: "看看它从哪里来",
-    basis: [signal.name, signal.kind].filter(Boolean),
-    kind: "state" as const,
-    evidenceCount: signal.links.filter((link) => link.resolvedId).length || signal.links.length,
-    weight: 1,
-  }));
+  const signalQuestions = data.focusCandidates.map((signal) => {
+    const evidence = signal.links.find((link) => link.resolvedId);
+    return {
+      id: `signal:${signal.id}`,
+      title: signal.name,
+      question: `最近哪一个具体时刻，让你觉得「${signal.name}」正在变好或变坏？`,
+      currentUnderstanding: signal.judgment,
+      reason: signal.reason || "这是一处仍在验证、需要回到你的真实经历中继续理解的地方。",
+      unknown: signal.observation || "还不知道这条理解在你今天的生活里是否仍然成立。",
+      agentPrompt: signalConversationPrompt(signal),
+      pageId: evidence?.resolvedId,
+      sourceHref: `/focus/${encodeURIComponent(signal.id)}`,
+      sourceLabel: "看看它从哪里来",
+      basis: [signal.name, signal.kind].filter(Boolean),
+      kind: "state" as const,
+      evidenceCount: signal.links.filter((link) => link.resolvedId).length || signal.links.length,
+      weight: 1,
+    };
+  });
   const journeyCluster = recentJourney?.clusters[0];
   const journeyQuestion = recentJourney && journeyCluster ? [{
     id: `journey:${journeyCluster.id}`,
@@ -142,7 +156,7 @@ function talkingQuestions(data: TodayView, recentJourney?: PaymentJourneySummary
     currentUnderstanding: `${recentJourney.transactionCount} 笔账单记录里，出现了 ${recentJourney.clusters.length} 段有时间顺序的生活线索。`,
     reason: "账单已经留下时间、地点与行动，但真正重要的人物、动机和感受只能由你说出来。",
     unknown: "当时和谁在一起、为什么出发，以及这段经历后来改变了什么。",
-    agentPrompt: recentJourney.agentPrompt || `请从「${journeyCluster.title}」开始，一次问我一个关于人物、动机或感受的问题。先陪我把经历说出来，不要修改知识库。`,
+    agentPrompt: recentJourney.agentPrompt || `请从「${journeyCluster.title}」开始，一次问我一个关于人物、动机或感受的问题。先陪我把经历说出来。`,
     sourceHref: "/sources",
     sourceLabel: "看看相关记录",
     basis: ["近期账单", journeyCluster.title],
@@ -159,7 +173,7 @@ function talkingQuestions(data: TodayView, recentJourney?: PaymentJourneySummary
     currentUnderstanding: "这里还没有足够具体的记录，无法替你判断正在发生什么。",
     reason: "从一个真实片段开始，比先给自己下结论更容易找到线索。",
     unknown: "当时发生了什么、你在意什么，以及它为什么留在了心里。",
-    agentPrompt: "我想从最近一件让我觉得自己和平时有一点不一样的小事开始。请一次只问我一个关于人物、处境、感受或判断的具体问题，先陪我说清楚，不要修改知识库。",
+    agentPrompt: "我想从最近一件让我觉得自己和平时有一点不一样的小事开始。请一次只问我一个关于人物、处境、感受或判断的具体问题，先陪我说清楚。",
     basis: ["从最近发生的小事开始"],
     kind: "casual",
     evidenceCount: 0,
@@ -172,6 +186,7 @@ export function Today({ revision }: { revision: number }) {
   const [questionOffset, setQuestionOffset] = useState(0);
   const [conversationDraft, setConversationDraft] = useState("");
   const conversationInputRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => resizeComposerTextarea(conversationInputRef.current), [conversationDraft]);
   const { data, loading, error } = useApi<TodayView>("/api/views/today", revision);
   const { data: sourcePages } = useApi<WikiPageSummary[]>("/api/pages?sources=true", revision);
   const { data: importBatches } = useApi<SourceImportBatch[]>("/api/imports", revision);
@@ -182,14 +197,15 @@ export function Today({ revision }: { revision: number }) {
   const featuredQuestion = openers[questionOffset % openers.length]!;
   const importFolders = [...new Set((sourcePages || []).map((page) => cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/")).filter(Boolean))].sort((left, right) => left.localeCompare(right, "zh-CN"));
   const journeyPrompt = recentJourney
-    ? `最近的账单记录里出现了 ${recentJourney.clusters.length} 段可能的生活旅程。交易只能说明时间、地点和发生过什么，不能说明人物、动机和感受。请从最有画面的一条线索开始，一次问我一个问题，先陪我把这段经历说出来，不要修改知识库。`
+    ? `最近的账单记录里出现了 ${recentJourney.clusters.length} 段可能的生活旅程。交易只能说明时间、地点和发生过什么，不能说明人物、动机和感受。请从最有画面的一条线索开始，一次问我一个问题，先陪我把这段经历说出来。`
     : "";
 
   function beginConversation(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const answer = conversationDraft.trim();
     if (!answer) return;
-    openContextAgent({ mode: "read", prompt: `${featuredQuestion.agentPrompt}\n\n我先说：${answer}` });
+    openContextAgent({ mode: "read", prompt: groundedConversationReplyPrompt(featuredQuestion.agentPrompt, answer), displayPrompt: answer, autoSubmit: true });
+    setConversationDraft("");
   }
 
   function submitConversationOnEnter(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -241,12 +257,12 @@ export function Today({ revision }: { revision: number }) {
             <button type="submit" aria-label="发送" disabled={!conversationDraft.trim()}><Icon name="up" size={19} /></button>
           </div>
           <div className="home-opener-foot">
-            <button type="button" className="home-opener-cycle" onClick={cycleOpener}><Icon name="refresh" size={16} />换一个随口的话头</button>
-            <span>我会接着问细节</span>
+            <button type="button" className="home-opener-cycle" onClick={cycleOpener}><Icon name="refresh" size={16} />换一个随口话头</button>
+            <span>我会先看看你的来路</span>
           </div>
         </form>
       </section>
-      <ContextualAgentDock revision={revision} context={{ scope: "此刻 · 值得聊聊", title: featuredQuestion.question, summary: "你先说，我会记着相关的来路，也会坦白还有什么不知道。", defaultMode: "read", launcherLabel: "找我聊聊", compactLauncher: true, suggestions: [featuredQuestion.agentPrompt, journeyPrompt || "我想讲一件最近发生、但还没有说清楚的事。请一次问我一个具体问题，先陪我理解。"] }} />
+      <ContextualAgentDock revision={revision} context={{ scope: "此刻 · 随口话头", title: featuredQuestion.question, summary: "从一个新近发生的具体片段开始；收到回答后，再沿相关 Wiki 和原始记录理解它的来路。", defaultMode: "read", launcherLabel: "找我聊聊", compactLauncher: true, suggestions: [featuredQuestion.agentPrompt, journeyPrompt || "我想讲一件最近发生、但还没有说清楚的事。请一次问我一个具体问题，先陪我理解。"] }} />
     </div>
   );
 }
@@ -274,14 +290,12 @@ export function QuestionsHub({ revision }: { revision: number }) {
   return <div className="questions-hub">
     {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onJourney={setImportedJourney} /> : null}
     <header className="questions-intro">
-      <span>值得聊聊</span>
       <h1>这段时间你说的话，我都还记得。</h1>
-      <p>挑一个你现在想说的，或者看看我留意到的几条线索。</p>
     </header>
 
     <section className="questions-wall" aria-labelledby="questions-wall-title">
       <div className="questions-wall-head">
-        <div><h2 id="questions-wall-title">挑一个话题</h2><p>每个问题都来自一条还没有说完的线索。</p></div>
+        <div><h2 id="questions-wall-title">挑一个话题</h2><p>从你现在想说的开始，或者看看我留意到的几条还没有说完的线索。</p></div>
         <div className="questions-filters" aria-label="筛选话题">
           <button type="button" className={topicKind === "all" ? "active" : ""} aria-pressed={topicKind === "all"} onClick={() => { setTopicKind("all"); setTopicLimit(6); }}>全部</button>
           {availableKinds.map((kind) => <button type="button" key={kind} className={topicKind === kind ? "active" : ""} aria-pressed={topicKind === kind} title={conversationTopicKinds[kind].description} onClick={() => { setTopicKind(kind); setTopicLimit(6); }}>{conversationTopicKinds[kind].label}</button>)}
@@ -301,7 +315,7 @@ export function QuestionsHub({ revision }: { revision: number }) {
               <small>{question.evidenceCount ? `${question.evidenceCount} 条相关记录` : "等你补充第一条记录"}</small>
             </div>
             <footer>
-              <button type="button" onClick={() => openLifeConversation(question.agentPrompt)}>聊聊这个 <Icon name="arrow" size={15} /></button>
+              <button type="button" onClick={() => openLifeConversation(question)}>聊聊这个 <Icon name="arrow" size={15} /></button>
               {question.sourceHref ? <NavLink to={question.sourceHref} state={{ returnTo: "/questions", returnLabel: "返回值得聊聊" }}>{question.sourceLabel || "查看依据"}</NavLink> : null}
             </footer>
           </article>;
@@ -312,7 +326,7 @@ export function QuestionsHub({ revision }: { revision: number }) {
 
     {concernQuestions.length ? <section className="questions-concerns" aria-labelledby="questions-concerns-title">
       <div className="questions-concerns-head"><h2 id="questions-concerns-title">你之前有点在意的</h2><i aria-hidden="true" /></div>
-      <div>{concernQuestions.map((question) => <button key={question.id} type="button" onClick={() => openLifeConversation(question.agentPrompt)}>{question.title}</button>)}</div>
+      <div>{concernQuestions.map((question) => <button key={question.id} type="button" onClick={() => openLifeConversation(question)}>{question.title}</button>)}</div>
     </section> : null}
 
     <section className="questions-import" aria-labelledby="questions-import-title">

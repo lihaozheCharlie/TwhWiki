@@ -1,13 +1,13 @@
 ---
 name: common-skill-system
-description: "分析、设计、验证或在明确授权后更新本 wiki 的 Codex Skill 体系、AGENTS.md 唯一路由、职责图和验证规则。只要求分析时保持只读。"
+description: "分析、设计、验证或更新本 wiki 的 Codex Skill 体系、AGENTS.md 唯一路由、职责图和验证规则。当前目标只要求分析时保持只读。"
 ---
 
 # 通用：Skill 体系
 
 用于创建、重构、验证或调试本 wiki 的 Skill 体系。
 
-分析和验证保持只读。只有用户明确要求修改时才变更体系。
+分析和验证任务保持只读。只有当前目标确实包含体系调整时才变更；规则、目录或批量行为变化范围较大时，先确认目标和影响面。
 
 ## 设计原则
 
@@ -19,11 +19,11 @@ description: "分析、设计、验证或在明确授权后更新本 wiki 的 Co
 - 根 `AGENTS.md` 保持可直接执行：先区分产品与 Wiki、再区分读写模式；Wiki 请求通过注册表路由到准确的规范 Skill。
 - 每个 wiki 类别只设一个负责 Skill。其他 Skill 路由给负责人，不复制其模板。
 - 共享质量规则只放在 `knowledge-engine/skills/common/quality-gate/SKILL.md`。
-- 只读请求绝不授权修复、摄取、追加日志或重新生成索引。
+- 明确只读的请求不执行修复、摄取、追加日志或重新生成索引。
 
 ## 必需文件
 
-- `AGENTS.md`：顶层入口、授权边界和一级分发。
+- `AGENTS.md`：顶层入口、Wiki 变更判断和一级分发。
 - `studio/AGENTS.md`：只适用于产品工程的目录级协作协议。
 - `knowledge-engine/skills/registry.yaml`：规范 Skill 的 ID、路径、模式、职责和触发索引。
 - `the-way-here.config.yaml`：知识库注册表、默认知识库和各库内容路径。

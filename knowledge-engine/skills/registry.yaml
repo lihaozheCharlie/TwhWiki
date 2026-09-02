@@ -39,7 +39,7 @@ skills:
   - id: build-knowledge-adjustment
     path: knowledge-engine/skills/build/knowledge-adjustment/SKILL.md
     modes: [write]
-    responsibility: "获授权调整分类、模板、抽取规则或 Skill 行为"
+    responsibility: "按当前调整目标修改分类、模板、抽取规则或 Skill 行为"
     triggers: ["修改分类", "调整模板", "修改抽取规则", "调整 Skill"]
   - id: common-quality-gate
     path: knowledge-engine/skills/common/quality-gate/SKILL.md

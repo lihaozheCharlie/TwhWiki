@@ -1,6 +1,6 @@
 ---
 name: common-signal-detector
-description: "在获授权的 wiki 维护或信号路由诊断中扫描可沉淀信号。检测结果本身绝不构成写入授权。"
+description: "在普通对话、wiki 维护或路由诊断中扫描可沉淀信号；本 Skill 只分类，是否更新由 Agent 结合当前目标判断。"
 ---
 
 # 通用：信号检测
@@ -19,19 +19,20 @@ description: "在获授权的 wiki 维护或信号路由诊断中扫描可沉淀
 - 原创思考 -> 建议对话摄取，并路由到相关构建 Skill。
 - 实体提及 -> 达到显著性门槛时，建议 `build-people` 或 `build-life-experience`。
 - 来源更新 -> 建议日记摄取或来源摄取。
-- 规则更新 -> 分析时建议 `common-skill-system`；用户明确要求修改时建议 `build-knowledge-adjustment`。
+- 规则更新 -> 分析时建议 `common-skill-system`；当前目标包含修复或调整时建议 `build-knowledge-adjustment`。
 
 ## 捕获规则
 
 - 用户原创表达应保留准确措辞。
 - 一次性提及如果不改变解释，不要建页。
 - 不要为了宣布捕获信号而打断主任务。
-- 除非用户明确要求 wiki 维护，或当前任务已经授权，否则不要写入、追加日志或触发构建 Skill。
+- 信息具体、耐久、证据充分，且局部沉淀确实会保留或修正理解时，可以在同一任务中路由到构建 Skill；短暂、含糊或只会制造噪声时不写入。
+- 用户明确说只读、不要记录或不要修改时，保持只读。
 - 没有可沉淀信号时，什么都不做。
 
 ## 调试记录
 
-执行明确授权的维护时，在 `wiki/log.md` 中加入一条简短记录：
+执行实际影响 Wiki 产物的维护时，可以在 `wiki/log.md` 中加入一条简短记录：
 
 `Signals: N original, N entities, N source updates, N rule updates`
 

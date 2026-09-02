@@ -47,7 +47,7 @@ export function buildRunPrompt(mode: Exclude<WikiRun["mode"], "validate">, promp
   const boundary = mode === "read"
     ? `这是严格只读任务。请先读取并遵守 ${config.paths.agentInstructions}，只查询、解释或诊断，不要修改任何文件。`
     : mode === "write"
-      ? `用户已通过 The Way Here 明确授权本次知识写入。请先读取并严格遵守 ${config.paths.agentInstructions} 与所路由的 Skills，只在请求范围内修改，保留原始笔记正文，并完成规定的质量检查。`
-      : `这是由 Agent 识别意图的知识任务。请先读取并严格遵守 ${config.paths.agentInstructions} 与所路由的 Skills：如果用户只是在询问、分析、审查或诊断，必须保持严格只读；只有用户在本次请求中明确要求补充、修改、摄取、重跑、重建或修复时，才视为授权在请求范围内写入。不要把模糊表达或识别到的耐久信号当作写入授权；发生写入时保留原始笔记正文并完成规定的质量检查。`;
+      ? `这是以沉淀知识为目标的任务。请先读取并严格遵守 ${config.paths.agentInstructions} 与所路由的 Skills，只修改真正受影响的内容，保留原始笔记正文，并完成规定的质量检查。`
+      : `这是由 Agent 判断处理方式的知识任务。请先读取并严格遵守 ${config.paths.agentInstructions} 与所路由的 Skills。先自然回应用户，再根据当前目标、对话内容的耐久价值和实际影响，自行判断只查询还是更新 Wiki；不要求用户使用特殊命令或固定措辞。只有信息具体、耐久、证据充分，且局部更新确实有助于保留或修正理解时才写入；信号短暂、含糊、纯猜测或只会制造噪声时保持不变。用户明确要求只读时不要写入；范围较大、难以撤销或会改变规则与结构时先询问。发生写入时保留原始笔记正文、标明对话材料与推断，并完成规定的质量检查。`;
   return `${boundary}\n\n${context}\n\n用户请求：\n${prompt}`;
 }

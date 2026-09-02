@@ -1,6 +1,6 @@
 ---
 name: build-companion-reflection
-description: "当用户明确要求回信，或获授权的日记摄取标记 companion=update 时，在 wiki/12 中创建或更新有证据、有洞见、像朋友一样自然的近况回信。普通查询不要使用。"
+description: "当用户想要回信，或日记摄取标记 companion=update 时，在 wiki/12 中创建或更新有证据、有洞见、像朋友一样自然的近况回信。普通查询不要使用。"
 ---
 
 # 构建：近况回信

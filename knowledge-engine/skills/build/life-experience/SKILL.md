@@ -78,4 +78,4 @@ description: "构建或更新 wiki/06 及 wiki/07 非人物分支下的现实系
 - 建页前必须通过显著性门槛。
 - 解释节点的功能，不要只说它出现在日记里。
 - 区分可观察事实、用户解释和模型推断。
-- 获授权的修改完成后应用 `knowledge-engine/skills/common/quality-gate/SKILL.md`。
+- 修改完成后应用 `knowledge-engine/skills/common/quality-gate/SKILL.md`。

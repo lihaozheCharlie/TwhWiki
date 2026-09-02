@@ -25,15 +25,15 @@
 
 .understanding-overview-lede { margin: 2px 0 32px; }
 .understanding-overview-lede h1 { margin: 0 0 10px; font-family: var(--font-display); font-size: clamp(32px, 4vw, 44px); font-weight: 540; letter-spacing: -.035em; line-height: 1.08; }
-.understanding-overview-lede p { max-width: 70ch; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.understanding-overview-lede p { max-width: var(--ui-copy-max); margin: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
 .understanding-overview-lede > span { display: block; margin-top: 12px; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
-.understanding-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.understanding-entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .understanding-entry { min-width: 0; min-height: 176px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 17px; padding: 26px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; transition: background-color .18s var(--ease), border-color .18s var(--ease); }
 .understanding-entry:hover { color: inherit; background: var(--surface-subtle); border-color: var(--line-strong); }
 .understanding-entry:focus-visible { outline-color: currentColor; }
 .understanding-entry > .icon { margin-top: 14px; color: var(--faint); }
 .understanding-entry h2 { margin: 1px 0 7px; font-family: var(--font-display); font-size: 20px; font-weight: 540; letter-spacing: -.02em; }
-.understanding-entry p { max-width: 43ch; margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.65; }
+.understanding-entry p { max-width: 100%; margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.65; }
 .understanding-entry div > span { display: block; margin-top: 16px; color: var(--faint); font-size: 11px; }
 .understanding-entry div > span b { color: var(--ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .understanding-entry--self:hover > .icon { color: var(--understanding-self); }
@@ -46,7 +46,7 @@
 
 .understanding-banner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 22px; margin-bottom: 28px; padding: 28px 32px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
 .understanding-banner h1 { margin: 0 0 6px; font-family: var(--font-display); font-size: 28px; font-weight: 540; letter-spacing: -.03em; line-height: 1.1; }
-.understanding-banner p { max-width: 70ch; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.68; }
+.understanding-banner p { max-width: var(--ui-copy-max); margin: 0; color: var(--muted); font-size: 13px; line-height: 1.68; }
 .understanding-banner-count { min-width: 110px; text-align: right; white-space: nowrap; }
 .understanding-banner-count b { display: block; font-size: 31px; font-weight: 620; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
 .understanding-banner-count span { display: block; margin-top: 7px; color: var(--faint); font-size: 10.5px; }
@@ -54,9 +54,9 @@
 .understanding-focus { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(270px, .85fr); margin-bottom: 34px; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
 .understanding-focus-main { padding: 34px 36px; }
 .understanding-focus-main > span { display: inline-flex; align-items: center; padding: 5px 10px; color: var(--understanding-self); background: var(--understanding-self-soft); border-radius: 999px; font-size: 10.5px; font-weight: 700; }
-.understanding-focus-main h2 { max-width: 25ch; margin: 14px 0 10px; font-family: var(--font-display); font-size: 25px; font-weight: 540; letter-spacing: -.025em; line-height: 1.3; }
+.understanding-focus-main h2 { max-width: var(--ui-copy-max); margin: 14px 0 10px; font-family: var(--font-display); font-size: 25px; font-weight: 540; letter-spacing: -.025em; line-height: 1.3; }
 .understanding-focus-main h2 a:hover { color: var(--understanding-self); }
-.understanding-focus-main > p { max-width: 62ch; margin: 0; color: var(--ink); font-size: 13.5px; line-height: 1.78; }
+.understanding-focus-main > p { max-width: var(--ui-copy-max); margin: 0; color: var(--ink); font-size: 13.5px; line-height: 1.78; }
 .understanding-focus-main > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
 .understanding-focus-main > div span { padding: 5px 10px; color: var(--muted); background: var(--surface-subtle); border-radius: 999px; font-size: 10.5px; }
 .understanding-focus > aside { padding: 34px 31px; background: var(--understanding-self-soft); border-left: 1px solid var(--line); }
@@ -82,7 +82,7 @@
 .understanding-row p { margin: 3px 0 0; overflow: hidden; color: var(--muted); font-size: 10.5px; white-space: nowrap; text-overflow: ellipsis; }
 .understanding-row time { color: var(--faint); font-size: 10px; white-space: nowrap; }
 
-.understanding-timeline { max-width: 820px; margin-bottom: 30px; }
+.understanding-timeline { width: min(var(--content-wide), 100%); max-width: none; margin-bottom: 30px; }
 .understanding-timeline-item { position: relative; width: 100%; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 14px; padding: 0; color: inherit; background: transparent; border: 0; text-align: left; }
 .understanding-timeline-item::before { position: absolute; top: 0; bottom: 0; left: 11px; width: 2px; background: color-mix(in srgb, var(--understanding-life) 24%, transparent); content: ""; }
 .understanding-timeline-item:first-child::before { top: 12px; }
@@ -99,7 +99,7 @@ button.understanding-timeline-item:hover > div,
 .understanding-timeline-item b { display: block; margin-bottom: 4px; font-size: 13.5px; font-weight: 670; }
 .understanding-timeline-item p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.58; }
 .understanding-timeline-item small { display: block; margin-top: 8px; color: var(--understanding-life); font-size: 10px; }
-.understanding-life-page .stage-focus { max-width: 980px; border-radius: 8px; }
+.understanding-life-page .stage-focus { width: min(var(--content-wide), 100%); max-width: none; border-radius: 8px; }
 .understanding-letters-page > .view-switch { margin-top: -2px; }
 
 .understanding-relationship-web { margin-bottom: 26px; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
@@ -127,6 +127,7 @@ button.understanding-timeline-item:hover > div,
 .understanding-relationship-web footer i.role { background: var(--understanding-people-soft); border: 1px solid color-mix(in srgb, var(--understanding-people) 35%, transparent); }
 .understanding-relationship-web footer i.person { background: #fff; border: 1px solid var(--understanding-people); }
 @media (max-width: 900px) {
+  .understanding-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .understanding-row-groups { grid-template-columns: 1fr; }
   .understanding-relationship-web svg { height: 310px; }
 }
@@ -140,6 +141,10 @@ button.understanding-timeline-item:hover > div,
   .local-navigation-separator { margin: 0 3px; }
   .page-frame:has(.understanding-overview), .page-frame:has(.understanding-self-page), .page-frame:has(.understanding-life-page), .page-frame:has(.understanding-people-page) { width: calc(100% - 28px); }
   .understanding-entry-grid { grid-template-columns: 1fr; }
+  .understanding-overview-lede p,
+  .understanding-banner p,
+  .understanding-focus-main h2,
+  .understanding-focus-main > p { max-width: 100%; }
   .understanding-entry { min-height: 0; padding: 20px; }
   .understanding-banner { grid-template-columns: auto minmax(0, 1fr); gap: 15px; padding: 22px 20px; }
   .understanding-banner-count { grid-column: 2; min-width: 0; display: flex; align-items: baseline; gap: 6px; text-align: left; }

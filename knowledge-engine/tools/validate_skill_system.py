@@ -376,7 +376,7 @@ def check_reasoning_lenses_and_companion(errors: list[str]) -> None:
     for required in (
         "下游 Skill 不得硬编码人物名单、数量或文件名",
         "人物视角不是证据",
-        "本 Skill 默认只读",
+        "本 Skill 本身不写入",
         "四档使用强度",
         "中性证据卡",
         "视角任务卡",
@@ -626,7 +626,7 @@ def main() -> int:
     adjustment_text = (
         ROOT / "knowledge-engine/skills/build/knowledge-adjustment/SKILL.md"
     ).read_text(encoding="utf-8")
-    if "仅当用户明确要求" not in adjustment_text or "保持只读" not in adjustment_text:
+    if "仅当当前目标包含" not in adjustment_text or "保持只读" not in adjustment_text:
         errors.append("knowledge-adjustment must separate analysis from mutation")
 
     trigger_path = ROOT / "knowledge-engine/skills/common/skill-system/trigger-cases.json"

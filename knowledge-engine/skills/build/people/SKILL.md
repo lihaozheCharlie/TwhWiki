@@ -76,7 +76,7 @@ python3 knowledge-engine/skills/build/people/scripts/collect_person_evidence.py 
 ## 人物视角使用强度
 
 - 种子人物和标准人物的身份、别名、关键事件先使用强度 0。
-- 高影响人物的关系演化、稳定认知和相处原则最多使用强度 1；只有用户明确授权深度重解释时才使用强度 2。
+- 高影响人物的关系演化、稳定认知和相处原则最多使用强度 1；只有当前目标确实包含深度重解释时才使用强度 2。
 - 运行 `python3 knowledge-engine/skills/common/reasoning-lenses/scripts/list_lenses.py` 动态发现人物；不在本 Skill 维护固定名单。
 - 视角只能检查是否遗漏信任、共同实践、情感、长期承担或证据边界，不能从公共人物推断真实人物的动机和人格。
 - 默认不在人物页写所用公共人物姓名；领域语言仍然是关系语言。

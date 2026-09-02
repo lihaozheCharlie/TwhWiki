@@ -33,11 +33,13 @@ describe("run policy", () => {
     expect(prompt).toContain("vault/demo/wiki");
   });
 
-  it("lets the agent infer intent without weakening the write boundary", () => {
+  it("lets the agent decide whether durable conversation should update the wiki", () => {
     const prompt = buildRunPrompt("auto", "帮我处理这段经历", config);
-    expect(prompt).toContain("Agent 识别意图");
-    expect(prompt).toContain("明确要求补充、修改、摄取、重跑、重建或修复");
-    expect(prompt).toContain("必须保持严格只读");
+    expect(prompt).toContain("Agent 判断处理方式");
+    expect(prompt).toContain("自行判断只查询还是更新 Wiki");
+    expect(prompt).toContain("不要求用户使用特殊命令或固定措辞");
+    expect(prompt).toContain("范围较大、难以撤销或会改变规则与结构时先询问");
+    expect(prompt).not.toContain("只有用户在本次请求中明确要求");
   });
 
   it("accepts only complete letter-version output targets", () => {

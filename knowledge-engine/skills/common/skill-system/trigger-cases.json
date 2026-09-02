@@ -30,6 +30,12 @@
     "mode": "write"
   },
   {
+    "prompt": "工作交接后，我一边做着不喜欢的工作，一边开始做开源；不知道能不能做成，但至少开始了，这件事值得纪念",
+    "expected": ["build-wiki", "build-state-tracking"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
     "prompt": "检查 wiki 健康，但不要修改",
     "expected": ["common-quality-gate"],
     "must_not": ["build-knowledge-adjustment"],

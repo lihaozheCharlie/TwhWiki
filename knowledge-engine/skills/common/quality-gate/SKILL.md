@@ -1,11 +1,11 @@
 ---
 name: common-quality-gate
-description: "验证获授权的 wiki 或 Skill 修改是否满足证据、归档、前置元数据、生成索引安全、链接和完成标准。除非明确要求写入，维护检查保持只读。"
+description: "验证 wiki 或 Skill 修改是否满足证据、归档、前置元数据、生成索引安全、链接和完成标准；纯健康检查保持只读。"
 ---
 
 # 通用：质量门
 
-在获授权的 Markdown 或 Skill 修改后、宣布构建完成前，或用户明确要求 wiki 健康检查时使用。验证不会扩大任务的写入范围。
+在 Markdown 或 Skill 修改后、宣布构建完成前，或执行 wiki 健康检查时使用。验证不会自行扩大任务的变更范围。
 
 ## 先读
 
@@ -30,7 +30,7 @@ description: "验证获授权的 wiki 或 Skill 修改是否满足证据、归�
 
 ### 只读维护
 
-用户要求检查健康状况但未授权修复时，运行：
+当前目标只检查健康状况、不包含修复时，运行：
 
 ```bash
 python3 knowledge-engine/tools/validate_wiki_links.py
@@ -39,9 +39,9 @@ python3 knowledge-engine/tools/diary_entity_audit.py --check
 python3 knowledge-engine/tools/diary_entity_deep_audit.py --check
 ```
 
-实体检查可能以非零状态报告生成索引陈旧；这是检查结果，不构成重新生成的授权。
+实体检查可能以非零状态报告生成索引陈旧；这是检查结果，不等于必须立即重新生成。
 
-### 获授权的 Markdown 修改后
+### Markdown 修改后
 
 在仓库根目录运行：
 
@@ -53,7 +53,7 @@ python3 knowledge-engine/tools/validate_wiki_links.py
 
 第二次标签运行必须报告 `updated=0`；链接验证必须报告 `missing=0 ambiguous=0`。
 
-### 获授权的 Skill 或配套工具修改后
+### Skill 或配套工具修改后
 
 还要运行：
 

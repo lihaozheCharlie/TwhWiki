@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AgentApprovalDecision, AgentOutputTarget, AgentReasoningEffort, VaultInfo, WikiRun } from "@the-way-here/shared";
 import { api, useApi } from "../../api";
 import { useReturnContext } from "../../shared/routing";
+import { resizeComposerTextarea } from "../../shared/composer-input";
 import { Icon, Loading } from "../../shared/ui";
 import { AiConfiguration, reasoningLabels, useAgentSelection } from "./AgentSettings";
 import { localWikiHref } from "./local-page-link";
-import { collaborationModes, contextPrompt, groupAgentThreads, plainPreview, resolveComposerMode, runConversation, runDisplayPrompt, runFinalAnswer, runTechnicalEvents, shouldSubmitAgentInput, type AgentContext, type AgentThread, type OpenContextAgentRequest } from "./model";
+import { attachedContextPrompt, collaborationModes, contextPrompt, groupAgentThreads, plainPreview, resolveAgentAutoSubmission, resolveComposerMode, runConversation, runDisplayPrompt, runFinalAnswer, runTechnicalEvents, shouldSubmitAgentInput, type AgentAttachedContext, type AgentAutoSubmission, type AgentContext, type AgentThread, type OpenContextAgentRequest } from "./model";
 
 const defaultAgentModel = "gpt-5.6-sol";
 const defaultAgentEffort: AgentReasoningEffort = "high";
@@ -28,6 +29,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<DockView>("compose");
   const [draft, setDraft] = useState("");
+  const [attachedContext, setAttachedContext] = useState<AgentAttachedContext>();
   const [runId, setRunId] = useState("");
   const [historyReturnRunId, setHistoryReturnRunId] = useState("");
   const [mode, setMode] = useState<WikiRun["mode"]>(() => resolveComposerMode(context.defaultMode));
@@ -39,11 +41,14 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   const launcherRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
+  const submittingRef = useRef(false);
+  const pendingAutoSubmissionRef = useRef<AgentAutoSubmission | undefined>(undefined);
   const threads = groupAgentThreads(runList || []);
 
   useEffect(() => {
     const openDock = (event: Event) => {
       const request = (event as CustomEvent<OpenContextAgentRequest>).detail || {};
+      pendingAutoSubmissionRef.current = undefined;
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setOpen(true);
       setError("");
@@ -54,9 +59,12 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
       }
       setRunId("");
       setView(request.view || "compose");
-      if (request.prompt !== undefined) setDraft(request.prompt);
+      const autoSubmission = request.view === "history" ? undefined : resolveAgentAutoSubmission(request, context.defaultMode);
+      setDraft(request.prompt !== undefined ? autoSubmission?.displayPrompt || request.prompt : "");
+      setAttachedContext(request.attachedContext);
       setMode(resolveComposerMode(request.mode || context.defaultMode));
       setOutputTarget(request.outputTarget);
+      pendingAutoSubmissionRef.current = autoSubmission;
     };
     window.addEventListener("open-context-agent", openDock);
     return () => window.removeEventListener("open-context-agent", openDock);
@@ -97,23 +105,38 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
     };
   }, [open, runId, view]);
 
+  useLayoutEffect(() => {
+    if (open && view === "compose" && !runId) resizeComposerTextarea(textareaRef.current);
+  }, [draft, open, runId, view]);
+
   useEffect(() => {
     setDraft("");
+    setAttachedContext(undefined);
     setRunId("");
     setMode(resolveComposerMode(context.defaultMode));
     setOutputTarget(undefined);
     setView("compose");
     setError("");
+    pendingAutoSubmissionRef.current = undefined;
   }, [context.defaultMode, context.pageId, context.title]);
+
+  useEffect(() => {
+    const pending = pendingAutoSubmissionRef.current;
+    if (!pending || !open || view !== "compose" || runId || submitting || vaultLoading || agent.loading || !vault?.agentAvailable) return;
+    pendingAutoSubmissionRef.current = undefined;
+    void startRun(pending.prompt, pending.mode, pending.outputTarget, pending.displayPrompt);
+  }, [agent.loading, open, runId, submitting, vault?.agentAvailable, vaultLoading, view]);
 
   function startNewQuestion() {
     setRunId("");
     setHistoryReturnRunId("");
     setView("compose");
     setDraft("");
+    setAttachedContext(undefined);
     setMode(resolveComposerMode(context.defaultMode));
     setOutputTarget(undefined);
     setError("");
+    pendingAutoSubmissionRef.current = undefined;
   }
 
   function showHistory(returnToRunId = "") {
@@ -131,38 +154,52 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
     startNewQuestion();
   }
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (mode !== "validate" && !draft.trim()) {
+  async function startRun(requestText: string, requestedMode = mode, requestedOutputTarget = outputTarget, displayPrompt = requestText) {
+    const request = requestText.trim();
+    if (requestedMode !== "validate" && !request) {
       setError("先写下你想从哪里开始。");
       return;
     }
+    if (submittingRef.current || vaultLoading || agent.loading || !vault?.agentAvailable) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
     try {
-      const selection = mode === "validate" ? undefined : await agent.save();
-      const request = mode === "validate" ? draft.trim() || "运行当前知识库的质量检查。" : draft.trim();
+      const selection = requestedMode === "validate" ? undefined : await agent.save();
+      const normalizedRequest = requestedMode === "validate" ? request || "运行当前知识库的质量检查。" : request;
+      const runContext = attachedContext ? {
+        ...context,
+        title: attachedContext.title,
+        summary: `已有理解：${attachedContext.currentUnderstanding}\n为什么值得聊：${attachedContext.reason}`,
+      } : context;
       const run = await api<WikiRun>("/api/runs", {
         method: "POST",
         body: JSON.stringify({
-          mode,
-          prompt: mode === "validate" ? request : contextPrompt(context, request),
-          displayPrompt: request,
+          mode: requestedMode,
+          prompt: requestedMode === "validate" ? normalizedRequest : contextPrompt(runContext, attachedContext ? attachedContextPrompt(attachedContext, normalizedRequest) : normalizedRequest),
+          displayPrompt: displayPrompt.trim() || normalizedRequest,
           runtimeId: selection?.runtimeId,
           model: selection?.model,
           effort: selection?.effort,
-          title: mode === "validate" ? "知识健康检查" : `处理：${context.title}`,
-          outputTarget,
+          title: requestedMode === "validate" ? "知识健康检查" : `处理：${runContext.title}`,
+          outputTarget: requestedOutputTarget,
         }),
       });
       setRunId(run.id);
       setView("history");
       setDraft("");
+      setAttachedContext(undefined);
     } catch (reason: any) {
       setError(reason.message);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    await startRun(draft);
   }
 
   const selectedRun = runList?.find((candidate) => candidate.id === runId);
@@ -186,18 +223,25 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
             <button type="button" className="context-agent-icon-button" aria-label="关闭对话窗口" onClick={closeDock}><Icon name="close" size={17} /></button>
           </div>
         </header>
-        {!runId && view === "compose" && <div className="context-agent-context-chip"><span>{mode === "validate" ? "检查" : collaborationModes[mode].short}</span><b>{context.title}</b><i aria-hidden="true" /><small>{vault?.name || context.scope}</small></div>}
+        {!runId && view === "compose" && <div className="context-agent-context-chip"><span>{mode === "validate" ? "检查" : collaborationModes[mode].short}</span><b>{attachedContext ? context.scope : context.title}</b><i aria-hidden="true" /><small>{vault?.name || context.scope}</small></div>}
         {runId ? <ContextualRunPanel runId={runId} revision={revision} runList={runList || []} onRunId={setRunId} onNew={startNewQuestion} /> : view === "history" ? <AgentHistory threads={threads} loading={runsLoading} error={runsError} knowledgeBaseName={vault?.name} onOpen={setRunId} onNew={startNewQuestion} /> : <form className="context-agent-compose" onSubmit={submit}>
           <div className={`context-agent-compose-body${draft ? " has-draft" : ""}`}>
             {outputTarget?.kind === "letter-version" && <div className="context-output-target"><Icon name="library" size={15} /><div><b>将保留为「{outputTarget.label}」</b><span>完成后会成为这封回信的最新版本，原始回信仍可随时切换查看。</span></div></div>}
             {mode === "validate" ? <div className="context-validate-summary"><span className="context-agent-empty-glyph"><Icon name="check" size={20} /></span><b>检查当前知识库</b><p>运行既有标签、链接与结构检查，不生成新的知识内容。</p></div> : <>
               <div className="context-agent-empty-state"><span className="context-agent-empty-glyph"><Icon name="spark" size={19} /></span><b>从这页真正想说的事开始</b><p>我已经带上了这页的上下文。说说你想聊、补充或整理什么，我会判断接下来怎么做。</p></div>
-              {context.suggestions.length > 0 && <div className="context-suggestions" aria-label="建议问题">{context.suggestions.slice(0, 3).map((suggestion) => <button key={suggestion} type="button" onClick={() => { setDraft(suggestion); setMode("auto"); setOutputTarget(undefined); window.setTimeout(() => textareaRef.current?.focus(), 0); }}>{suggestion}</button>)}</div>}
+              {!attachedContext && context.suggestions.length > 0 && <div className="context-suggestions" aria-label="建议问题">{context.suggestions.slice(0, 3).map((suggestion) => <button key={suggestion} type="button" onClick={() => { setDraft(suggestion); setMode("auto"); setOutputTarget(undefined); window.setTimeout(() => textareaRef.current?.focus(), 0); }}>{suggestion}</button>)}</div>}
             </>}
           </div>
           <div className="context-agent-composer">
+            {attachedContext && <details className="context-agent-attached-context">
+              <summary><span>{attachedContext.title}</span><Icon name="down" size={15} /></summary>
+              <div>
+                <p><b>已有理解</b><span>{attachedContext.currentUnderstanding}</span></p>
+                <p><b>为什么值得聊</b><span>{attachedContext.reason}</span></p>
+              </div>
+            </details>}
             <div className={`context-composer-shell${mode === "validate" ? " validate" : ""}`}>
-              {mode === "validate" ? <span>运行标签、链接与结构检查</span> : <textarea ref={textareaRef} id={`context-prompt-${context.pageId || context.scope}`} name="context-prompt" autoComplete="off" value={draft} onChange={(event) => { setDraft(event.target.value); if (error) setError(""); }} onKeyDown={submitAgentFormOnEnter} placeholder="想从哪里开始？" rows={1} />}
+              {mode === "validate" ? <span>运行标签、链接与结构检查</span> : <textarea ref={textareaRef} id={`context-prompt-${context.pageId || context.scope}`} name="context-prompt" autoComplete="off" value={draft} onChange={(event) => { setDraft(event.target.value); if (error) setError(""); }} onKeyDown={submitAgentFormOnEnter} placeholder={attachedContext ? "我已经带上了这页的上下文，说说你想聊、补充或整理什么" : "想从哪里开始？"} rows={1} />}
               {mode !== "validate" && <details className="context-agent-options">
                 <summary aria-label="AI 设置" title="AI 设置"><Icon name="controls" size={16} /></summary>
                 <div className="context-agent-settings-popover"><AiConfiguration id={`context-ai-${context.pageId || context.scope}`} agent={agent} /></div>
@@ -237,9 +281,11 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
   const [actionError, setActionError] = useState("");
   const [detailView, setDetailView] = useState<RunDetailView>("changes");
   const statusRef = useRef<HTMLDivElement>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!loading && run) statusRef.current?.focus();
   }, [runId, loading]);
+  useLayoutEffect(() => resizeComposerTextarea(replyTextareaRef.current), [reply]);
   if (loading && !run) return <Loading label="正在接入知识上下文" />;
   if (error || !run) return <div className="context-run-error"><p>{error || "这次对话没有找到。"}</p><button onClick={() => onRunId("")}>返回对话历史</button></div>;
   const activeRun = run;
@@ -293,6 +339,17 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
     }
   }
 
+  const taskDetails = (mayWrite || activeRun.validation || technicalEvents.length > 0) && <details className="context-run-details">
+    <summary><span><b>任务详情</b> · {activeRun.changes.length ? `${activeRun.changes.length} 个文件变化` : activeRun.validation ? `${activeRun.validation.filter((item) => item.exitCode === 0).length}/${activeRun.validation.length} 项检查通过` : `${technicalEvents.length} 条技术记录`}</span><span>展开</span><Icon name="down" size={14} /></summary>
+    <div className="context-run-detail-body">
+      <div className="context-run-detail-tabs" aria-label="任务详情分类">{detailViews.map((item) => <button key={item} type="button" className={visibleDetailView === item ? "active" : ""} aria-pressed={visibleDetailView === item} onClick={() => setDetailView(item)}>{item === "changes" ? "改动" : item === "validation" ? "检查" : "技术记录"}</button>)}</div>
+      <dl><div><dt>目的</dt><dd>{collaborationModes[activeRun.mode].short}</dd></div><div><dt>模型</dt><dd>{activeRun.model || defaultAgentModel} · {reasoningLabels[activeRun.effort || defaultAgentEffort]}</dd></div><div><dt>开始</dt><dd>{new Date(activeRun.createdAt).toLocaleString("zh-CN")}</dd></div></dl>
+      {visibleDetailView === "changes" && <section><h3>实际改动</h3>{activeRun.recoveredFromLegacyWorkspace ? <p>这条历史记录已从旧工作区恢复，旧快照差异不再重新计算。</p> : activeRun.changes.length ? <div className="context-change-list">{activeRun.changes.map((change) => <details key={change.path}><summary><span className={`change-kind ${change.kind}`}>{change.kind === "added" ? "新增" : change.kind === "modified" ? "修改" : "删除"}</span>{change.path}</summary><pre>{change.diff || "无文本差异"}</pre></details>)}</div> : <p>{active ? "完成后会列出本次独立差异。" : "这次没有产生文件变化。"}</p>}</section>}
+      {visibleDetailView === "validation" && activeRun.validation && <section><h3>质量检查</h3><div className="context-validation-list">{activeRun.validation.map((item, index) => <details key={index}><summary className={item.exitCode === 0 ? "passed" : "failed"}>{item.exitCode === 0 ? "通过" : "失败"} · {item.command.at(-1)}</summary><pre>{item.output}</pre></details>)}</div></section>}
+      {visibleDetailView === "technical" && <section><h3>技术记录</h3>{technicalEvents.length ? <div className="context-technical-list">{technicalEvents.map((event) => <div key={event.id}><time>{new Date(event.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</time><p>{event.message || event.method || event.kind}</p></div>)}</div> : <p>暂无技术记录。</p>}</section>}
+    </div>
+  </details>;
+
   return <div className="context-run">
     <div ref={statusRef} tabIndex={-1} className="context-run-body">
       {activeRun.outputTarget?.kind === "letter-version" && <div className={`context-run-artifact ${activeRun.status === "completed" ? "saved" : "pending"}`}><Icon name={activeRun.status === "completed" ? "library" : "spark"} size={15} /><div><b>{activeRun.status === "completed" ? `已保留为「${activeRun.outputTarget.label}」` : `完成后将保留为「${activeRun.outputTarget.label}」`}</b><span>{activeRun.status === "completed" ? "关闭窗口后，回信页会默认显示这个最新版本。" : "原始回信不会被覆盖，完成后可在回信页切换版本。"}</span></div></div>}
@@ -302,25 +359,16 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
       return <section className="context-thread-turn" key={threadRun.id}>
         <div className="context-user-message"><p>{runDisplayPrompt(threadRun)}</p></div>
         <div className="context-message-meta"><RunStatus status={threadRun.status} /><time>{new Date(threadRun.createdAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time></div>
+        {isCurrent && taskDetails}
         {answer ? <article className="context-run-answer"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => { const local = localWikiHref(href); return local ? <NavLink to={local} state={returnContext}>{children}</NavLink> : <a href={href} target="_blank" rel="noreferrer">{children}</a>; } }}>{answer}</ReactMarkdown></article> : isCurrent && active ? <section className="context-run-working" aria-live="polite"><span className="working-mark"><i /><i /><i /></span><div><b>{run.status === "waiting-approval" ? "需要你确认后继续" : run.status === "validating" ? "正在检查知识库" : "正在沿着你的来路慢慢梳理"}</b><p>{latest || "你可以关闭窗口，我会继续；稍后从聊过的事里回来即可。"}</p></div></section> : <div className="context-run-missing"><b>{threadRun.error ? "这次没有顺利完成" : "这轮没有留下可读回答"}</b><p>{threadRun.error || "可以在下方继续聊，或者把范围说得更具体一些。"}</p></div>}
       </section>;
       })}</div>
       {activeRun.approvals.map((approval) => <section className="context-approval-box" key={String(approval.requestId)} aria-live="polite"><span>需要你确认</span><h3>{approval.title}</h3><p>{approval.detail || String(approval.params?.reason || approval.params?.command || approval.method || approval.operation)}</p><small>允许只对这一次请求生效；拒绝后会保留现状。</small><div><button type="button" onClick={() => approve(approval.requestId, "deny")}>先不要</button><button type="button" className="primary-action" onClick={() => approve(approval.requestId, "allow-once")}>允许一次</button></div></section>)}
-      {(mayWrite || activeRun.validation || technicalEvents.length > 0) && <details className="context-run-details">
-        <summary><span><b>任务详情</b> · {activeRun.changes.length ? `${activeRun.changes.length} 个文件变化` : activeRun.validation ? `${activeRun.validation.filter((item) => item.exitCode === 0).length}/${activeRun.validation.length} 项检查通过` : `${technicalEvents.length} 条技术记录`}</span><span>展开</span><Icon name="down" size={14} /></summary>
-        <div className="context-run-detail-body">
-          <div className="context-run-detail-tabs" aria-label="任务详情分类">{detailViews.map((item) => <button key={item} type="button" className={visibleDetailView === item ? "active" : ""} aria-pressed={visibleDetailView === item} onClick={() => setDetailView(item)}>{item === "changes" ? "改动" : item === "validation" ? "检查" : "技术记录"}</button>)}</div>
-          <dl><div><dt>目的</dt><dd>{collaborationModes[activeRun.mode].short}</dd></div><div><dt>模型</dt><dd>{activeRun.model || defaultAgentModel} · {reasoningLabels[activeRun.effort || defaultAgentEffort]}</dd></div><div><dt>开始</dt><dd>{new Date(activeRun.createdAt).toLocaleString("zh-CN")}</dd></div></dl>
-          {visibleDetailView === "changes" && <section><h3>实际改动</h3>{activeRun.recoveredFromLegacyWorkspace ? <p>这条历史记录已从旧工作区恢复，旧快照差异不再重新计算。</p> : activeRun.changes.length ? <div className="context-change-list">{activeRun.changes.map((change) => <details key={change.path}><summary><span className={`change-kind ${change.kind}`}>{change.kind === "added" ? "新增" : change.kind === "modified" ? "修改" : "删除"}</span>{change.path}</summary><pre>{change.diff || "无文本差异"}</pre></details>)}</div> : <p>{active ? "完成后会列出本次独立差异。" : "这次没有产生文件变化。"}</p>}</section>}
-          {visibleDetailView === "validation" && activeRun.validation && <section><h3>质量检查</h3><div className="context-validation-list">{activeRun.validation.map((item, index) => <details key={index}><summary className={item.exitCode === 0 ? "passed" : "failed"}>{item.exitCode === 0 ? "通过" : "失败"} · {item.command.at(-1)}</summary><pre>{item.output}</pre></details>)}</div></section>}
-          {visibleDetailView === "technical" && <section><h3>技术记录</h3>{technicalEvents.length ? <div className="context-technical-list">{technicalEvents.map((event) => <div key={event.id}><time>{new Date(event.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</time><p>{event.message || event.method || event.kind}</p></div>)}</div> : <p>暂无技术记录。</p>}</section>}
-        </div>
-      </details>}
       {active && activeRun.status !== "validating" && <button type="button" className="context-stop-run" onClick={interrupt}>停止这次任务</button>}
       {actionError && <p className="context-agent-error" role="alert">{actionError}</p>}
       {hasFailed && <button type="button" className="context-retry-run" onClick={onNew}>带着新问题重新开始</button>}
     </div>
-    {activeRun.mode !== "validate" && <form className="context-run-reply" onSubmit={followUp}><label className="sr-only" htmlFor={`context-run-reply-${run.id}`}>{active ? "再补充一句" : "沿着这件事继续聊"}</label><div className="context-composer-shell"><textarea id={`context-run-reply-${run.id}`} name="context-run-reply" autoComplete="off" value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={submitAgentFormOnEnter} placeholder={active ? "补充范围、来路，或者告诉我希望避开什么…" : "接着说，或者提出新的要求"} rows={1} /><button type="submit" className="context-agent-send" disabled={sending || !reply.trim()} aria-label={sending ? "正在发送" : active ? "补充一句" : activeRun.mode === "write" ? "再次授权并继续" : "继续聊聊"}><Icon name="up" size={16} /></button></div></form>}
+    {activeRun.mode !== "validate" && <form className="context-run-reply" onSubmit={followUp}><label className="sr-only" htmlFor={`context-run-reply-${run.id}`}>{active ? "再补充一句" : "沿着这件事继续聊"}</label><div className="context-composer-shell"><textarea ref={replyTextareaRef} id={`context-run-reply-${run.id}`} name="context-run-reply" autoComplete="off" value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={submitAgentFormOnEnter} placeholder={active ? "补充范围、来路，或者告诉我希望避开什么…" : "接着说，或者提出新的要求"} rows={1} /><button type="submit" className="context-agent-send" disabled={sending || !reply.trim()} aria-label={sending ? "正在发送" : active ? "补充一句" : "继续聊聊"}><Icon name="up" size={16} /></button></div></form>}
   </div>;
 }
 

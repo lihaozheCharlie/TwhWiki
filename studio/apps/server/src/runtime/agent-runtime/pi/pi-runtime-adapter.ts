@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Agent, type AgentEvent, type AgentMessage, type BeforeToolCallContext, type ThinkingLevel } from "@earendil-works/pi-agent-core";
+import { Agent, type AgentEvent, type AgentMessage, type ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { contentText } from "@earendil-works/pi-ai";
 import type { AgentApprovalDecision, AgentRuntimeEvent, VaultConfig } from "@the-way-here/shared";
 import type { AgentExecutionRef, AgentRecoveryState, AgentRuntime, StartAgentExecution } from "../types.js";
@@ -11,15 +11,9 @@ import { createPiTools } from "./pi-tools.js";
 type ActivePiExecution = {
   ref: AgentExecutionRef;
   agent: Agent;
-  mode: StartAgentExecution["mode"];
   model: string;
   finalAnswer?: string;
   interrupted: boolean;
-};
-
-type PendingApproval = {
-  sessionId: string;
-  resolve: (decision: AgentApprovalDecision) => void;
 };
 
 export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime {
@@ -27,8 +21,6 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
   private catalog: PiModelCatalog;
   private readonly sessions: PiSessionRepository;
   private readonly active = new Map<string, ActivePiExecution>();
-  private readonly pendingApprovals = new Map<string, PendingApproval>();
-  private readonly writeApprovedSessions = new Set<string>();
 
   constructor(vaultRoot: string, private enabled: boolean, providers: VaultConfig["agents"]["runtimes"]["pi"]["providers"] | PiProviderConfig[]) {
     super();
@@ -65,7 +57,7 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
     const tools = createPiTools({ cwd: input.cwd, config: input.config, mode: input.mode });
     const agent = new Agent({
       initialState: {
-        systemPrompt: "你是 The Way Here 的知识 Agent。严格遵守用户 prompt 中绑定的知识库、AGENTS.md、Skills、证据追溯和写入授权。只使用当前提供的工具。",
+        systemPrompt: "你是 The Way Here 的知识 Agent。严格遵守用户 prompt 中绑定的知识库、AGENTS.md、Skills、证据追溯、原始笔记保护和变更范围边界。只使用当前提供的工具。",
         model,
         thinkingLevel: piThinkingLevel(input.effort),
         tools,
@@ -74,9 +66,8 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
       streamFn: this.catalog.models.streamSimple.bind(this.catalog.models),
       sessionId,
       toolExecution: "sequential",
-      beforeToolCall: (context, signal) => this.beforeToolCall(ref, input.mode, context, signal),
     });
-    const execution: ActivePiExecution = { ref, agent, mode: input.mode, model: input.model, interrupted: false };
+    const execution: ActivePiExecution = { ref, agent, model: input.model, interrupted: false };
     this.active.set(sessionId, execution);
     agent.subscribe((event) => this.onAgentEvent(execution, event));
     await this.sessions.save({ id: sessionId, model: input.model, messages: agent.state.messages, status: "running" });
@@ -99,16 +90,13 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
     const execution = this.requireActive(ref);
     execution.interrupted = true;
     execution.agent.abort();
-    this.cancelApprovals(ref.sessionId);
   }
 
   async decide(ref: AgentExecutionRef, approvalId: string | number, decision: AgentApprovalDecision): Promise<void> {
-    const id = String(approvalId);
-    const approval = this.pendingApprovals.get(id);
-    if (!approval || approval.sessionId !== ref.sessionId) throw new Error("Pi 审批请求不存在或已结束");
-    if (decision === "allow-for-session") this.writeApprovedSessions.add(ref.sessionId);
-    this.pendingApprovals.delete(id);
-    approval.resolve(decision);
+    void ref;
+    void approvalId;
+    void decision;
+    throw new Error("Pi 运行时没有等待确认的操作");
   }
 
   async recover(ref: AgentExecutionRef): Promise<AgentRecoveryState> {
@@ -122,48 +110,12 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
 
   close(): void {
     for (const execution of this.active.values()) execution.agent.abort();
-    for (const approval of this.pendingApprovals.values()) approval.resolve("cancel");
-    this.pendingApprovals.clear();
   }
 
   private requireActive(ref: AgentExecutionRef): ActivePiExecution {
     const execution = this.active.get(ref.sessionId);
     if (!execution || execution.ref.turnId !== ref.turnId) throw new Error("Pi 任务没有活动回合");
     return execution;
-  }
-
-  private async beforeToolCall(ref: AgentExecutionRef, mode: StartAgentExecution["mode"], context: BeforeToolCallContext, signal?: AbortSignal) {
-    if (context.toolCall.name !== "write_file" || mode === "write" || this.writeApprovedSessions.has(ref.sessionId)) return undefined;
-    const approvalId = randomUUID();
-    const args = context.args as { path?: string };
-    let cancel: (() => void) | undefined;
-    const decision = await new Promise<AgentApprovalDecision>((resolve) => {
-      this.pendingApprovals.set(approvalId, { sessionId: ref.sessionId, resolve });
-      cancel = () => {
-        if (!this.pendingApprovals.delete(approvalId)) return;
-        resolve("cancel");
-      };
-      signal?.addEventListener("abort", cancel, { once: true });
-      this.emit({
-        ref,
-        event: {
-          type: "approval.requested",
-          approval: {
-            requestId: approvalId,
-            runtimeId: this.id,
-            operation: "file-write",
-            title: "Agent 请求更新知识文件",
-            detail: args.path ? `写入 ${args.path}` : "写入知识文件",
-            method: context.toolCall.name,
-            params: { path: args.path },
-          },
-        },
-      });
-    });
-    if (cancel) signal?.removeEventListener("abort", cancel);
-    return decision === "allow-once" || decision === "allow-for-session"
-      ? undefined
-      : { block: true, reason: decision === "cancel" ? "用户取消了写入" : "用户拒绝了写入" };
   }
 
   private async onAgentEvent(execution: ActivePiExecution, event: AgentEvent): Promise<void> {
@@ -183,7 +135,6 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
   private async finish(execution: ActivePiExecution, status: "completed" | "failed" | "interrupted", error?: string): Promise<void> {
     if (this.active.get(execution.ref.sessionId) !== execution) return;
     this.active.delete(execution.ref.sessionId);
-    this.cancelApprovals(execution.ref.sessionId);
     await this.sessions.save({
       id: execution.ref.sessionId,
       model: execution.model,
@@ -202,14 +153,6 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
         error,
       },
     });
-  }
-
-  private cancelApprovals(sessionId: string): void {
-    for (const [id, approval] of this.pendingApprovals) {
-      if (approval.sessionId !== sessionId) continue;
-      this.pendingApprovals.delete(id);
-      approval.resolve("cancel");
-    }
   }
 }
 
