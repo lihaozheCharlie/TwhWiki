@@ -7,8 +7,9 @@ import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent } from "../collaboration/model";
 import { EditableDocument, documentIdentity } from "../../shared/markdown";
 import { apiPageHref, PageLink, pageHref } from "../../shared/routing";
+import { ConfirmDeleteDialog } from "../../shared/ConfirmDeleteDialog";
 import { CollapsibleIndexPane, Empty, HeroMetric, Icon, Loading, PageHero } from "../../shared/ui";
-import { countRecentSources, sourceMonthLabel, sourceMonthOptions, sourceRecordDate, sourceRecordMonth, sourceRecordType, sourceRecordTypes, type SourceRecordType } from "./source-model";
+import { cleanSourcePath, countRecentSources, importedFolderForBatch, sourceMonthLabel, sourceMonthOptions, sourceRecordDate, sourceRecordMonth, sourceRecordType, sourceRecordTypes, type SourceRecordType } from "./source-model";
 
 export type ImportRoute = "files" | "ai" | "wechat" | "bill";
 
@@ -29,7 +30,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "files", onClose, onJourney }: { folders: string[]; currentFolder: string; initialRoute?: ImportRoute; onClose: () => void; onJourney: (journey: PaymentJourneySummary) => void }) {
+export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "files", onClose, onImported, onJourney }: { folders: string[]; currentFolder: string; initialRoute?: ImportRoute; onClose: () => void; onImported: (batch: SourceImportBatch) => void; onJourney: (journey: PaymentJourneySummary) => void }) {
   const [route, setRoute] = useState<ImportRoute>(initialRoute);
   const [provider, setProvider] = useState<Exclude<SourceImportChannel, "files" | "wechat" | "alipay">>("chatgpt");
   const [files, setFiles] = useState<File[]>([]);
@@ -123,9 +124,14 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
         mimeType: file.type || undefined,
       })));
       const batch = await api<SourceImportBatch>("/api/imports/files", { method: "POST", body: JSON.stringify({ files: payload, channel, targetFolder: destination }) });
-      setMessage(`已带进 ${batch.fileCount} 份记录${destination ? `到「${destination}」` : "到生活记录根目录"}。`);
+      if (!batch.journey) {
+        onClose();
+        onImported(batch);
+        return;
+      }
+      setMessage(`已带进 ${batch.fileCount} 份记录到「消费账单」。`);
       setJourney(batch.journey);
-      if (batch.journey) onJourney(batch.journey);
+      onJourney(batch.journey);
       setFiles([]);
     } catch (reason: any) {
       setError(reason.message);
@@ -185,13 +191,6 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
       </form>
     </section>
   </div>;
-}
-
-export function cleanSourcePath(relativePath: string): string {
-  const parts = relativePath.replace(/\\/g, "/").split("/").filter(Boolean);
-  const sourceRoot = parts.findIndex((part) => /^(原始知识库|sources?)$/i.test(part));
-  const logical = sourceRoot >= 0 ? parts.slice(sourceRoot + 1) : parts;
-  return logical.map((part) => part === "imported" ? "待整理" : part).join("/");
 }
 
 function SourceKnowledgeConnections({ page }: { page: WikiPage }) {
@@ -272,6 +271,7 @@ export function OrganizedSources({ revision }: { revision: number }) {
   const [filePaneOpen, setFilePaneOpen] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [recentJourney, setRecentJourney] = useState<PaymentJourneySummary>();
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: "file"; page: WikiPageSummary } | { kind: "folder"; folder: string; count: number }>();
   useEffect(() => {
     if (!creatingSource && !importOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -318,6 +318,18 @@ export function OrganizedSources({ revision }: { revision: number }) {
       return value;
     }, { replace: true });
   }
+  async function deleteSelectedTarget() {
+    if (!deleteTarget) return;
+    setCreatedPageId(undefined);
+    if (deleteTarget.kind === "file") {
+      await api<{ ok: true }>("/api/sources/file", { method: "DELETE", body: JSON.stringify({ pageId: deleteTarget.page.id, expectedModifiedAt: deleteTarget.page.modifiedAt }) });
+      update({ file: undefined });
+      return;
+    }
+    await api<{ ok: true }>("/api/sources/folder", { method: "DELETE", body: JSON.stringify({ folder: deleteTarget.folder, expectedFileCount: deleteTarget.count }) });
+    const parentFolder = deleteTarget.folder.split("/").slice(0, -1).join("/");
+    update({ q: undefined, type: undefined, month: undefined, folder: parentFolder || undefined, file: undefined, limit: undefined });
+  }
   return <div className="organized-sources-page">
     <header className="source-workspace-intro">
       <div><h1>生活记录</h1><p>日记、笔记、对话和其他原话都留在这里。它们让我记得你的来路，也让每一次理解都能回到真正发生过的生活。</p></div>
@@ -326,7 +338,16 @@ export function OrganizedSources({ revision }: { revision: number }) {
         <div className="source-workspace-buttons"><button type="button" className="source-secondary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog"><Icon name="up" size={15} />带一段材料进来</button><button type="button" className="primary-action" onClick={() => setCreatingSource(true)} aria-haspopup="dialog"><Icon name="plus" size={15} />写一条记录</button></div>
       </div>
     </header>
-    {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} onJourney={setRecentJourney} /> : null}
+    {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} onImported={(batch) => { setImportOpen(false); setCreatedPageId(undefined); update({ q: undefined, type: undefined, month: undefined, folder: importedFolderForBatch(batch) || undefined, file: undefined, limit: undefined }); }} onJourney={setRecentJourney} /> : null}
+    {deleteTarget ? <ConfirmDeleteDialog
+      title={deleteTarget.kind === "folder" ? "删除这个文件夹？" : "删除这份生活记录？"}
+      description={deleteTarget.kind === "folder" ? "文件夹内的记录和所有子文件夹都会一起删除。" : "文件会从生活记录中永久移除。"}
+      itemName={deleteTarget.kind === "folder" ? deleteTarget.folder : documentIdentity(deleteTarget.page.relativePath).fileName}
+      impact={deleteTarget.kind === "folder" ? `其中包含 ${deleteTarget.count} 份记录。已有理解不会自动删除，但之后将无法再回到这些原始材料；此操作不能撤销。` : "已有理解不会自动删除，但之后将无法再回到这份原始材料；此操作不能撤销。"}
+      confirmLabel={deleteTarget.kind === "folder" ? "删除文件夹" : "删除文件"}
+      onClose={() => setDeleteTarget(undefined)}
+      onConfirm={deleteSelectedTarget}
+    /> : null}
     {creatingSource ? <div className="source-compose-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreatingSource(false); }}><div className="source-compose-dialog" role="dialog" aria-modal="true" aria-label="写一条生活记录"><NewSourceForm folder={folder} onCancel={() => setCreatingSource(false)} onCreated={(page) => { const nextFolder = cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/"); setCreatingSource(false); setCreatedPageId(page.id); update({ q: undefined, type: undefined, month: undefined, folder: nextFolder || undefined, file: page.id, limit: undefined }); }} /></div></div> : null}
     <section className="source-discovery-tools" aria-label="筛选生活记录">
       <div className="source-type-filter" role="group" aria-label="按来源类型筛选">{sourceRecordTypes.map((item) => <button type="button" key={item.id} className={type === item.id ? "active" : ""} aria-pressed={type === item.id} onClick={() => { setCreatedPageId(undefined); update({ type: item.id === "all" ? undefined : item.id, file: undefined, limit: undefined }); }}>{item.id !== "all" ? <Icon name={item.id === "notes" ? "journal" : item.id === "ai" ? "spark" : item.id === "wechat" ? "message" : "receipt"} size={14} /> : null}{item.label}</button>)}</div>
@@ -335,10 +356,10 @@ export function OrganizedSources({ revision }: { revision: number }) {
     {months.length > 0 ? <div className="source-month-browser"><span><Icon name="history" size={14} />按月回望</span><nav aria-label="按月份浏览记录">{months.map((item) => <button type="button" key={item.id} className={month === item.id ? "active" : ""} aria-current={month === item.id ? "date" : undefined} onClick={() => { setCreatedPageId(undefined); update({ month: month === item.id ? undefined : item.id, file: undefined, limit: undefined }); }}><i style={{ "--month-weight": Math.min(11, 5 + item.count) } as React.CSSProperties} />{sourceMonthLabel(item.id)}</button>)}</nav>{month ? <button type="button" className="source-month-clear" onClick={() => update({ month: undefined, file: undefined, limit: undefined })}>清除月份</button> : null}</div> : null}
     <div className={`source-vault${folderPaneOpen ? "" : " folder-pane-collapsed"}${filePaneOpen ? "" : " file-pane-collapsed"}`} aria-label="生活记录工作区">
       <div className={`source-pane-shell source-folder-shell${folderPaneOpen ? "" : " collapsed"}`}>
-        <aside className="source-folder-pane"><header><div><b>文件夹</b><span>{folders.length}</span></div><button type="button" className="source-pane-collapse" onClick={() => setFolderPaneOpen((value) => !value)} aria-expanded={folderPaneOpen} aria-label={`${folderPaneOpen ? "收起" : "展开"}文件夹栏`}><Icon name={folderPaneOpen ? "back" : "arrow"} size={13} /></button></header><div className="source-folder-contents"><button className={!folder ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ folder: undefined, file: undefined, limit: undefined }); }}><Icon name="source" size={15} /><span>全部材料</span><small>{pages.length}</small></button>{folders.map(([name, count]) => { const recordType = sourceRecordType({ relativePath: name, tags: [], type: undefined }); return <button key={name} className={folder === name ? "active" : ""} style={{ paddingLeft: 10 + Math.min(name.split("/").length - 1, 3) * 16 }} onClick={() => { setCreatedPageId(undefined); update({ folder: name, file: undefined, limit: undefined }); }}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={15} /><span>{name.split("/").at(-1)}</span><small>{count}</small></button>; })}</div></aside>
+        <aside className="source-folder-pane"><header><div><b>文件夹</b><span>{folders.length}</span></div><div className="source-pane-header-actions">{folder ? <button type="button" className="source-delete-action" onClick={() => setDeleteTarget({ kind: "folder", folder, count: folderCounts.get(folder) || 0 })} aria-label={`删除文件夹「${folder}」`} title="删除当前文件夹"><Icon name="trash" size={14} /></button> : null}<button type="button" className="source-pane-collapse" onClick={() => setFolderPaneOpen((value) => !value)} aria-expanded={folderPaneOpen} aria-label={`${folderPaneOpen ? "收起" : "展开"}文件夹栏`}><Icon name={folderPaneOpen ? "back" : "arrow"} size={13} /></button></div></header><div className="source-folder-contents"><button className={!folder ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ folder: undefined, file: undefined, limit: undefined }); }}><Icon name="source" size={15} /><span>全部材料</span><small>{pages.length}</small></button>{folders.map(([name, count]) => { const recordType = sourceRecordType({ relativePath: name, tags: [], type: undefined }); return <button key={name} className={folder === name ? "active" : ""} style={{ paddingLeft: 10 + Math.min(name.split("/").length - 1, 3) * 16 }} onClick={() => { setCreatedPageId(undefined); update({ folder: name, file: undefined, limit: undefined }); }}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={15} /><span>{name.split("/").at(-1)}</span><small>{count}</small></button>; })}</div></aside>
       </div>
       <div className={`source-pane-shell source-file-shell${filePaneOpen ? "" : " collapsed"}`}>
-        <section className="source-file-pane"><header><div><b>{folder ? folder.split("/").at(-1) : "全部记录"}</b><span>{filtered.length} 份</span></div><button type="button" className="source-pane-collapse" onClick={() => setFilePaneOpen((value) => !value)} aria-expanded={filePaneOpen} aria-label={`${filePaneOpen ? "收起" : "展开"}文件列表`}><Icon name={filePaneOpen ? "back" : "arrow"} size={13} /></button></header><div className="source-file-contents"><div className="source-file-order"><span>按记录时间排列</span></div><div className="source-file-list">{visiblePages.map((page) => { const fileName = documentIdentity(page.relativePath).fileName; const recordType = sourceRecordType(page); const date = sourceRecordDate(page); return <button key={page.id} aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date)}`} className={selected?.id === page.id ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}><span className="source-file-card-meta"><em className={`source-type-chip source-type-chip--${recordType}`}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={11} />{sourceRecordTypes.find((item) => item.id === recordType)?.label}</em><time>{new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date)}</time></span><b>{fileName}</b><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small></button>; })}{visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}{visiblePages.length === 0 ? <div className="source-list-empty"><b>没有匹配的记录</b><p>换一个来源、月份或搜索词试试。</p></div> : null}</div></div></section>
+        <section className="source-file-pane"><header><div><b>{folder ? folder.split("/").at(-1) : "全部记录"}</b><span>{filtered.length} 份</span></div><div className="source-pane-header-actions">{selected ? <button type="button" className="source-delete-action" onClick={() => setDeleteTarget({ kind: "file", page: selected })} aria-label={`删除文件「${documentIdentity(selected.relativePath).fileName}」`} title="删除当前文件"><Icon name="trash" size={14} /></button> : null}<button type="button" className="source-pane-collapse" onClick={() => setFilePaneOpen((value) => !value)} aria-expanded={filePaneOpen} aria-label={`${filePaneOpen ? "收起" : "展开"}文件列表`}><Icon name={filePaneOpen ? "back" : "arrow"} size={13} /></button></div></header><div className="source-file-contents"><div className="source-file-order"><span>按记录时间排列</span></div><div className="source-file-list">{visiblePages.map((page) => { const fileName = documentIdentity(page.relativePath).fileName; const recordType = sourceRecordType(page); const date = sourceRecordDate(page); return <button key={page.id} aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date)}`} className={selected?.id === page.id ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}><span className="source-file-card-meta"><em className={`source-type-chip source-type-chip--${recordType}`}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={11} />{sourceRecordTypes.find((item) => item.id === recordType)?.label}</em><time>{new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date)}</time></span><b>{fileName}</b><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small></button>; })}{visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}{visiblePages.length === 0 ? <div className="source-list-empty"><b>没有匹配的记录</b><p>换一个来源、月份或搜索词试试。</p></div> : null}</div></div></section>
       </div>
       {selected ? <SourcePreview page={selected} revision={revision} startEditing={selected.id === createdPageId} onRenamed={(renamed) => { setCreatedPageId(undefined); update({ file: renamed.id }); }} /> : <div className="source-preview-empty"><span>没有匹配的来源</span><p>换一个文件夹或搜索词。</p></div>}
     </div>

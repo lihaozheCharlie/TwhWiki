@@ -3,6 +3,7 @@ import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useNavigati
 import type { VaultInfo } from "@the-way-here/shared";
 import { api, useApi } from "../api";
 import { navigation, type ReturnContext } from "./config";
+import { ConfirmDeleteDialog } from "../shared/ConfirmDeleteDialog";
 import { Icon } from "../shared/ui";
 import { OrganizedSources } from "../features/sources/Sources";
 import { FocusWorkspace, GrowthHub, KnowledgeHome, QuestionsHub, Today } from "../features/overview/OverviewPages";
@@ -10,8 +11,9 @@ import { Cards, Letters, MentalModels, Reader, Relationships, SearchResults, Tim
 import { CreateKnowledgeBaseDialog, DemoKnowledgeBaseNotice } from "../features/knowledge-bases/KnowledgeBaseOnboarding";
 
 const CREATE_KNOWLEDGE_BASE = "__create_knowledge_base__";
+type KnowledgeBaseSummary = VaultInfo["knowledgeBases"][number];
 
-function GlobalKnowledgeBaseSwitcher({ vault, disabled, onChange, onCreate }: { vault: VaultInfo; disabled: boolean; onChange: (knowledgeBaseId: string) => void; onCreate: () => void }) {
+function GlobalKnowledgeBaseSwitcher({ vault, disabled, onChange, onCreate, onDelete }: { vault: VaultInfo; disabled: boolean; onChange: (knowledgeBaseId: string) => void; onCreate: () => void; onDelete: (knowledgeBase: KnowledgeBaseSummary) => void }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const active = vault.knowledgeBases.find((knowledgeBase) => knowledgeBase.id === vault.knowledgeBaseId) || vault.knowledgeBases[0];
@@ -52,10 +54,13 @@ function GlobalKnowledgeBaseSwitcher({ vault, disabled, onChange, onCreate }: { 
         {vault.knowledgeBases.map((knowledgeBase) => {
           const selected = knowledgeBase.id === vault.knowledgeBaseId;
           const demo = knowledgeBase.id.toLowerCase() === "demo";
-          return <button key={knowledgeBase.id} type="button" role="menuitemradio" aria-checked={selected} onClick={() => chooseKnowledgeBase(knowledgeBase.id)}>
-            <span className="global-kb-check">{selected ? <Icon name="check" size={15} /> : null}</span>
-            <span className="global-kb-option-copy"><span>{knowledgeBase.name}{demo ? <small>演示</small> : null}</span><small>{demo ? "预置的示例记忆，可以先感受被记住的体验" : `来自「${knowledgeBase.name}」的生活记录与已有理解`}</small></span>
-          </button>;
+          return <div className="global-kb-option-row" key={knowledgeBase.id}>
+            <button className="global-kb-option-main" type="button" role="menuitemradio" aria-checked={selected} onClick={() => chooseKnowledgeBase(knowledgeBase.id)}>
+              <span className="global-kb-check">{selected ? <Icon name="check" size={15} /> : null}</span>
+              <span className="global-kb-option-copy"><span>{knowledgeBase.name}{demo ? <small>演示</small> : null}</span><small>{demo ? "预置的示例记忆，可以先感受被记住的体验" : `来自「${knowledgeBase.name}」的生活记录与已有理解`}</small></span>
+            </button>
+            {!demo ? <button className="global-kb-delete" type="button" role="menuitem" onClick={() => { setOpen(false); onDelete(knowledgeBase); }} aria-label={`删除知识库「${knowledgeBase.name}」`} title="删除知识库"><Icon name="trash" size={15} /></button> : null}
+          </div>;
         })}
       </div>
       <button className="global-kb-create" type="button" role="menuitem" onClick={() => { setOpen(false); onCreate(); }}>新建一个知识库 <Icon name="arrow" size={14} /></button>
@@ -75,6 +80,7 @@ export function AppShell({ revision }: { revision: number }) {
   const [switchingKnowledgeBaseName, setSwitchingKnowledgeBaseName] = useState("");
   const [knowledgeBaseError, setKnowledgeBaseError] = useState("");
   const [createKnowledgeBaseOpen, setCreateKnowledgeBaseOpen] = useState(false);
+  const [deleteKnowledgeBaseTarget, setDeleteKnowledgeBaseTarget] = useState<KnowledgeBaseSummary>();
 
   function submitSearch(event: React.FormEvent) {
     event.preventDefault();
@@ -137,6 +143,17 @@ export function AppShell({ revision }: { revision: number }) {
     }
   }
 
+  async function deleteKnowledgeBase() {
+    if (!deleteKnowledgeBaseTarget) return;
+    await api<{ id: string; name: string; fallbackId: string }>(`/api/vault/${encodeURIComponent(deleteKnowledgeBaseTarget.id)}`, { method: "DELETE" });
+    window.location.assign("/");
+  }
+
+  function closeDeleteKnowledgeBaseDialog() {
+    setDeleteKnowledgeBaseTarget(undefined);
+    window.setTimeout(() => document.querySelector<HTMLButtonElement>(".global-kb-trigger")?.focus(), 0);
+  }
+
   const personalKnowledgeBase = vault?.knowledgeBases.find((item) => item.id.toLowerCase() !== "demo");
 
   return (
@@ -146,7 +163,7 @@ export function AppShell({ revision }: { revision: number }) {
         <div className="global-header-inner">
           <div className="global-identity">
             <NavLink to="/" className="global-brand" translate="no" aria-label="The Way Here 首页"><span>The Way</span><b>Here</b></NavLink>
-            {vault ? <GlobalKnowledgeBaseSwitcher vault={vault} disabled={knowledgeBaseSwitching} onChange={(knowledgeBaseId) => void switchKnowledgeBase(knowledgeBaseId)} onCreate={() => setCreateKnowledgeBaseOpen(true)} /> : null}
+            {vault ? <GlobalKnowledgeBaseSwitcher vault={vault} disabled={knowledgeBaseSwitching} onChange={(knowledgeBaseId) => void switchKnowledgeBase(knowledgeBaseId)} onCreate={() => setCreateKnowledgeBaseOpen(true)} onDelete={setDeleteKnowledgeBaseTarget} /> : null}
           </div>
           <nav id="main-navigation" className="global-navigation" aria-label="主要导航">
             {navigation.map((item) => {
@@ -201,6 +218,15 @@ export function AppShell({ revision }: { revision: number }) {
         </div>
       </main>
       {createKnowledgeBaseOpen ? <CreateKnowledgeBaseDialog onClose={() => setCreateKnowledgeBaseOpen(false)} onSubmit={createKnowledgeBase} /> : null}
+      {deleteKnowledgeBaseTarget ? <ConfirmDeleteDialog
+        title="删除这个知识库？"
+        description="其中的生活记录和已有理解会从本机永久删除。"
+        itemName={deleteKnowledgeBaseTarget.name}
+        impact={deleteKnowledgeBaseTarget.id === vault?.knowledgeBaseId ? "这是当前打开的知识库。删除后会自动打开另一个保留的空间；此操作不能撤销。" : "这个知识库的日记、导入材料和构建出的理解都会一起删除；此操作不能撤销。"}
+        confirmLabel="删除知识库"
+        onClose={closeDeleteKnowledgeBaseDialog}
+        onConfirm={deleteKnowledgeBase}
+      /> : null}
     </div>
   );
 }

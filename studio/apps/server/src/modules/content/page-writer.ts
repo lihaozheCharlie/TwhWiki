@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, rename, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pageIdForPath } from "@the-way-here/wiki-core";
 import type { WikiPage } from "@the-way-here/shared";
@@ -68,6 +68,50 @@ export class PageWriter {
     if (!updated) throw new Error("重命名后无法重新读取页面");
     this.knowledge.events.broadcast("index", { at: this.knowledge.index.lastIndexedAt, path: updated.relativePath, previousPath: page.relativePath });
     return updated;
+  }
+
+  async deleteSource(pageId: string | undefined, expectedModifiedAt?: string): Promise<{ ok: true; pageId: string }> {
+    const page = pageId ? this.knowledge.index.get(pageId) : undefined;
+    if (!page || !page.isSource) throw new ContentRequestError(404, "生活记录不存在，请刷新后重试");
+    const sourceRoot = path.resolve(this.knowledge.vaultRoot, this.knowledge.index.config.paths.sources);
+    const absolutePath = path.resolve(this.knowledge.vaultRoot, page.relativePath);
+    if (!isPathInside(sourceRoot, absolutePath)) throw new ContentRequestError(403, "只能删除生活记录中的文件");
+    await this.assertCurrent(absolutePath, expectedModifiedAt);
+    await rm(absolutePath);
+    await this.knowledge.index.rebuild();
+    this.knowledge.events.broadcast("index", { at: this.knowledge.index.lastIndexedAt, deletedPath: page.relativePath });
+    return { ok: true, pageId: page.id };
+  }
+
+  async deleteSourceFolder(folderValue: string | undefined, expectedFileCount?: unknown): Promise<{ ok: true; folder: string }> {
+    let folder: string;
+    try {
+      folder = normalizeSourceFolder(folderValue || "");
+    } catch (error: any) {
+      throw new ContentRequestError(400, error.message);
+    }
+    if (!folder) throw new ContentRequestError(400, "生活记录根目录不能删除");
+    if (folder.split(path.sep).some((part) => part.startsWith("."))) throw new ContentRequestError(403, "系统目录不能删除");
+    const sourceRoot = path.resolve(this.knowledge.vaultRoot, this.knowledge.index.config.paths.sources);
+    const target = path.resolve(sourceRoot, folder);
+    if (!isPathInside(sourceRoot, target)) throw new ContentRequestError(403, "文件夹超出生活记录目录");
+    if (expectedFileCount !== undefined && (!Number.isInteger(expectedFileCount) || Number(expectedFileCount) < 0)) throw new ContentRequestError(400, "文件夹记录数量无效");
+    const relativeFolder = path.relative(this.knowledge.vaultRoot, target).split(path.sep).join("/");
+    const currentFileCount = this.knowledge.index.list({ sources: true }).filter((page) => page.relativePath.startsWith(`${relativeFolder}/`)).length;
+    if (expectedFileCount !== undefined && currentFileCount !== expectedFileCount) throw new ContentRequestError(409, "文件夹内容已经变化，请刷新后重新确认");
+    try {
+      const info = await lstat(target);
+      if (!info.isDirectory() || info.isSymbolicLink()) throw new ContentRequestError(409, "所选路径不是可删除的文件夹");
+    } catch (error: any) {
+      if (error instanceof ContentRequestError) throw error;
+      if (error?.code === "ENOENT") throw new ContentRequestError(404, "文件夹不存在，请刷新后重试");
+      throw error;
+    }
+    await rm(target, { recursive: true });
+    await this.knowledge.index.rebuild();
+    const normalizedFolder = folder.split(path.sep).join("/");
+    this.knowledge.events.broadcast("index", { at: this.knowledge.index.lastIndexedAt, deletedFolder: normalizedFolder });
+    return { ok: true, folder: normalizedFolder };
   }
 
   async save(pageId: string, markdown: string | undefined, expectedModifiedAt?: string): Promise<{ ok: true; modifiedAt?: string; sha256: string }> {

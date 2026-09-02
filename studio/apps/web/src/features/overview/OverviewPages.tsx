@@ -1,10 +1,11 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { NavLink, useParams } from "react-router-dom";
+import { NavLink, useNavigate, useParams } from "react-router-dom";
 import type { ConversationPrompt, FocusWorkspaceView, GraphData, PaymentJourneySummary, SectionedPageView, SourceImportBatch, StateSignal, StructuredCard, TodayView, VaultInfo, WikiPageSummary } from "@the-way-here/shared";
 import { useApi } from "../../api";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent, shouldSubmitAgentInput } from "../collaboration/model";
-import { cleanSourcePath, ImportMaterialsModal } from "../sources/Sources";
+import { ImportMaterialsModal } from "../sources/Sources";
+import { cleanSourcePath, importedFolderForBatch } from "../sources/source-model";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
 import { resizeComposerTextarea } from "../../shared/composer-input";
@@ -182,6 +183,7 @@ function talkingQuestions(data: TodayView, recentJourney?: PaymentJourneySummary
 }
 
 export function Today({ revision }: { revision: number }) {
+  const navigate = useNavigate();
   const [importOpen, setImportOpen] = useState(false);
   const [importedJourney, setImportedJourney] = useState<PaymentJourneySummary>();
   const [questionOffset, setQuestionOffset] = useState(0);
@@ -226,9 +228,14 @@ export function Today({ revision }: { revision: number }) {
     window.setTimeout(() => conversationInputRef.current?.focus(), 0);
   }
 
+  function openImportedFolder(batch: SourceImportBatch) {
+    const importedFolder = importedFolderForBatch(batch);
+    navigate({ pathname: "/sources", search: importedFolder ? `?${new URLSearchParams({ folder: importedFolder })}` : "" });
+  }
+
   return (
     <div className="home-overview">
-      {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onJourney={setImportedJourney} /> : null}
+      {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onImported={openImportedFolder} onJourney={setImportedJourney} /> : null}
       <section className="home-intro-card" aria-labelledby="home-intro-title">
         <div className="home-intro-main">
           <span className="friend-mark" aria-hidden="true"><Icon name="message" size={22} /></span>
@@ -269,6 +276,7 @@ export function Today({ revision }: { revision: number }) {
 }
 
 export function QuestionsHub({ revision }: { revision: number }) {
+  const navigate = useNavigate();
   const [topicKind, setTopicKind] = useState<ConversationTopicKind | "all">("all");
   const [topicLimit, setTopicLimit] = useState(6);
   const [importOpen, setImportOpen] = useState(false);
@@ -288,8 +296,13 @@ export function QuestionsHub({ revision }: { revision: number }) {
   const topicCards = wallQuestions.slice(0, topicLimit);
   const importFolders = [...new Set((sourcePages || []).map((page) => cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/")).filter(Boolean))].sort((left, right) => left.localeCompare(right, "zh-CN"));
 
+  function openImportedFolder(batch: SourceImportBatch) {
+    const importedFolder = importedFolderForBatch(batch);
+    navigate({ pathname: "/sources", search: importedFolder ? `?${new URLSearchParams({ folder: importedFolder })}` : "" });
+  }
+
   return <div className="questions-hub">
-    {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onJourney={setImportedJourney} /> : null}
+    {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onImported={openImportedFolder} onJourney={setImportedJourney} /> : null}
     <header className="questions-intro">
       <h1>这段时间你说的话，我都还记得。</h1>
     </header>

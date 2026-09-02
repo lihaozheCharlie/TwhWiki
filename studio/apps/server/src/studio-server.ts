@@ -27,7 +27,7 @@ export class StudioServer {
     const knowledge = await KnowledgeRuntime.create(options.vaultRoot, options.knowledgeBaseId);
     const runtimes = await AgentRuntimeRegistry.create(knowledge.index.config.agents, knowledge.vaultRoot);
     const runs = new RunCoordinator(knowledge, runtimes, app.log);
-    registerContentRoutes(app, knowledge, () => runs.runtimeCatalog());
+    registerContentRoutes(app, knowledge, () => runs.runtimeCatalog(), (knowledgeBaseId) => runs.hasActiveKnowledgeBaseRun(knowledgeBaseId));
     registerImportRoutes(app, knowledge);
     registerRunRoutes(app, runs);
     app.get("/api/events", async (request, reply) => knowledge.events.connect(request, reply));

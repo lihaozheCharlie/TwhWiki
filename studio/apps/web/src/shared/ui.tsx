@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
-export type IconName = "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "history" | "plus" | "back" | "close" | "down" | "check";
+export type IconName = "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "history" | "plus" | "back" | "close" | "down" | "check" | "trash";
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -27,6 +27,7 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
     down: <path d="m7 9 5 5 5-5" />,
     check: <path d="m5 12 4 4L19 6" />,
+    trash: <><path d="M4 7h16M9 3h6l1 4H8l1-4ZM7 7l1 14h8l1-14M10 11v6M14 11v6" /></>,
   };
   return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }

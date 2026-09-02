@@ -60,6 +60,10 @@ export class RunCoordinator {
     return (await this.runs.list()).filter((run) => !run.knowledgeBaseId || run.knowledgeBaseId === knowledgeBaseId);
   }
 
+  async hasActiveKnowledgeBaseRun(knowledgeBaseId: string): Promise<boolean> {
+    return (await this.runs.list()).some((run) => run.knowledgeBaseId === knowledgeBaseId && !["completed", "failed", "interrupted"].includes(run.status));
+  }
+
   get(id: string): Promise<WikiRun | undefined> {
     return this.runs.get(id);
   }

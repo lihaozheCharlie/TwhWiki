@@ -1,4 +1,4 @@
-import type { WikiPageSummary } from "@the-way-here/shared";
+import type { SourceImportBatch, WikiPageSummary } from "@the-way-here/shared";
 
 export type SourceRecordType = "notes" | "ai" | "wechat" | "bill";
 
@@ -9,6 +9,22 @@ export const sourceRecordTypes: ReadonlyArray<{ id: "all" | SourceRecordType; la
   { id: "wechat", label: "微信记录" },
   { id: "bill", label: "消费账单" },
 ];
+
+export function cleanSourcePath(relativePath: string): string {
+  const parts = relativePath.replace(/\\/g, "/").split("/").filter(Boolean);
+  const sourceRoot = parts.findIndex((part) => /^(原始知识库|sources?)$/i.test(part));
+  const logical = sourceRoot >= 0 ? parts.slice(sourceRoot + 1) : parts;
+  return logical.map((part) => part === "imported" ? "待整理" : part).join("/");
+}
+
+export function importedFolderForBatch(batch: Pick<SourceImportBatch, "files" | "targetFolder">): string {
+  const parentPaths = batch.files.map((file) => cleanSourcePath(file.storedPath).split("/").filter(Boolean).slice(0, -1));
+  if (!parentPaths.length) return cleanSourcePath(batch.targetFolder || "");
+  const first = parentPaths[0]!;
+  let commonDepth = 0;
+  while (commonDepth < first.length && parentPaths.every((path) => path[commonDepth] === first[commonDepth])) commonDepth += 1;
+  return first.slice(0, commonDepth).join("/") || cleanSourcePath(batch.targetFolder || "");
+}
 
 export function sourceRecordType(page: Pick<WikiPageSummary, "relativePath" | "type" | "tags">): SourceRecordType {
   const identity = `${page.relativePath} ${page.type || ""} ${page.tags.join(" ")}`.toLocaleLowerCase();

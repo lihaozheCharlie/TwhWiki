@@ -75,11 +75,13 @@ agents:
 
 - `GET /api/vault`：当前知识库、可用知识库、数量和 Agent 运行时摘要。
 - `POST /api/vault`：创建与演示库隔离的个人知识库、写入注册表并切换到新库。
+- `DELETE /api/vault/:knowledgeBaseId`：删除独立管理的私人知识库目录并原子更新注册表；演示库、共享/自定义目录和存在活动任务的知识库会被拒绝。
 - `POST /api/vault/select`：在当前服务进程中切换活动知识库。
 - `GET /api/agent-runtimes`、`GET /api/agent-models`：可用运行时、当前模型和思考深度。
 - `GET /api/agent-provider-presets`：第三方厂商、模型枚举及每个模型支持的思考深度；官网服务地址不会暴露给前端。
 - `GET /api/agent-settings`、`PUT /api/agent-settings`：读取或更新工作区级全局 Agent 设置；密钥字段只写不读。
 - `GET /api/pages`、`GET /api/pages/*`：页面列表与正文。
+- `DELETE /api/sources/file`、`DELETE /api/sources/folder`：删除当前知识库内的一份生活记录或一个非根文件夹；文件删除带并发检测，文件夹删除受来源根目录边界保护。
 - `GET /api/search`、`GET /api/views/*`：搜索与个人成长派生视图。
 - `PUT /api/pages/*`：编辑当前知识库内的 Wiki 或来源，带并发检测。
 - `GET /api/events`：文件、索引、任务、审批和验证 SSE。
@@ -96,8 +98,8 @@ agents:
 - `apps/server/src/runtime/knowledge-runtime.ts`：知识库索引、切换、文件监听与重建的深模块。
 - `apps/server/src/runtime/run-coordinator.ts`：运行时无关的任务状态、审批、验证和恢复编排深模块。
 - `apps/server/src/runtime/agent-runtime/`：通用运行时契约与注册表，以及 Codex/Pi 两个适配器；Pi 的模型目录、工具边界和会话仓库保持在适配器内部。
-- `apps/server/src/modules/content/page-writer.ts`：页面创建、保存、重命名与并发安全写入。
-- `apps/server/src/modules/knowledge-bases/knowledge-base-manager.ts`：创建隔离的知识库目录并原子更新工作区注册表。
+- `apps/server/src/modules/content/page-writer.ts`：页面创建、保存、重命名、来源删除与并发安全写入。
+- `apps/server/src/modules/knowledge-bases/knowledge-base-manager.ts`：创建或删除隔离的知识库目录，并原子更新工作区注册表。
 - `apps/server/src/modules/imports/`、`modules/skills/`：导入批次和 Skill 目录读取。
 - `apps/server/src/modules/imports/payment-statement.ts`：支付宝账单的确定性解析、归并、聚类与回忆提示；后续支付平台通过同一账单导入 seam 增加适配器。
 - `apps/server/src/routes/`：HTTP 适配器，只处理请求/响应映射，不保存领域状态。

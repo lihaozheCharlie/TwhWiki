@@ -2,7 +2,7 @@ import path from "node:path";
 import chokidar, { type FSWatcher } from "chokidar";
 import { WikiIndex } from "@the-way-here/wiki-core";
 import type { AgentRuntimeDescriptor } from "@the-way-here/shared";
-import { createPersonalKnowledgeBase } from "../modules/knowledge-bases/knowledge-base-manager.js";
+import { createPersonalKnowledgeBase, deletePersonalKnowledgeBase, type DeletedKnowledgeBase } from "../modules/knowledge-bases/knowledge-base-manager.js";
 import { StudioEvents } from "./studio-events.js";
 
 export class KnowledgeRuntime {
@@ -55,6 +55,22 @@ export class KnowledgeRuntime {
       const created = await createPersonalKnowledgeBase(this.vaultRoot, name);
       await this.activate(created.id);
       return created;
+    });
+    this.mutationQueue = task.then(() => undefined, () => undefined);
+    return task;
+  }
+
+  deleteKnowledgeBase(knowledgeBaseId: unknown): Promise<DeletedKnowledgeBase> {
+    const task = this.mutationQueue.then(async () => {
+      const deletingActive = knowledgeBaseId === this.activeIndex.config.knowledgeBaseId;
+      const deleted = await deletePersonalKnowledgeBase(this.vaultRoot, knowledgeBaseId);
+      if (deletingActive) await this.activate(deleted.fallbackId);
+      else {
+        await this.activeIndex.rebuild();
+        this.events.broadcast("knowledge-base", { knowledgeBaseId: this.activeIndex.config.knowledgeBaseId, deletedKnowledgeBaseId: deleted.id, indexedAt: this.activeIndex.lastIndexedAt });
+        this.events.broadcast("index", { knowledgeBaseId: this.activeIndex.config.knowledgeBaseId, at: this.activeIndex.lastIndexedAt });
+      }
+      return deleted;
     });
     this.mutationQueue = task.then(() => undefined, () => undefined);
     return task;

@@ -370,6 +370,25 @@
 .organized-sources-page .source-folder-pane > header span,
 .organized-sources-page .source-file-pane > header span { font-size: 10px; white-space: nowrap; }
 
+.source-pane-header-actions { display: flex; align-items: center; gap: 5px; }
+
+.source-delete-action {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #8b4b45;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  opacity: .72;
+}
+
+.source-delete-action:hover { color: #812c25; background: #f8dfdb; opacity: 1; }
+.source-delete-action:focus-visible { outline: 3px solid rgba(139, 45, 37, .18); outline-offset: 1px; opacity: 1; }
+
 .source-pane-collapse {
   width: 28px;
   height: 28px;
@@ -388,10 +407,11 @@
 .source-pane-shell.collapsed .source-pane-collapse { transform: rotate(0); }
 .source-pane-shell.collapsed .source-folder-pane > header,
 .source-pane-shell.collapsed .source-file-pane > header { justify-content: center; padding-inline: 13px; }
-.source-pane-shell.collapsed .source-folder-pane > header > div,
-.source-pane-shell.collapsed .source-file-pane > header > div,
+.source-pane-shell.collapsed .source-folder-pane > header > div:first-child,
+.source-pane-shell.collapsed .source-file-pane > header > div:first-child,
 .source-pane-shell.collapsed .source-folder-contents,
 .source-pane-shell.collapsed .source-file-contents { display: none; }
+.source-pane-shell.collapsed .source-delete-action { display: none; }
 
 .source-folder-contents { padding: 0 9px 15px; }
 

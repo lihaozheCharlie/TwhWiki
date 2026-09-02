@@ -8,7 +8,7 @@ import { ContentRequestError, PageWriter } from "../modules/content/page-writer.
 import { KnowledgeBaseRequestError } from "../modules/knowledge-bases/knowledge-base-manager.js";
 import { KnowledgeRuntime } from "../runtime/knowledge-runtime.js";
 
-export function registerContentRoutes(app: FastifyInstance, knowledge: KnowledgeRuntime, runtimeCatalog: () => Promise<AgentRuntimeDescriptor[]>): void {
+export function registerContentRoutes(app: FastifyInstance, knowledge: KnowledgeRuntime, runtimeCatalog: () => Promise<AgentRuntimeDescriptor[]>, hasActiveKnowledgeBaseRun: (knowledgeBaseId: string) => Promise<boolean>): void {
   const writer = new PageWriter(knowledge);
   app.get("/api/health", async () => ({ ok: true, vaultRoot: knowledge.vaultRoot, indexedAt: knowledge.index.lastIndexedAt }));
   app.get("/api/vault", async () => knowledge.vaultInfo(await runtimeCatalog()));
@@ -16,6 +16,15 @@ export function registerContentRoutes(app: FastifyInstance, knowledge: Knowledge
     try {
       const created = await knowledge.createKnowledgeBase(request.body?.name);
       return reply.code(201).send({ ...created, knowledgeBaseId: created.id });
+    } catch (error) {
+      if (error instanceof KnowledgeBaseRequestError) return reply.code(error.statusCode).send({ error: error.message });
+      throw error;
+    }
+  });
+  app.delete<{ Params: { knowledgeBaseId: string } }>("/api/vault/:knowledgeBaseId", async (request, reply) => {
+    try {
+      if (await hasActiveKnowledgeBaseRun(request.params.knowledgeBaseId)) return reply.code(409).send({ error: "这个知识库还有 Agent 任务正在运行，请结束任务后再删除" });
+      return await knowledge.deleteKnowledgeBase(request.params.knowledgeBaseId);
     } catch (error) {
       if (error instanceof KnowledgeBaseRequestError) return reply.code(error.statusCode).send({ error: error.message });
       throw error;
@@ -43,6 +52,8 @@ export function registerContentRoutes(app: FastifyInstance, knowledge: Knowledge
   app.get<{ Querystring: { q?: string } }>("/api/search", async (request) => knowledge.index.search(request.query.q || ""));
 
   app.post<{ Body: { title?: string; folder?: string } }>("/api/sources", async (request, reply) => handleContent(reply, () => writer.createSource(request.body?.title, request.body?.folder), 201));
+  app.delete<{ Body: { pageId?: string; expectedModifiedAt?: string } }>("/api/sources/file", async (request, reply) => handleContent(reply, () => writer.deleteSource(request.body?.pageId, request.body?.expectedModifiedAt)));
+  app.delete<{ Body: { folder?: string; expectedFileCount?: number } }>("/api/sources/folder", async (request, reply) => handleContent(reply, () => writer.deleteSourceFolder(request.body?.folder, request.body?.expectedFileCount)));
   app.post<{ Body: { pageId?: string } }>("/api/files/open-in-editor", async (request, reply) => handleContent(reply, () => writer.openInEditor(request.body?.pageId)));
   app.post<{ Body: { pageId?: string; fileName?: string; expectedModifiedAt?: string } }>("/api/pages/rename", async (request, reply) => handleContent(reply, () => writer.rename(request.body?.pageId, request.body?.fileName, request.body?.expectedModifiedAt)));
   app.put<{ Params: { "*": string }; Body: { markdown?: string; expectedModifiedAt?: string } }>("/api/pages/*", async (request, reply) => handleContent(reply, () => writer.save(decodeURIComponent(request.params["*"]), request.body?.markdown, request.body?.expectedModifiedAt)));
