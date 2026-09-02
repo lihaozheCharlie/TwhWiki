@@ -7,7 +7,8 @@ import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent } from "../collaboration/model";
 import { EditableDocument, documentIdentity } from "../../shared/markdown";
 import { apiPageHref, PageLink, pageHref } from "../../shared/routing";
-import { CollapsibleIndexPane, Empty, HeroMetric, Icon, Loading, PageHero, PaneCollapseButton } from "../../shared/ui";
+import { CollapsibleIndexPane, Empty, HeroMetric, Icon, Loading, PageHero } from "../../shared/ui";
+import { countRecentSources, sourceMonthLabel, sourceMonthOptions, sourceRecordDate, sourceRecordMonth, sourceRecordType, sourceRecordTypes, type SourceRecordType } from "./source-model";
 
 export type ImportRoute = "files" | "ai" | "wechat" | "bill";
 
@@ -226,7 +227,7 @@ function SourceKnowledgeConnections({ page }: { page: WikiPage }) {
 function SourcePreview({ page, revision, startEditing = false, onRenamed }: { page: WikiPageSummary; revision: number; startEditing?: boolean; onRenamed: (page: WikiPage) => void }) {
   const { data, loading, error } = useApi<WikiPage>(apiPageHref(page.id), revision);
   return <article className="source-preview">
-    {loading ? <Loading label="正在展开正文" /> : error || !data ? <Empty>{error || "正文暂时无法读取"}</Empty> : <EditableDocument page={data} variant="preview" startEditing={startEditing} afterContent={<SourceKnowledgeConnections key={data.id} page={data} />} onRenamed={onRenamed} />}
+    {loading ? <Loading label="正在展开正文" /> : error || !data ? <Empty>{error || "正文暂时无法读取"}</Empty> : <EditableDocument page={data} variant="preview" startEditing={startEditing} showOutline afterContent={<SourceKnowledgeConnections key={data.id} page={data} />} onRenamed={onRenamed} />}
   </article>;
 }
 
@@ -256,7 +257,7 @@ function NewSourceForm({ folder, onCancel, onCreated }: { folder: string; onCanc
 
   return <form className="new-source-form" onSubmit={create}>
     <header><div><span>写一条生活记录</span><b>创建 Markdown 文件</b></div><button type="button" onClick={onCancel} aria-label="关闭新建文件">×</button></header>
-    <label>文件名<input name="new-source-title" autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：今天的观察…" /></label>
+    <label>文件名<input name="new-source-title" autoComplete="off" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：今天的观察…" /></label>
     <label>保存到<input name="new-source-folder" autoComplete="off" value={targetFolder} onChange={(event) => setTargetFolder(event.target.value)} placeholder="例如：日记/2026…" /></label>
     <footer><span aria-live="polite">{error || "创建后会直接进入编辑，内容自动保存。"}</span><button disabled={creating}>{creating ? "正在创建…" : "创建文件"}</button></footer>
   </form>;
@@ -271,10 +272,23 @@ export function OrganizedSources({ revision }: { revision: number }) {
   const [filePaneOpen, setFilePaneOpen] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [recentJourney, setRecentJourney] = useState<PaymentJourneySummary>();
+  useEffect(() => {
+    if (!creatingSource && !importOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setCreatingSource(false);
+      setImportOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [creatingSource, importOpen]);
   if (loading || !data) return <Loading label="正在打开生活记录" />;
   const pages = data;
   const query = params.get("q") || "";
   const folder = params.get("folder") || "";
+  const requestedType = params.get("type") || "all";
+  const type = (sourceRecordTypes.some((item) => item.id === requestedType) ? requestedType : "all") as "all" | SourceRecordType;
+  const month = params.get("month") || "";
   const folderCounts = new Map<string, number>();
   for (const page of pages) {
     const parts = cleanSourcePath(page.relativePath).split("/").slice(0, -1);
@@ -284,10 +298,15 @@ export function OrganizedSources({ revision }: { revision: number }) {
     }
   }
   const folders = [...folderCounts.entries()].sort(([left], [right]) => left.localeCompare(right, "zh-CN"));
+  const months = sourceMonthOptions(pages);
+  const recentCount = countRecentSources(pages);
   const filtered = pages.filter((page) => {
     const sourcePath = cleanSourcePath(page.relativePath);
-    return (!folder || sourcePath.startsWith(`${folder}/`)) && `${page.title} ${sourcePath} ${page.excerpt}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
-  }).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+    return (!folder || sourcePath.startsWith(`${folder}/`))
+      && (type === "all" || sourceRecordType(page) === type)
+      && (!month || sourceRecordMonth(page) === month)
+      && `${page.title} ${sourcePath} ${page.excerpt}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  }).sort((a, b) => sourceRecordDate(b).getTime() - sourceRecordDate(a).getTime());
   const requestedLimit = Number.parseInt(params.get("limit") || "120", 10);
   const visibleLimit = Number.isFinite(requestedLimit) ? Math.max(120, requestedLimit) : 120;
   const visiblePages = filtered.slice(0, visibleLimit);
@@ -302,17 +321,24 @@ export function OrganizedSources({ revision }: { revision: number }) {
   return <div className="organized-sources-page">
     <header className="source-workspace-intro">
       <div><h1>生活记录</h1><p>日记、笔记、对话和其他原话都留在这里。它们让我记得你的来路，也让每一次理解都能回到真正发生过的生活。</p></div>
-      <div className="source-workspace-actions"><span><b>{new Intl.NumberFormat("zh-CN").format(pages.length)}</b> 份记录</span><button className="primary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog">带进一段记录<Icon name="arrow" size={15} /></button></div>
+      <div className="source-workspace-actions">
+        <div className="source-record-stats"><span><b>{new Intl.NumberFormat("zh-CN").format(pages.length)}</b>份记录</span><span className="recent"><b>+{recentCount}</b>本周新增</span></div>
+        <div className="source-workspace-buttons"><button type="button" className="source-secondary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog"><Icon name="up" size={15} />带一段材料进来</button><button type="button" className="primary-action" onClick={() => setCreatingSource(true)} aria-haspopup="dialog"><Icon name="plus" size={15} />写一条记录</button></div>
+      </div>
     </header>
     {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} onJourney={setRecentJourney} /> : null}
+    {creatingSource ? <div className="source-compose-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreatingSource(false); }}><div className="source-compose-dialog" role="dialog" aria-modal="true" aria-label="写一条生活记录"><NewSourceForm folder={folder} onCancel={() => setCreatingSource(false)} onCreated={(page) => { const nextFolder = cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/"); setCreatingSource(false); setCreatedPageId(page.id); update({ q: undefined, type: undefined, month: undefined, folder: nextFolder || undefined, file: page.id, limit: undefined }); }} /></div></div> : null}
+    <section className="source-discovery-tools" aria-label="筛选生活记录">
+      <div className="source-type-filter" role="group" aria-label="按来源类型筛选">{sourceRecordTypes.map((item) => <button type="button" key={item.id} className={type === item.id ? "active" : ""} aria-pressed={type === item.id} onClick={() => { setCreatedPageId(undefined); update({ type: item.id === "all" ? undefined : item.id, file: undefined, limit: undefined }); }}>{item.id !== "all" ? <Icon name={item.id === "notes" ? "journal" : item.id === "ai" ? "spark" : item.id === "wechat" ? "message" : "receipt"} size={14} /> : null}{item.label}</button>)}</div>
+      <label className="source-global-search"><Icon name="search" size={16} /><input name="organized-source-search" autoComplete="off" aria-label="搜索生活记录标题或内容" value={query} onChange={(event) => { setCreatedPageId(undefined); update({ q: event.target.value || undefined, file: undefined, limit: undefined }); }} placeholder="搜索标题或内容…" /></label>
+    </section>
+    {months.length > 0 ? <div className="source-month-browser"><span><Icon name="history" size={14} />按月回望</span><nav aria-label="按月份浏览记录">{months.map((item) => <button type="button" key={item.id} className={month === item.id ? "active" : ""} aria-current={month === item.id ? "date" : undefined} onClick={() => { setCreatedPageId(undefined); update({ month: month === item.id ? undefined : item.id, file: undefined, limit: undefined }); }}><i style={{ "--month-weight": Math.min(11, 5 + item.count) } as React.CSSProperties} />{sourceMonthLabel(item.id)}</button>)}</nav>{month ? <button type="button" className="source-month-clear" onClick={() => update({ month: undefined, file: undefined, limit: undefined })}>清除月份</button> : null}</div> : null}
     <div className={`source-vault${folderPaneOpen ? "" : " folder-pane-collapsed"}${filePaneOpen ? "" : " file-pane-collapsed"}`} aria-label="生活记录工作区">
       <div className={`source-pane-shell source-folder-shell${folderPaneOpen ? "" : " collapsed"}`}>
-        <aside className="source-folder-pane"><header><b>文件夹</b><span>{folders.length}</span></header><button className={!folder ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ folder: undefined, file: undefined, limit: undefined }); }}><span>全部材料</span><small>{pages.length}</small></button>{folders.map(([name, count]) => <button key={name} className={folder === name ? "active" : ""} style={{ paddingLeft: 14 + Math.min(name.split("/").length - 1, 3) * 13 }} onClick={() => { setCreatedPageId(undefined); update({ folder: name, file: undefined, limit: undefined }); }}><span>{name.split("/").at(-1)}</span><small>{count}</small></button>)}</aside>
-        <PaneCollapseButton open={folderPaneOpen} onToggle={() => setFolderPaneOpen((value) => !value)} label="文件夹栏" />
+        <aside className="source-folder-pane"><header><div><b>文件夹</b><span>{folders.length}</span></div><button type="button" className="source-pane-collapse" onClick={() => setFolderPaneOpen((value) => !value)} aria-expanded={folderPaneOpen} aria-label={`${folderPaneOpen ? "收起" : "展开"}文件夹栏`}><Icon name={folderPaneOpen ? "back" : "arrow"} size={13} /></button></header><div className="source-folder-contents"><button className={!folder ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ folder: undefined, file: undefined, limit: undefined }); }}><Icon name="source" size={15} /><span>全部材料</span><small>{pages.length}</small></button>{folders.map(([name, count]) => { const recordType = sourceRecordType({ relativePath: name, tags: [], type: undefined }); return <button key={name} className={folder === name ? "active" : ""} style={{ paddingLeft: 10 + Math.min(name.split("/").length - 1, 3) * 16 }} onClick={() => { setCreatedPageId(undefined); update({ folder: name, file: undefined, limit: undefined }); }}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={15} /><span>{name.split("/").at(-1)}</span><small>{count}</small></button>; })}</div></aside>
       </div>
       <div className={`source-pane-shell source-file-shell${filePaneOpen ? "" : " collapsed"}`}>
-        <section className="source-file-pane"><div className="source-file-tools"><label><Icon name="search" size={16} /><input name="organized-source-search" autoComplete="off" aria-label="搜索生活记录" value={query} onChange={(event) => { setCreatedPageId(undefined); update({ q: event.target.value || undefined, file: undefined, limit: undefined }); }} placeholder="搜索当前文件夹…" /></label><button onClick={() => setCreatingSource((value) => !value)} aria-expanded={creatingSource}>{creatingSource ? "取消" : "新建"}</button></div>{creatingSource ? <NewSourceForm folder={folder} onCancel={() => setCreatingSource(false)} onCreated={(page) => { const nextFolder = cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/"); setCreatingSource(false); setCreatedPageId(page.id); update({ q: undefined, folder: nextFolder || undefined, file: page.id, limit: undefined }); }} /> : null}<div className="source-file-pane-meta"><b>{folder ? folder.split("/").at(-1) : "全部记录"}</b><span>{filtered.length} 份</span></div><div className="source-file-list">{visiblePages.map((page) => { const fileName = documentIdentity(page.relativePath).fileName; return <button key={page.id} aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}`} className={selected?.id === page.id ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}><span><b>{fileName}</b><time>{new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(page.modifiedAt))}</time></span><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small></button>; })}{visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}</div></section>
-        <PaneCollapseButton open={filePaneOpen} onToggle={() => setFilePaneOpen((value) => !value)} label="文件列表" />
+        <section className="source-file-pane"><header><div><b>{folder ? folder.split("/").at(-1) : "全部记录"}</b><span>{filtered.length} 份</span></div><button type="button" className="source-pane-collapse" onClick={() => setFilePaneOpen((value) => !value)} aria-expanded={filePaneOpen} aria-label={`${filePaneOpen ? "收起" : "展开"}文件列表`}><Icon name={filePaneOpen ? "back" : "arrow"} size={13} /></button></header><div className="source-file-contents"><div className="source-file-order"><span>按记录时间排列</span></div><div className="source-file-list">{visiblePages.map((page) => { const fileName = documentIdentity(page.relativePath).fileName; const recordType = sourceRecordType(page); const date = sourceRecordDate(page); return <button key={page.id} aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date)}`} className={selected?.id === page.id ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}><span className="source-file-card-meta"><em className={`source-type-chip source-type-chip--${recordType}`}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={11} />{sourceRecordTypes.find((item) => item.id === recordType)?.label}</em><time>{new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date)}</time></span><b>{fileName}</b><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small></button>; })}{visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}{visiblePages.length === 0 ? <div className="source-list-empty"><b>没有匹配的记录</b><p>换一个来源、月份或搜索词试试。</p></div> : null}</div></div></section>
       </div>
       {selected ? <SourcePreview page={selected} revision={revision} startEditing={selected.id === createdPageId} onRenamed={(renamed) => { setCreatedPageId(undefined); update({ file: renamed.id }); }} /> : <div className="source-preview-empty"><span>没有匹配的来源</span><p>换一个文件夹或搜索词。</p></div>}
     </div>

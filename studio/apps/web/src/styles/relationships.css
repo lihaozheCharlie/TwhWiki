@@ -1,0 +1,143 @@
+.understanding-people-page {
+  --relationship-role-1: #76573e;
+  --relationship-role-1-soft: #f3ede4;
+  --relationship-role-2: #4c6879;
+  --relationship-role-2-soft: #e9eff2;
+  --relationship-role-3: #5b703b;
+  --relationship-role-3-soft: #edf1e5;
+  --relationship-role-4: #875039;
+  --relationship-role-4-soft: #f5ebe6;
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  padding-bottom: 52px;
+}
+
+.understanding-people-page .tone-0 { --relationship-role: var(--ink); --relationship-role-soft: var(--surface-subtle); }
+.understanding-people-page .tone-1 { --relationship-role: var(--relationship-role-1); --relationship-role-soft: var(--relationship-role-1-soft); }
+.understanding-people-page .tone-2 { --relationship-role: var(--relationship-role-2); --relationship-role-soft: var(--relationship-role-2-soft); }
+.understanding-people-page .tone-3 { --relationship-role: var(--relationship-role-3); --relationship-role-soft: var(--relationship-role-3-soft); }
+.understanding-people-page .tone-4 { --relationship-role: var(--relationship-role-4); --relationship-role-soft: var(--relationship-role-4-soft); }
+
+.relationships-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; margin-bottom: 22px; padding: 3px 0 24px; border-bottom: 1px solid var(--line); }
+.relationships-page-head h1 { margin: 0 0 8px; font-family: var(--font-display); font-size: 34px; font-weight: 500; letter-spacing: -.02em; line-height: 1.12; }
+.relationships-page-head p { max-width: 62ch; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.72; }
+.relationships-head-stat { min-width: 158px; flex: none; padding: 13px 18px; text-align: right; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 2px 8px rgba(38, 52, 64, .05); }
+.relationships-head-stat b { display: block; color: var(--relationship-role-1); font-family: var(--font-display); font-size: 27px; font-weight: 540; line-height: 1; font-variant-numeric: tabular-nums; }
+.relationships-head-stat span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+
+.relationships-workspace { display: grid; grid-template-columns: 400px minmax(0, 1fr); align-items: start; gap: 20px; }
+.relationships-graph-col { position: sticky; top: 126px; display: flex; flex-direction: column; gap: 14px; }
+.relationships-graph-card { padding: 20px 18px 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 2px 10px rgba(38, 52, 64, .04); }
+.relationships-graph-card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+.relationships-graph-card h2 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 500; }
+.relationships-graph-card header span { color: var(--faint); font-size: 10.5px; white-space: nowrap; }
+.relationships-graph-card > p { margin: 0 0 4px; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+.relationships-graph-card svg { width: 100%; height: auto; display: block; overflow: visible; }
+.relationships-edges line { stroke: var(--line-strong); stroke-width: 1.2; transition: stroke .18s var(--ease), opacity .18s var(--ease); }
+.relationships-edges line.is-active { stroke: var(--relationship-role); stroke-width: 2.3; }
+.relationships-center circle { fill: var(--ink); }
+.relationships-center text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }
+.relationships-role-node,
+.relationships-person-node { cursor: pointer; outline: none; }
+.relationships-role-node circle { fill: var(--relationship-role-soft); stroke: var(--relationship-role); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; transition: transform .18s var(--ease); }
+.relationships-role-node text { fill: var(--relationship-role); font-size: 9.5px; font-weight: 700; text-anchor: middle; pointer-events: none; }
+.relationships-role-node:hover circle,
+.relationships-role-node:focus-visible circle,
+.relationships-role-node.is-selected circle { transform: scale(1.08); stroke-width: 2.5; }
+.relationships-person-node circle { fill: var(--relationship-role); stroke: var(--paper); stroke-width: 2; transition: opacity .18s var(--ease), stroke .18s var(--ease); }
+.relationships-person-node text { fill: var(--muted); font-size: 8.5px; text-anchor: middle; pointer-events: none; transition: opacity .18s var(--ease); }
+.relationships-person-node.is-dim circle { opacity: .23; }
+.relationships-person-node.is-dim text { opacity: .32; }
+.relationships-person-node:hover circle,
+.relationships-person-node:focus-visible circle { stroke: var(--ink); stroke-width: 3; }
+.relationships-person-node.is-selected circle { stroke: var(--ink); stroke-width: 3; }
+.relationships-graph-card > footer { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 4px; padding-top: 11px; border-top: 1px solid var(--line); }
+.relationships-graph-card > footer button { display: inline-flex; align-items: center; gap: 5px; padding: 0; color: var(--muted); background: transparent; border: 0; font-size: 10.5px; }
+.relationships-graph-card > footer button i { width: 8px; height: 8px; background: var(--relationship-role); border-radius: 50%; }
+.relationships-graph-card > footer button:hover,
+.relationships-graph-card > footer button:focus-visible,
+.relationships-graph-card > footer button.is-active { color: var(--relationship-role); text-decoration: underline; text-underline-offset: 3px; }
+
+.relationships-bridge { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; color: var(--relationship-role); background: var(--relationship-role-soft); border: 1px solid color-mix(in srgb, var(--relationship-role) 24%, var(--line)); border-radius: 14px; }
+.relationships-bridge > .icon { flex: none; margin-top: 3px; }
+.relationships-bridge > div > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; font-weight: 700; }
+.relationships-bridge > div > div span { padding: 3px 9px; background: var(--paper); border: 1px solid color-mix(in srgb, var(--relationship-role) 20%, var(--line)); border-radius: 999px; }
+.relationships-bridge > div > div i { color: color-mix(in srgb, var(--relationship-role) 55%, transparent); font-style: normal; }
+.relationships-bridge p { margin: 8px 0 0; color: color-mix(in srgb, var(--relationship-role) 88%, var(--ink)); font-size: 11px; line-height: 1.5; }
+
+.relationships-list-col { min-width: 0; }
+.relationships-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.relationships-toolbar > label { min-width: 230px; flex: 1; display: flex; align-items: center; gap: 8px; padding: 9px 12px; color: var(--muted); background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+.relationships-toolbar > label:focus-within { border-color: rgba(87, 138, 131, .52); box-shadow: 0 0 0 3px rgba(87, 138, 131, .1); }
+.relationships-toolbar input { min-width: 0; flex: 1; color: var(--ink); background: transparent; border: 0; outline: none; font: inherit; font-size: 12.5px; }
+.relationships-toolbar input::placeholder { color: var(--faint); opacity: 1; }
+.relationships-toolbar label > span { color: var(--faint); font-size: 10.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.relationships-toolbar > div { flex: none; display: flex; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+.relationships-toolbar > div button { min-height: 36px; padding: 8px 11px; color: var(--muted); background: transparent; border: 0; border-right: 1px solid var(--line); font-size: 11px; white-space: nowrap; }
+.relationships-toolbar > div button:last-child { border-right: 0; }
+.relationships-toolbar > div button:hover { color: var(--ink); background: var(--surface-subtle); }
+.relationships-toolbar > div button.active { color: var(--relationship-role-1); background: var(--relationship-role-1-soft); font-weight: 700; }
+
+.relationships-role-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.relationships-role-filters button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 7px 12px; color: var(--muted); background: var(--paper); border: 1px solid var(--line); border-radius: 999px; font-size: 11px; font-weight: 650; }
+.relationships-role-filters button i { width: 7px; height: 7px; flex: none; background: var(--relationship-role); border-radius: 50%; }
+.relationships-role-filters button span { opacity: .66; font-variant-numeric: tabular-nums; }
+.relationships-role-filters button:hover,
+.relationships-role-filters button:focus-visible,
+.relationships-role-filters button.active { color: var(--relationship-role); background: var(--relationship-role-soft); border-color: var(--relationship-role); }
+
+.relationships-people-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; }
+.relationships-person-card { min-width: 0; width: 100%; display: flex; gap: 12px; padding: 15px; color: var(--ink); text-align: left; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; transition: background-color .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease); }
+.relationships-person-card:hover { background: color-mix(in srgb, var(--relationship-role-soft) 52%, var(--paper)); border-color: color-mix(in srgb, var(--relationship-role) 42%, var(--line)); }
+.relationships-person-card.is-selected { border-color: var(--relationship-role); box-shadow: 0 8px 24px color-mix(in srgb, var(--relationship-role) 14%, transparent); }
+.relationships-avatar { width: 42px; height: 42px; display: grid; place-items: center; flex: none; color: #fff; background: var(--relationship-role); border-radius: 50%; font-size: 14px; font-weight: 750; }
+.relationships-person-body { min-width: 0; flex: 1; display: block; }
+.relationships-person-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.relationships-person-title b { overflow: hidden; font-size: 13.5px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.relationships-person-title time { color: var(--faint); font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.relationships-role-chip { width: max-content; max-width: 100%; display: flex; align-items: center; gap: 5px; margin: 5px 0 6px; padding: 3px 8px; overflow: hidden; color: var(--relationship-role); background: var(--relationship-role-soft); border-radius: 999px; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.relationships-role-chip i { width: 6px; height: 6px; flex: none; background: var(--relationship-role); border-radius: 50%; }
+.relationships-person-excerpt { display: -webkit-box; overflow: hidden; color: var(--muted); font-size: 11.5px; line-height: 1.58; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.relationships-load-more { grid-column: 1 / -1; min-height: 40px; color: var(--relationship-role-1); background: var(--paper); border: 1px solid var(--line); border-radius: 10px; font-size: 11.5px; font-weight: 700; }
+.relationships-load-more:hover { background: var(--relationship-role-1-soft); border-color: var(--relationship-role-1); }
+
+.relationships-person-detail { position: relative; grid-column: 1 / -1; min-width: 0; margin-top: -2px; overflow: visible; background: var(--paper); border: 1px solid var(--relationship-role); border-radius: 14px; box-shadow: 0 16px 38px rgba(38, 52, 64, .1); }
+.relationships-person-detail::before { position: absolute; top: -9px; left: 32px; width: 16px; height: 16px; background: var(--paper); border-top: 1px solid var(--relationship-role); border-left: 1px solid var(--relationship-role); transform: rotate(45deg); content: ""; }
+.relationships-person-detail.detail-from-right::before { left: calc(50% + 38px); }
+.relationships-detail-close { position: absolute; z-index: 2; top: 16px; right: 18px; width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); background: var(--paper); border: 1px solid var(--line); border-radius: 50%; }
+.relationships-detail-close:hover { color: var(--ink); background: var(--relationship-role-soft); border-color: var(--relationship-role); }
+.relationships-person-detail > header { display: flex; align-items: center; gap: 14px; padding: 20px 52px 14px 22px; }
+.relationships-person-detail > header .relationships-avatar { width: 52px; height: 52px; font-size: 17px; }
+.relationships-person-detail > header h2 { margin: 0 0 4px; font-family: var(--font-display); font-size: 21px; font-weight: 500; }
+.relationships-person-detail > header p { margin: 0; color: var(--faint); font-size: 11.5px; }
+.relationships-detail-links { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 14px; }
+.relationships-detail-links:empty { display: none; }
+.relationships-detail-links a { padding: 5px 10px; color: var(--muted); background: var(--relationship-role-soft); border-radius: 999px; font-size: 11px; }
+.relationships-detail-links a:hover { color: var(--relationship-role); text-decoration: underline; text-underline-offset: 3px; }
+.relationships-person-detail .embedded-page { border-top: 1px solid var(--line); }
+.relationships-person-detail .editable-document--preview { border: 0; border-radius: 0 0 14px 14px; }
+.relationships-person-detail .editable-document--preview .editable-document-body { padding-bottom: 38px; }
+
+.relationships-person-card:focus-visible,
+.relationships-role-filters button:focus-visible,
+.relationships-toolbar button:focus-visible,
+.relationships-graph-card footer button:focus-visible,
+.relationships-detail-close:focus-visible { outline: 3px solid rgba(87, 138, 131, .24); outline-offset: 2px; }
+.relationships-load-more:focus-visible { outline: 3px solid rgba(87, 138, 131, .24); outline-offset: 2px; }
+
+@media (max-width: 1180px) {
+  .relationships-workspace { grid-template-columns: 360px minmax(0, 1fr); }
+  .relationships-toolbar { align-items: stretch; flex-direction: column; }
+  .relationships-toolbar > div { width: max-content; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relationships-edges line,
+  .relationships-role-node circle,
+  .relationships-person-node circle,
+  .relationships-person-node text,
+  .relationships-person-card { transition: none; }
+  .relationships-role-node:hover circle,
+  .relationships-role-node:focus-visible circle,
+  .relationships-role-node.is-selected circle { transform: none; }
+}
