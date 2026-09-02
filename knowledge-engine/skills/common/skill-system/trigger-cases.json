@@ -30,6 +30,12 @@
     "mode": "write"
   },
   {
+    "prompt": "把刚导入的这批生活记录完成冷启构建，并刷新值得聊聊和近况回信",
+    "expected": ["build-wiki", "build-state-tracking", "build-companion-reflection"],
+    "must_not": ["consume-query"],
+    "mode": "write"
+  },
+  {
     "prompt": "工作交接后，我一边做着不喜欢的工作，一边开始做开源；不知道能不能做成，但至少开始了，这件事值得纪念",
     "expected": ["build-wiki", "build-state-tracking"],
     "must_not": ["consume-query"],

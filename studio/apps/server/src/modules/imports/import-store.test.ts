@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { WikiRun } from "@the-way-here/shared";
 import type { KnowledgeRuntime } from "../../runtime/knowledge-runtime.js";
 import { ImportStore } from "./import-store.js";
 
@@ -40,8 +41,48 @@ describe("ImportStore payment journey", () => {
     expect(batch.journey?.reportPath).toMatch(/^sources\/消费账单\/.+\.md$/);
     expect(batch.journey?.agentPrompt).toContain(batch.journey!.reportPath);
     expect(batch.files.some((file) => file.storedPath.endsWith(".csv"))).toBe(true);
+    const journeyRecord = batch.files.find((file) => file.storedPath === batch.journey?.reportPath);
+    expect(journeyRecord).toMatchObject({ buildKind: "dialogue", buildStatus: "needs-dialogue", clueCount: batch.journey?.clusters.length });
+    await store.updateBuildStatus(batch.id, journeyRecord!.storedPath, "deferred");
+    expect((await store.list())[0]?.files.find((file) => file.storedPath === journeyRecord!.storedPath)?.buildStatus).toBe("deferred");
     expect(await readFile(path.join(root, batch.journey!.reportPath), "utf8")).toContain("反复出现的「24H便利购」");
     expect(rebuild).toHaveBeenCalledOnce();
     expect(broadcast).toHaveBeenCalledWith("index", expect.objectContaining({ importId: batch.id }));
+  });
+
+  it("derives completion and provenance from the real Agent run", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-build-state-"));
+    roots.push(root);
+    const knowledge = {
+      vaultRoot: root,
+      index: {
+        config: { paths: { sources: "sources", wiki: "wiki" } },
+        rebuild: vi.fn(async () => undefined),
+        lastIndexedAt: "2026-09-02T00:00:00.000Z",
+        list: () => [{ id: "wiki/理解", relativePath: "wiki/理解.md", title: "新的理解" }],
+      },
+      events: { broadcast: vi.fn() },
+    } as unknown as KnowledgeRuntime;
+    const store = new ImportStore(knowledge);
+    const batch = await store.create({ channel: "files", files: [{ name: "日记.md", content: "# 日记\n\n今天发生了一件具体的事，也留下了足够完整的前因后果、人物和感受，值得回头继续理解。" }] });
+    const record = batch.files.find((file) => file.buildKind === "direct")!;
+    const run = {
+      id: "run-1",
+      status: "failed",
+      updatedAt: "2026-09-02T01:00:00.000Z",
+      sourceContext: { importId: batch.id, storedPath: record.storedPath, flow: "direct" },
+      configSnapshot: { paths: { wiki: "wiki" } },
+      changes: [{ path: "wiki/理解.md", kind: "added" }],
+      result: { completedAt: "2026-09-02T01:00:00.000Z" },
+      error: "知识质量检查未通过",
+    } as unknown as WikiRun;
+
+    const reconciled = await store.list([run]);
+    expect(reconciled[0]?.files.find((file) => file.storedPath === record.storedPath)).toMatchObject({
+      buildStatus: "built",
+      buildRunId: "run-1",
+      builtRefs: [{ pageId: "wiki/理解", path: "wiki/理解.md", title: "新的理解" }],
+      buildError: "知识质量检查未通过",
+    });
   });
 });

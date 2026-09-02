@@ -11,6 +11,7 @@ description: "编排个人 wiki 摄取，适用于宽泛运行、变更日记、
 
 | 请求 | 读取的参考文件 |
 |---|---|
+| Studio 导入后的冷启 direct 构建 | `references/cold-start-ingest.md` |
 | 宽泛的“运行/更新 wiki”或混合来源 | `references/orchestrator.md` |
 | 发生变化的日记文件 | `references/diary-ingest.md` |
 | 值得沉淀的对话材料 | `references/dialogue-ingest.md` |

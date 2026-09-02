@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SourceImportBatch, WikiPageSummary } from "@the-way-here/shared";
-import { countRecentSources, importedFolderForBatch, sourceMonthOptions, sourceRecordMonth, sourceRecordType } from "./source-model";
+import { countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildPresentation, sourceBuildRecordForPage, sourceMonthOptions, sourceRecordMonth, sourceRecordType } from "./source-model";
 
 function page(overrides: Partial<WikiPageSummary>): WikiPageSummary {
   return {
@@ -65,6 +65,13 @@ describe("life record presentation model", () => {
     expect(importedFolderForBatch({ targetFolder: "AI聊天记录/ChatGPT", files: [] })).toBe("AI聊天记录/ChatGPT");
   });
 
+  it("recognizes files, folders, and archives from one material selection", () => {
+    expect(detectImportSelectionKind(["日记.md"])).toBe("file");
+    expect(detectImportSelectionKind(["一月.md", "二月.txt"])).toBe("files");
+    expect(detectImportSelectionKind(["2026/一月.md", "2026/二月.md"])).toBe("folder");
+    expect(detectImportSelectionKind(["旧日记.zip"])).toBe("archive");
+  });
+
   it("does not treat a matching nested segment as a shared folder", () => {
     expect(importedFolderForBatch({
       targetFolder: "",
@@ -73,5 +80,34 @@ describe("life record presentation model", () => {
         { originalName: "二月.md", storedPath: "sources/乙/2026/二月.md", bytes: 12 },
       ],
     })).toBe("");
+  });
+
+  it("maps durable import build states back to indexed source pages", () => {
+    const batches = [{
+      id: "batch-1",
+      createdAt: "2026-09-02T10:00:00.000Z",
+      fileCount: 2,
+      totalBytes: 42,
+      files: [
+        { originalName: "今天.md", storedPath: "sources/日记/今天.md", bytes: 20, buildKind: "direct" as const, buildStatus: "ready" as const },
+        { originalName: "旧记录.md", storedPath: "sources/日记/旧记录.md", bytes: 22, buildKind: "direct" as const, buildStatus: "built" as const },
+      ],
+    }];
+    const pending = pendingSourceBuildRecords(batches);
+    expect(pending).toHaveLength(1);
+    expect(sourceBuildRecordForPage(page({ relativePath: "sources/日记/今天.md" }), pending)?.batch.id).toBe("batch-1");
+    expect(sourceBuildRecordForPage(page({ relativePath: "sources/日记/旧记录.md" }), pending)).toBeUndefined();
+  });
+
+  it("reduces a completed build to one quiet status without warnings or a destination", () => {
+    expect(sourceBuildPresentation({
+      originalName: "旧记录.md",
+      storedPath: "sources/日记/旧记录.md",
+      bytes: 22,
+      buildKind: "direct",
+      buildStatus: "built",
+      buildError: "知识质量检查未通过",
+      builtRefs: [{ pageId: "wiki/阶段", path: "wiki/阶段.md", title: "阶段" }],
+    })).toEqual({ label: "已构建", tone: "done" });
   });
 });

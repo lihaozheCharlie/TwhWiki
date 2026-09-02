@@ -576,6 +576,13 @@ def check_audit_cli(errors: list[str], check_generated_outputs: bool) -> None:
 def main() -> int:
     errors: list[str] = []
     check_knowledge_base = knowledge_base_validation_enabled()
+    structure_declared = (
+        KNOWLEDGE_BASE_ROOT / "wiki/99 维护规则/Wiki 结构与约定.md"
+    ).exists()
+    check_knowledge_base_references = check_knowledge_base and structure_declared
+    check_generated_outputs = check_knowledge_base and any(
+        path.exists() for path in GENERATED_OUTPUTS
+    )
     skills = canonical_skill_files()
     if not skills:
         errors.append("no canonical skills found")
@@ -597,7 +604,7 @@ def main() -> int:
             errors.append(f"{path}: description must include Chinese routing text")
 
     check_single_entry_architecture(by_name, errors)
-    check_document_references(errors, check_knowledge_base)
+    check_document_references(errors, check_knowledge_base_references)
     check_reasoning_lenses_and_companion(errors)
 
     matrix = (ROOT / "knowledge-engine/skills/build/wiki-build/impact-matrix.md").read_text(
@@ -676,14 +683,14 @@ def main() -> int:
         errors.append(f"trigger cases do not positively cover skill: {name}")
 
     try:
-        check_audit_cli(errors, check_knowledge_base)
+        check_audit_cli(errors, check_generated_outputs)
         compile(Path(__file__).read_text(encoding="utf-8"), __file__, "exec")
     except (OSError, SyntaxError) as exc:
         errors.append(f"script validation failed: {exc}")
 
     for error in errors:
         print(f"ERROR {error}")
-    validation_scope = "full" if check_knowledge_base else "static"
+    validation_scope = "full" if check_knowledge_base_references else "static"
     print(
         f"skills={len(skills)} routing_specs={len(cases)} "
         f"validation_scope={validation_scope} errors={len(errors)}"

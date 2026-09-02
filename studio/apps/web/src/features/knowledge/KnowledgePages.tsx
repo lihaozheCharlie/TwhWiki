@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { LettersView, LifeMapView, ReasoningLens, RelationshipsView, SectionedPageView, StructuredCard, WikiPage, WikiPageSummary, WikiRun } from "@the-way-here/shared";
+import type { LettersView, LifeMapView, ReasoningLens, RelationshipsView, SectionedPageView, SourceImportBatch, StructuredCard, WikiPage, WikiPageSummary, WikiRun } from "@the-way-here/shared";
 import { useApi } from "../../api";
 import { categoryMeta, graphCategoryNames, growthTabs, type ReturnContext } from "../../app/config";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
@@ -314,11 +314,13 @@ export function Reader({ revision }: { revision: number }) {
   const params = useParams();
   const pageId = params["*"] || "";
   const { data: page, loading, error } = useApi<WikiPage>(`/api/pages/${pageId}`, revision);
+  const { data: importBatches } = useApi<SourceImportBatch[]>(pageId ? "/api/imports" : "", revision);
   const location = useLocation();
   const navigate = useNavigate();
   const returnContext = location.state as ReturnContext | null;
   if (loading) return <Loading />;
   if (error || !page) return <Empty>{error || "页面不存在"}</Empty>;
+  const buildProvenance = (importBatches || []).flatMap((batch) => batch.files.map((file) => ({ batch, file }))).filter(({ file }) => file.builtRefs?.some((ref) => ref.pageId === page.id));
 
   function goBack() {
     if (returnContext?.returnTo) navigate(returnContext.returnTo);
@@ -335,6 +337,10 @@ export function Reader({ revision }: { revision: number }) {
       <aside className="evidence-panel">
         {!page.isSource && <DocumentOutline markdown={page.markdown} headingPrefix={documentHeadingPrefix(page.id)} />}
         <h3>证据与关联</h3>
+        {buildProvenance.length > 0 && <div className="knowledge-build-provenance"><b>这条理解怎样形成</b>{buildProvenance.map(({ batch, file }) => {
+          const sourceId = file.storedPath.replace(/\.md$/i, "");
+          return <div key={`${batch.id}-${file.storedPath}`}><span>来自：{file.originalName}</span>{file.buildKind !== "direct" && <span>经由：一次对话沉淀</span>}<NavLink to={`/sources?${new URLSearchParams({ file: sourceId })}`}>查看原始记录</NavLink>{file.buildRunId ? <button type="button" onClick={() => openContextAgent({ runId: file.buildRunId })}>查看对话全文</button> : null}</div>;
+        })}</div>}
         {page.sources.length > 0 && <><b>来源</b><ul>{page.sources.slice(0, 12).map((source) => <li key={source}>{source}</li>)}</ul></>}
         {page.incomingLinks.length > 0 && <><b>被这些页面引用</b><ul>{page.incomingLinks.slice(0, 15).map((source) => <li key={source.id}><PageLink page={source} /></li>)}</ul></>}
       </aside>

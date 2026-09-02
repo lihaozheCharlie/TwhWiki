@@ -17,12 +17,12 @@ source:
 
 | 模块 Skill | 职责 | 配方覆盖 |
 |---|---|---|
-| `knowledge-engine/skills/build/wiki-build/SKILL.md` | 需要沉淀时的摄取编排、来源索引，以及 `wiki/00 总入口/`、`wiki/index.md`、`wiki/08 来源索引/`、`wiki/99 维护规则/` 和 `wiki/log.md` | 编排、日记/对话/来源/索引参考文件及 `impact-matrix.md` |
+| `knowledge-engine/skills/build/wiki-build/SKILL.md` | 需要沉淀时的摄取编排、导入后冷启、来源索引，以及 `wiki/00 总入口/`、`wiki/index.md`、`wiki/08 来源索引/`、`wiki/99 维护规则/` 和 `wiki/log.md` | 编排、冷启、日记/对话/来源/索引参考文件及 `impact-matrix.md` |
 | `knowledge-engine/skills/build/life-review/SKILL.md` | `wiki/01`、`02`、`03`、`04`、`09` 和 `13` 模板的唯一负责人 | 个人主线、人生阶段、事件决策、反复循环、思维模型和金句参考文件 |
 | `knowledge-engine/skills/build/people/SKILL.md` | 人物页、别名、`wiki/05 人物关系图谱/` 和 `wiki/07` 人物分支的唯一负责人 | 分层人物模板和证据收集脚本 |
 | `knowledge-engine/skills/build/life-experience/SKILL.md` | 现实系统、生活过的城市、组织/项目和出现过的地点的唯一负责人 | 现实系统及城市/组织/地点模板 |
-| `knowledge-engine/skills/build/state-tracking/SKILL.md` | 当前状态跟进、状态趋势证据、日记状态评估和可追溯的“值得聊聊”问题池 | 状态追踪与对话问题池配方 |
-| `knowledge-engine/skills/build/companion-reflection/SKILL.md` | `wiki/12 近况对话/` 的朋友式洞见回信层，以日记和少量 wiki 证据为基础；主视角决定完整推理，辅助视角只做有边界的盲点校验 | 朋友声音、回信语义回归和重复样式审计；人物库由共享推理视角统一维护 |
+| `knowledge-engine/skills/build/state-tracking/SKILL.md` | 当前状态跟进、状态趋势证据、日记状态评估，以及能把历史理解与今天未知分开的“值得聊聊”问题池 | 状态追踪、冷启时间边界与对话问题池配方 |
+| `knowledge-engine/skills/build/companion-reflection/SKILL.md` | `wiki/12 近况对话/` 的朋友式洞见回信层，以日记和少量 wiki 证据为基础；冷启批次选择一篇代表来源而非机械逐篇生成；主视角决定完整推理，辅助视角只做有边界的盲点校验 | 朋友声音、冷启代表来源选择、回信语义回归和重复样式审计；人物库由共享推理视角统一维护 |
 | `knowledge-engine/skills/build/knowledge-adjustment/SKILL.md` | 当前目标中的 wiki、模板或 Skill 调整；不处理仅分析请求 | 受影响的负责 Skill 与质量门 |
 
 ## 通用模块

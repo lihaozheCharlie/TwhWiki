@@ -5,7 +5,7 @@ import { useApi } from "../../api";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent, shouldSubmitAgentInput } from "../collaboration/model";
 import { ImportMaterialsModal } from "../sources/Sources";
-import { cleanSourcePath, importedFolderForBatch } from "../sources/source-model";
+import { cleanSourcePath, importedFolderForBatch, pendingSourceBuildRecords } from "../sources/source-model";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
 import { resizeComposerTextarea } from "../../shared/composer-input";
@@ -196,6 +196,8 @@ export function Today({ revision }: { revision: number }) {
   if (loading) return <Loading label="正在找回我们上次聊到的地方" />;
   if (error || !data) return <Empty>{error || "暂无数据"}</Empty>;
   const recentJourney = importedJourney || importBatches?.find((batch) => batch.journey)?.journey;
+  const pendingBuilds = pendingSourceBuildRecords(importBatches || []);
+  const pendingDialogueCount = pendingBuilds.filter(({ file }) => file.buildKind === "dialogue").length;
   const openers = stablePromptOrder([...todayOpeners], dailyPromptSeed());
   const featuredQuestion = openers[questionOffset % openers.length]!;
   const importFolders = [...new Set((sourcePages || []).map((page) => cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/")).filter(Boolean))].sort((left, right) => left.localeCompare(right, "zh-CN"));
@@ -230,7 +232,7 @@ export function Today({ revision }: { revision: number }) {
 
   function openImportedFolder(batch: SourceImportBatch) {
     const importedFolder = importedFolderForBatch(batch);
-    navigate({ pathname: "/sources", search: importedFolder ? `?${new URLSearchParams({ folder: importedFolder })}` : "" });
+    navigate({ pathname: "/sources", search: `?${new URLSearchParams({ ...(importedFolder ? { folder: importedFolder } : {}), batch: batch.id })}` });
   }
 
   return (
@@ -250,6 +252,8 @@ export function Today({ revision }: { revision: number }) {
           <button type="button" aria-haspopup="dialog" onClick={() => setImportOpen(true)}><Icon name="journal" size={16} />看你的记录</button>
         </div>
       </section>
+
+      {pendingBuilds.length ? <NavLink className="home-pending-build" to="/sources?type=pending"><i aria-hidden="true" /><span><b>{pendingBuilds.length} 份新带进来的记录还没聊透</b>{pendingDialogueCount ? ` · ${pendingDialogueCount} 份在等一次对话` : " · 随时可以收进已有理解"}</span><Icon name="arrow" size={15} /></NavLink> : null}
 
       <section className="home-opener" aria-labelledby="home-opener-title">
         <div className="home-opener-copy">
@@ -298,7 +302,7 @@ export function QuestionsHub({ revision }: { revision: number }) {
 
   function openImportedFolder(batch: SourceImportBatch) {
     const importedFolder = importedFolderForBatch(batch);
-    navigate({ pathname: "/sources", search: importedFolder ? `?${new URLSearchParams({ folder: importedFolder })}` : "" });
+    navigate({ pathname: "/sources", search: `?${new URLSearchParams({ ...(importedFolder ? { folder: importedFolder } : {}), batch: batch.id })}` });
   }
 
   return <div className="questions-hub">

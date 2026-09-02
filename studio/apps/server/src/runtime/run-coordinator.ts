@@ -11,6 +11,7 @@ import type {
   AgentRuntimeDescriptor,
   AgentRuntimeId,
   AgentRuntimePreference,
+  SourceRunContext,
   UpdateAgentGlobalSettings,
   WikiRun,
 } from "@the-way-here/shared";
@@ -32,6 +33,7 @@ export type StartRunInput = {
   model?: string;
   effort?: AgentReasoningEffort;
   outputTarget?: AgentOutputTarget;
+  sourceContext?: SourceRunContext;
 };
 
 export class RunRequestError extends Error {
@@ -123,6 +125,7 @@ export class RunCoordinator {
     if (input.runtimeId && !requestedRuntime) throw new RunRequestError(400, "Agent 运行时无效");
     if (input.model !== undefined && (typeof input.model !== "string" || !input.model.trim())) throw new RunRequestError(400, "模型 ID 无效");
     if (input.sessionId !== undefined && (typeof input.sessionId !== "string" || !input.sessionId.trim())) throw new RunRequestError(400, "Agent 会话 ID 无效");
+    if (input.sourceContext !== undefined && !validSourceContext(input.sourceContext)) throw new RunRequestError(400, "生活记录构建上下文无效");
 
     if (mode === "validate") {
       const run = await this.createRun(normalizedInput, mode, prompt || "运行知识质量检查", taskConfig);
@@ -138,6 +141,7 @@ export class RunCoordinator {
     if (previous?.runtimeId && requestedRuntime && requestedRuntime !== "auto" && requestedRuntime !== previous.runtimeId) {
       throw new RunRequestError(400, "同一会话不能切换 Agent 运行时；请新建任务");
     }
+    normalizedInput.sourceContext = input.sourceContext || previous?.sourceContext;
     let selection: ResolvedAgentSelection;
     try {
       selection = await this.runtimes.resolve(
@@ -251,7 +255,7 @@ export class RunCoordinator {
         mode,
         config.knowledgeBaseId,
         config,
-        { displayPrompt: input.displayPrompt?.trim() || prompt, outputTarget: input.outputTarget, ...agent },
+        { displayPrompt: input.displayPrompt?.trim() || prompt, outputTarget: input.outputTarget, sourceContext: input.sourceContext, ...agent },
       );
     } catch (error: any) {
       throw new RunRequestError(409, error.message || "无法创建任务");
@@ -343,6 +347,13 @@ export class RunCoordinator {
     });
     this.knowledge.events.broadcast("run", await this.runs.get(runId));
   }
+}
+
+function validSourceContext(value: SourceRunContext): boolean {
+  return Boolean(value && typeof value.importId === "string" && value.importId.trim()
+    && typeof value.storedPath === "string" && value.storedPath.trim()
+    && (value.allDirect === undefined || typeof value.allDirect === "boolean")
+    && new Set(["direct", "dialogue", "identify"]).has(value.flow));
 }
 
 function refOf(run: WikiRun | undefined): AgentExecutionRef {

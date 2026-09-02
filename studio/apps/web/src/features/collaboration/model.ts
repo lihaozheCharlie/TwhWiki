@@ -1,4 +1,4 @@
-import type { AgentOutputTarget, AgentRuntimeEvent, WikiRun } from "@the-way-here/shared";
+import type { AgentOutputTarget, AgentRuntimeEvent, SourceRunContext, WikiRun } from "@the-way-here/shared";
 
 export type AgentContext = {
   scope: string;
@@ -26,6 +26,7 @@ export type OpenContextAgentRequest = {
   runId?: string;
   view?: "compose" | "history";
   outputTarget?: AgentOutputTarget;
+  sourceContext?: SourceRunContext;
 };
 
 export type AgentAutoSubmission = {
@@ -33,6 +34,7 @@ export type AgentAutoSubmission = {
   displayPrompt: string;
   mode: WikiRun["mode"];
   outputTarget?: AgentOutputTarget;
+  sourceContext?: SourceRunContext;
 };
 
 export function shouldSubmitAgentInput(event: { key: string; shiftKey: boolean; isComposing?: boolean }): boolean {
@@ -65,6 +67,7 @@ export function resolveAgentAutoSubmission(request: OpenContextAgentRequest, def
     displayPrompt: request.displayPrompt?.trim() || prompt,
     mode: resolveComposerMode(request.mode || defaultMode),
     outputTarget: request.outputTarget,
+    ...(request.sourceContext ? { sourceContext: request.sourceContext } : {}),
   };
 }
 

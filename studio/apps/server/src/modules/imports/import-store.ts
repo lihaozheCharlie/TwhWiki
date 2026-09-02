@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { SourceImportBatch, SourceImportChannel, SourceImportFile } from "@the-way-here/shared";
+import { randomUUID } from "node:crypto";
+import type { SourceBuildStatus, SourceBuiltRef, SourceImportBatch, SourceImportChannel, SourceImportFile, WikiRun } from "@the-way-here/shared";
 import { prepareImportBatch } from "../../import-materials.js";
 import { isPathInside, normalizeSourceFolder } from "../../path-policy.js";
 import { KnowledgeRuntime } from "../../runtime/knowledge-runtime.js";
@@ -19,7 +20,7 @@ export class ImportRequestError extends Error {
 export class ImportStore {
   constructor(private readonly knowledge: KnowledgeRuntime) {}
 
-  async list(): Promise<SourceImportBatch[]> {
+  async list(runs: WikiRun[] = []): Promise<SourceImportBatch[]> {
     const manifestRoot = this.manifestRoot();
     let files: string[];
     try {
@@ -35,7 +36,23 @@ export class ImportStore {
         return undefined;
       }
     }));
-    return batches.filter((batch): batch is SourceImportBatch => Boolean(batch)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const available = batches.filter((batch): batch is SourceImportBatch => Boolean(batch)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (!runs.length) return available;
+    await Promise.all(available.map((batch) => this.reconcileBuildRuns(batch, runs)));
+    return available;
+  }
+
+  async updateBuildStatus(batchId: string, storedPath: string, status: Extract<SourceBuildStatus, "deferred">): Promise<SourceImportBatch> {
+    const batch = await this.read(batchId);
+    const file = batch.files.find((candidate) => candidate.storedPath === storedPath && candidate.buildKind);
+    if (!file) throw new ImportRequestError(404, "没有找到这份待构建记录");
+    if (file.buildStatus === "built") throw new ImportRequestError(409, "这份记录已经收进理解");
+    file.buildStatus = status;
+    file.buildError = undefined;
+    file.buildUpdatedAt = new Date().toISOString();
+    await this.writeBatch(batch);
+    this.knowledge.events.broadcast("import", { importId: batch.id, storedPath, buildStatus: status });
+    return batch;
   }
 
   async create(request: ImportRequest): Promise<SourceImportBatch> {
@@ -72,7 +89,9 @@ export class ImportStore {
       } catch (error: any) {
         throw new ImportRequestError(400, error.message);
       }
-      stored.push({ originalName: file.originalName, storedPath: path.relative(this.knowledge.vaultRoot, target).split(path.sep).join("/"), bytes: file.bytes });
+      const storedPath = path.relative(this.knowledge.vaultRoot, target).split(path.sep).join("/");
+      const build = classifyBuild(file.relativePath, file.content, channel, prepared.journey);
+      stored.push({ originalName: file.originalName, storedPath, bytes: file.bytes, ...build, buildUpdatedAt: build.buildStatus ? createdAt : undefined });
     }
     const batch: SourceImportBatch = {
       id,
@@ -93,7 +112,7 @@ export class ImportStore {
       }
     }
     await mkdir(this.manifestRoot(), { recursive: true });
-    await writeFile(path.join(this.manifestRoot(), `${id}.json`), JSON.stringify(batch, null, 2), "utf8");
+    await this.writeBatch(batch);
     await this.knowledge.index.rebuild();
     this.knowledge.events.broadcast("index", { at: this.knowledge.index.lastIndexedAt, importId: id });
     return batch;
@@ -105,6 +124,54 @@ export class ImportStore {
 
   private manifestRoot(): string {
     return path.resolve(this.sourceRoot(), ".imports");
+  }
+
+  private async read(id: string): Promise<SourceImportBatch> {
+    if (!/^[a-z0-9-]+$/i.test(id)) throw new ImportRequestError(400, "导入批次编号无效");
+    try {
+      return JSON.parse(await readFile(path.join(this.manifestRoot(), `${id}.json`), "utf8")) as SourceImportBatch;
+    } catch (error: any) {
+      if (error?.code === "ENOENT") throw new ImportRequestError(404, "导入批次不存在");
+      throw error;
+    }
+  }
+
+  private async writeBatch(batch: SourceImportBatch): Promise<void> {
+    await mkdir(this.manifestRoot(), { recursive: true });
+    const target = path.join(this.manifestRoot(), `${batch.id}.json`);
+    const temporary = `${target}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(temporary, `${JSON.stringify(batch, null, 2)}\n`, "utf8");
+    await rename(temporary, target);
+  }
+
+  private async reconcileBuildRuns(batch: SourceImportBatch, runs: WikiRun[]): Promise<void> {
+    let changed = false;
+    for (const file of batch.files) {
+      if (!file.buildKind) continue;
+      const run = runs.find((candidate) => candidate.sourceContext?.importId === batch.id
+        && (candidate.sourceContext.storedPath === file.storedPath || Boolean(candidate.sourceContext.allDirect && file.buildKind === "direct")));
+      if (!run || file.buildRunId === run.id && file.buildStatus === resolvedBuildStatus(file.buildKind, run)) continue;
+      if (file.buildStatus === "deferred" && ["completed", "failed", "interrupted"].includes(run.status)) continue;
+      const status = resolvedBuildStatus(file.buildKind, run);
+      const refs = status === "built" ? this.builtRefs(run) : undefined;
+      if (file.buildRunId !== run.id || file.buildStatus !== status || JSON.stringify(file.builtRefs) !== JSON.stringify(refs)) changed = true;
+      file.buildRunId = run.id;
+      file.buildStatus = status;
+      file.builtRefs = refs;
+      file.buildError = run.status === "failed" ? run.error || "构建没有完成，可以稍后再试" : undefined;
+      file.buildUpdatedAt = run.updatedAt;
+    }
+    if (changed) await this.writeBatch(batch);
+  }
+
+  private builtRefs(run: WikiRun): SourceBuiltRef[] {
+    const pages = new Map(this.knowledge.index.list({ sources: false }).map((page) => [page.relativePath, page]));
+    const wikiRoot = `${run.configSnapshot.paths.wiki.replace(/\\/g, "/").replace(/\/$/, "")}/`;
+    return run.changes.flatMap((change) => {
+      if (!change.path.replace(/\\/g, "/").startsWith(wikiRoot) || change.kind === "deleted") return [];
+      const page = pages.get(change.path);
+      return page ? [{ pageId: page.id, path: change.path, title: page.title }] : [];
+    });
   }
 
   private async writeUnique(root: string, relativePath: string, content: string): Promise<string> {
@@ -124,4 +191,19 @@ export class ImportStore {
     }
     throw new Error(`同名文件过多，无法保存：${relativePath}`);
   }
+}
+
+function classifyBuild(relativePath: string, content: string, channel: SourceImportChannel, journey?: SourceImportBatch["journey"]): Pick<SourceImportBatch["files"][number], "buildKind" | "buildStatus" | "clueCount"> {
+  if (!/\.md$/i.test(relativePath)) return {};
+  if (journey && relativePath === journey.reportPath) return { buildKind: "dialogue", buildStatus: "needs-dialogue", clueCount: journey.clusters.length };
+  const readable = content.replace(/^---[\s\S]*?---\s*/m, "").replace(/[#>*_`\[\]()|-]/g, " ").replace(/\s+/g, " ").trim();
+  if (readable.length < 40) return { buildKind: "identify", buildStatus: "ready" };
+  return { buildKind: "direct", buildStatus: "ready" };
+}
+
+function resolvedBuildStatus(kind: NonNullable<SourceImportBatch["files"][number]["buildKind"]>, run: WikiRun): SourceBuildStatus {
+  if (["preparing", "running", "waiting-approval", "validating"].includes(run.status)) return kind === "direct" ? "building" : "in-dialogue";
+  const contentWasWritten = run.changes.length > 0 && Boolean(run.result?.completedAt);
+  if ((run.status === "completed" || contentWasWritten) && (kind === "direct" || run.changes.length > 0)) return "built";
+  return kind === "direct" || kind === "identify" ? "ready" : "needs-dialogue";
 }

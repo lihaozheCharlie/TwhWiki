@@ -77,6 +77,8 @@ describe("collaboration model", () => {
     });
     expect(resolveAgentAutoSubmission({ prompt: "只预填，不发送" })).toBeUndefined();
     expect(resolveAgentAutoSubmission({ prompt: "   ", autoSubmit: true })).toBeUndefined();
+    const sourceContext = { importId: "batch", storedPath: "sources/日记.md", flow: "direct" as const };
+    expect(resolveAgentAutoSubmission({ prompt: "收进理解", autoSubmit: true, sourceContext })?.sourceContext).toEqual(sourceContext);
   });
 
   it("lets Agent infer every normal conversation while preserving validation", () => {

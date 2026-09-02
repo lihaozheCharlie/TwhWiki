@@ -105,6 +105,23 @@ export interface SourceImportFile {
 
 export type SourceImportChannel = "files" | "chatgpt" | "gemini" | "deepseek" | "doubao" | "other-ai" | "wechat" | "alipay";
 
+export type SourceBuildKind = "direct" | "dialogue" | "identify";
+
+export type SourceBuildStatus = "ready" | "needs-dialogue" | "in-dialogue" | "building" | "built" | "deferred";
+
+export interface SourceBuiltRef {
+  pageId: string;
+  path: string;
+  title: string;
+}
+
+export interface SourceRunContext {
+  importId: string;
+  storedPath: string;
+  allDirect?: boolean;
+  flow: SourceBuildKind;
+}
+
 export type PaymentJourneyClusterKind = "journey" | "place" | "routine" | "day-story" | "theme";
 
 export interface PaymentJourneyCluster {
@@ -144,6 +161,13 @@ export interface SourceImportBatch {
     originalName: string;
     storedPath: string;
     bytes: number;
+    buildKind?: SourceBuildKind;
+    buildStatus?: SourceBuildStatus;
+    clueCount?: number;
+    buildRunId?: string;
+    builtRefs?: SourceBuiltRef[];
+    buildError?: string;
+    buildUpdatedAt?: string;
   }>;
   journey?: PaymentJourneySummary;
 }
@@ -534,6 +558,7 @@ export interface WikiRun {
   model?: string;
   effort?: AgentReasoningEffort;
   outputTarget?: AgentOutputTarget;
+  sourceContext?: SourceRunContext;
   recoveredFromLegacyWorkspace?: boolean;
   mode: "auto" | "read" | "write" | "validate";
   status: RunStatus;

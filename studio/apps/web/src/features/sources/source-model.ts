@@ -1,6 +1,13 @@
 import type { SourceImportBatch, WikiPageSummary } from "@the-way-here/shared";
 
 export type SourceRecordType = "notes" | "ai" | "wechat" | "bill";
+export type ImportSelectionKind = "file" | "files" | "folder" | "archive";
+export type SourceBuildRecord = { batch: SourceImportBatch; file: SourceImportBatch["files"][number] };
+export type SourceBuildPresentation = {
+  label: string;
+  detail?: string;
+  tone: "attention" | "progress" | "done" | "quiet";
+};
 
 export const sourceRecordTypes: ReadonlyArray<{ id: "all" | SourceRecordType; label: string }> = [
   { id: "all", label: "全部" },
@@ -67,4 +74,34 @@ export function countRecentSources(pages: WikiPageSummary[], now = new Date()): 
     const modified = new Date(page.modifiedAt).getTime();
     return Number.isFinite(modified) && modified >= weekAgo && modified <= now.getTime();
   }).length;
+}
+
+export function detectImportSelectionKind(paths: string[]): ImportSelectionKind {
+  if (paths.some((path) => path.replace(/\\/g, "/").includes("/"))) return "folder";
+  if (paths.length > 1) return "files";
+  if (paths.some((path) => /\.zip$/i.test(path))) return "archive";
+  return "file";
+}
+
+export function sourceBuildRecords(batches: SourceImportBatch[]): SourceBuildRecord[] {
+  return batches.flatMap((batch) => batch.files.filter((file) => file.buildKind).map((file) => ({ batch, file })));
+}
+
+export function pendingSourceBuildRecords(batches: SourceImportBatch[]): SourceBuildRecord[] {
+  return sourceBuildRecords(batches).filter(({ file }) => file.buildStatus !== "built");
+}
+
+export function sourceBuildRecordForPage(page: Pick<WikiPageSummary, "relativePath">, records: SourceBuildRecord[]): SourceBuildRecord | undefined {
+  const sourcePath = page.relativePath.replace(/\\/g, "/");
+  return records.find(({ file }) => file.storedPath.replace(/\\/g, "/") === sourcePath);
+}
+
+export function sourceBuildPresentation(file: SourceBuildRecord["file"]): SourceBuildPresentation {
+  if (file.buildStatus === "built") return { label: "已构建", tone: "done" };
+  if (file.buildStatus === "building") return { label: "构建中", detail: "完成后会显示实际改动", tone: "progress" };
+  if (file.buildStatus === "in-dialogue") return { label: "对话中", detail: "还没有需要确认的改动", tone: "progress" };
+  if (file.buildStatus === "deferred") return { label: "稍后再说", detail: file.buildKind === "direct" ? "可直接收进理解" : file.buildKind === "dialogue" ? "线索已经留好" : "等待确认类型", tone: "quiet" };
+  if (file.buildKind === "dialogue") return { label: "待厘清", detail: file.clueCount ? `已识别 ${file.clueCount} 条候选线索` : "等一次对话", tone: "attention" };
+  if (file.buildKind === "identify") return { label: "待确认类型", detail: "先告诉我这是什么", tone: "quiet" };
+  return { label: "待构建", detail: "可直接收进理解", tone: "attention" };
 }

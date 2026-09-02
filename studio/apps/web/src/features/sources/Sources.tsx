@@ -9,7 +9,7 @@ import { EditableDocument, documentIdentity } from "../../shared/markdown";
 import { apiPageHref, PageLink, pageHref } from "../../shared/routing";
 import { ConfirmDeleteDialog } from "../../shared/ConfirmDeleteDialog";
 import { CollapsibleIndexPane, Empty, HeroMetric, Icon, Loading, PageHero } from "../../shared/ui";
-import { cleanSourcePath, countRecentSources, importedFolderForBatch, sourceMonthLabel, sourceMonthOptions, sourceRecordDate, sourceRecordMonth, sourceRecordType, sourceRecordTypes, type SourceRecordType } from "./source-model";
+import { cleanSourcePath, countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildPresentation, sourceBuildRecordForPage, sourceBuildRecords, sourceMonthLabel, sourceMonthOptions, sourceRecordDate, sourceRecordMonth, sourceRecordType, sourceRecordTypes, type SourceBuildRecord, type SourceRecordType } from "./source-model";
 
 export type ImportRoute = "files" | "ai" | "wechat" | "bill";
 
@@ -30,10 +30,42 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+type SelectedImportFile = { file: File; relativePath: string };
+
+function selectedFiles(list: FileList | null): SelectedImportFile[] {
+  return [...(list || [])].map((file) => ({ file, relativePath: file.webkitRelativePath || file.name }));
+}
+
+async function droppedEntryFiles(entry: FileSystemEntry, parentPath = ""): Promise<SelectedImportFile[]> {
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject));
+    return [{ file, relativePath: `${parentPath}${file.name}` }];
+  }
+  if (!entry.isDirectory) return [];
+  const reader = (entry as FileSystemDirectoryEntry).createReader();
+  const children: FileSystemEntry[] = [];
+  while (true) {
+    const page = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+    if (!page.length) break;
+    children.push(...page);
+  }
+  const nested = await Promise.all(children.map((child) => droppedEntryFiles(child, `${parentPath}${entry.name}/`)));
+  return nested.flat();
+}
+
+async function droppedFiles(transfer: DataTransfer): Promise<SelectedImportFile[]> {
+  const items = [...transfer.items].filter((item) => item.kind === "file");
+  const entries = items.map((item) => item.webkitGetAsEntry()).filter((entry): entry is FileSystemEntry => Boolean(entry));
+  if (entries.length === items.length && entries.length) {
+    return (await Promise.all(entries.map((entry) => droppedEntryFiles(entry)))).flat();
+  }
+  return selectedFiles(transfer.files);
+}
+
 export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "files", onClose, onImported, onJourney }: { folders: string[]; currentFolder: string; initialRoute?: ImportRoute; onClose: () => void; onImported: (batch: SourceImportBatch) => void; onJourney: (journey: PaymentJourneySummary) => void }) {
   const [route, setRoute] = useState<ImportRoute>(initialRoute);
   const [provider, setProvider] = useState<Exclude<SourceImportChannel, "files" | "wechat" | "alipay">>("chatgpt");
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<SelectedImportFile[]>([]);
   const [folderMode, setFolderMode] = useState<"existing" | "new">("existing");
   const [targetFolder, setTargetFolder] = useState(currentFolder);
   const [newFolder, setNewFolder] = useState("");
@@ -41,12 +73,14 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [journey, setJourney] = useState<PaymentJourneySummary>();
+  const [draggingMaterials, setDraggingMaterials] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
+  const dragDepthRef = useRef(0);
   const openerRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   const importingRef = useRef(importing);
-  const totalBytes = files.reduce((total, file) => total + file.size, 0);
-  const folderAttributes = { webkitdirectory: "", directory: "" } as Record<string, string>;
+  const totalBytes = files.reduce((total, item) => total + item.file.size, 0);
+  const selectionKind = files.length ? detectImportSelectionKind(files.map((item) => item.relativePath)) : undefined;
   const channel: SourceImportChannel = route === "ai" ? provider : route === "bill" ? "alipay" : route;
   const acceptedPattern = route === "bill" ? /\.csv$/i : route === "files" ? /\.(md|txt|zip)$/i : /\.(md|txt|zip|json|html?)$/i;
   const accept = route === "bill" ? ".csv,text/csv" : route === "files" ? ".md,.txt,.zip,text/markdown,text/plain,application/zip" : ".md,.txt,.zip,.json,.html,.htm,text/markdown,text/plain,application/json,text/html,application/zip";
@@ -88,13 +122,23 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
     setMessage("");
     setError("");
     setJourney(undefined);
+    setDraggingMaterials(false);
+    dragDepthRef.current = 0;
   }
 
-  function selectFiles(list: FileList | null) {
-    const selected = [...(list || [])].filter((file) => acceptedPattern.test(file.name)).slice(0, route === "bill" ? 1 : undefined);
+  function selectFiles(candidates: SelectedImportFile[]) {
+    const selected = candidates.filter(({ file }) => acceptedPattern.test(file.name)).slice(0, route === "bill" ? 1 : undefined);
     setFiles(selected);
     setMessage("");
-    setError(selected.length || !list?.length ? "" : route === "bill" ? "请选择支付宝导出的 CSV 账单。" : route === "files" ? "请选择 Markdown、TXT 或 ZIP 文件。" : "请选择聊天平台导出的 ZIP、JSON、HTML、TXT 或 Markdown 文件。");
+    setError(selected.length || !candidates.length ? "" : route === "bill" ? "请选择支付宝导出的 CSV 账单。" : route === "files" ? "请选择 Markdown、TXT、ZIP 文件或包含这些文件的文件夹。" : "请选择聊天平台导出的 ZIP、JSON、HTML、TXT、Markdown 文件或文件夹。");
+  }
+
+  async function selectDroppedFiles(transfer: DataTransfer) {
+    try {
+      selectFiles(await droppedFiles(transfer));
+    } catch {
+      setError("无法读取这个文件夹，请确认它仍然可访问后再试。");
+    }
   }
 
   async function submit(event: React.FormEvent) {
@@ -116,23 +160,17 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
     setError("");
     setMessage("");
     try {
-      const payload = await Promise.all(files.map(async (file) => ({
+      const payload = await Promise.all(files.map(async ({ file, relativePath }) => ({
         name: file.name,
-        relativePath: file.webkitRelativePath || file.name,
+        relativePath,
         content: /\.zip$/i.test(file.name) || route === "bill" ? await fileToBase64(file) : await file.text(),
         encoding: /\.zip$/i.test(file.name) || route === "bill" ? "base64" as const : "utf8" as const,
         mimeType: file.type || undefined,
       })));
       const batch = await api<SourceImportBatch>("/api/imports/files", { method: "POST", body: JSON.stringify({ files: payload, channel, targetFolder: destination }) });
-      if (!batch.journey) {
-        onClose();
-        onImported(batch);
-        return;
-      }
-      setMessage(`已带进 ${batch.fileCount} 份记录到「消费账单」。`);
-      setJourney(batch.journey);
-      onJourney(batch.journey);
-      setFiles([]);
+      if (batch.journey) onJourney(batch.journey);
+      onClose();
+      onImported(batch);
     } catch (reason: any) {
       setError(reason.message);
     } finally {
@@ -141,11 +179,11 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
   }
 
   const routeDescription = route === "files"
-    ? "导入单个文件、多个文件，或包含 Markdown 与 TXT 的 ZIP 压缩包。"
+    ? "导入单个文件、多个文件、文件夹，或包含 Markdown 与 TXT 的 ZIP 压缩包。"
     : route === "ai"
-      ? "选择聊天平台后，上传官方导出包或常见 JSON、HTML、文本记录。"
+      ? "选择聊天平台后，带入官方导出包、文件夹或常见 JSON、HTML、文本记录。"
       : route === "wechat"
-        ? "上传导出的微信聊天文本、HTML、JSON 或 ZIP 文件。"
+        ? "带入导出的微信聊天文本、HTML、JSON、ZIP 文件或文件夹。"
         : "上传支付宝交易记录 CSV，把零散消费串成可以继续讲述的旅程。";
 
   function continueWithAgent() {
@@ -173,12 +211,22 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
                 <div className="bill-journey-thread" aria-label="账单聚类线索">{journey.clusters.slice(0, 5).map((item) => <article key={item.id}><i aria-hidden="true" /><div><span>{item.startDate === item.endDate ? item.startDate.slice(5) : `${item.startDate.slice(5)}—${item.endDate.slice(5)}`}</span><b>{item.title}</b><p>{item.summary}</p></div></article>)}</div>
               </div> : <>
               {route === "ai" ? <div className="import-provider-list" role="group" aria-label="AI 平台">{aiImportProviders.map((item) => <button type="button" key={item.id} aria-pressed={provider === item.id} className={provider === item.id ? "active" : ""} onClick={() => { setProvider(item.id); setFiles([]); setMessage(""); setError(""); }}>{item.label}</button>)}</div> : null}
-              <div className="import-file-actions">
-                <label className="import-file-picker"><b>{route === "bill" ? "选择支付宝账单" : "选择文件"}</b><span>{route === "bill" ? "支付宝导出的 CSV" : route === "files" ? "MD、TXT 或 ZIP" : "ZIP、JSON、HTML 或文本"}</span><input key={`${route}-${provider}-files`} name="import-files" type="file" accept={accept} multiple={route !== "bill"} onChange={(event) => selectFiles(event.target.files)} /></label>
-                {route !== "bill" ? <label className="import-file-picker"><b>选择文件夹</b><span>保留文件夹内的层级</span><input key={`${route}-${provider}-folder`} name="import-folder" type="file" accept={accept} multiple {...folderAttributes} onChange={(event) => selectFiles(event.target.files)} /></label> : <div className="bill-import-method"><Icon name="spark" size={18} /><b>自动整理</b><span>归并退款，识别重复地点、消费节律与跨类型旅程。</span></div>}
+              <div className={`import-file-actions${route === "bill" ? "" : " is-unified"}`}>
+                <label
+                  className={`import-file-picker${route === "bill" ? "" : " is-dropzone"}${draggingMaterials ? " is-dragging" : ""}`}
+                  onDragEnter={route === "bill" ? undefined : (event) => { event.preventDefault(); dragDepthRef.current += 1; setDraggingMaterials(true); }}
+                  onDragOver={route === "bill" ? undefined : (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
+                  onDragLeave={route === "bill" ? undefined : (event) => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDraggingMaterials(false); }}
+                  onDrop={route === "bill" ? undefined : (event) => { event.preventDefault(); dragDepthRef.current = 0; setDraggingMaterials(false); void selectDroppedFiles(event.dataTransfer); }}
+                >
+                  <b>{route === "bill" ? "选择支付宝账单" : draggingMaterials ? "放在这里" : "选择或拖入材料"}</b>
+                  <span>{route === "bill" ? "支付宝导出的 CSV" : route === "files" ? "文件、文件夹或 ZIP，自动识别并保留层级" : "文件、文件夹或 ZIP，自动识别格式"}</span>
+                  <input key={`${route}-${provider}-files`} name="import-files" type="file" accept={accept} multiple={route !== "bill"} onChange={(event) => selectFiles(selectedFiles(event.target.files))} />
+                </label>
+                {route === "bill" ? <div className="bill-import-method"><Icon name="spark" size={18} /><b>自动整理</b><span>归并退款，识别重复地点、消费节律与跨类型旅程。</span></div> : null}
               </div>
               <div className={`import-selection${files.length ? " has-files" : ""}`}>
-                {files.length ? <><div><b>{files.length} 个文件</b><span>{new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024)} MB</span></div><p>{files.slice(0, 4).map((file) => file.webkitRelativePath || file.name).join(" · ")}{files.length > 4 ? ` · 另有 ${files.length - 4} 个` : ""}</p></> : <><b>尚未选择文件</b><p>单次最多 100 MB。ZIP 解压后也需在 100 MB 内。</p></>}
+                {files.length ? <><div><b>{selectionKind === "folder" ? `已识别文件夹 · ${files.length} 个文件` : selectionKind === "archive" ? "已识别 ZIP 压缩包" : selectionKind === "files" ? `${files.length} 个文件` : "已识别文件"}</b><span>{new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024)} MB</span></div><p>{files.slice(0, 4).map((item) => item.relativePath).join(" · ")}{files.length > 4 ? ` · 另有 ${files.length - 4} 个` : ""}</p></> : <><b>{route === "bill" ? "尚未选择账单" : "尚未选择材料"}</b><p>{route === "bill" ? "单次最多 100 MB。" : "点击选择文件，或把文件夹拖到这里；单次最多 100 MB。"}</p></>}
               </div></>}
             </section>
             {!journey && route === "bill" ? <section className="import-modal-section bill-import-destination"><h3>保存到生活记录</h3><p>原始 CSV 与聚类报告会保存在「消费账单」中，每条线索都能回到具体交易证据。</p></section> : !journey ? <section className="import-modal-section import-destination"><h3>保存到</h3><p>记录会进入所选文件夹；同名文件会自动追加序号。</p>
@@ -191,6 +239,34 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
       </form>
     </section>
   </div>;
+}
+
+function sourceBuildTitle(record: SourceBuildRecord): string {
+  return cleanSourcePath(record.file.storedPath).split("/").at(-1)?.replace(/\.md$/i, "") || record.file.originalName;
+}
+
+function SourceBuildAction({ record, busy, onStart }: { record: SourceBuildRecord; busy: boolean; onStart: (record: SourceBuildRecord) => void }) {
+  const { file } = record;
+  if (file.buildStatus === "built") return null;
+  if (file.buildStatus === "building" || file.buildStatus === "in-dialogue") return file.buildRunId ? <button type="button" className="source-build-action is-quiet" onClick={() => openContextAgent({ runId: file.buildRunId })}>查看进度</button> : null;
+  const label = file.buildKind === "direct" ? "收进我的理解" : file.buildKind === "dialogue" ? "聊聊这段旅程" : "帮我看看";
+  return <button type="button" className={`source-build-action is-${file.buildKind}`} disabled={busy} onClick={() => onStart(record)}>{busy ? "正在准备…" : label}</button>;
+}
+
+function ImportedBatchGuide({ batch, busyPath, onStart, onStartAll, onDefer }: { batch: SourceImportBatch; busyPath?: string; onStart: (record: SourceBuildRecord) => void; onStartAll: (records: SourceBuildRecord[]) => void; onDefer: (records: SourceBuildRecord[]) => void }) {
+  const records = sourceBuildRecords([batch]).filter(({ file }) => !["built", "deferred"].includes(file.buildStatus || "ready"));
+  if (!records.length) return null;
+  const hasActive = records.some(({ file }) => file.buildStatus === "building" || file.buildStatus === "in-dialogue");
+  const directRecords = records.filter(({ file }) => file.buildKind === "direct" && file.buildStatus === "ready");
+  const shownRecords = records.slice(0, 5);
+  return <section className="source-import-guide" aria-labelledby={`source-import-guide-${batch.id}`}>
+    <header><div><span className="source-import-guide-mark" aria-hidden="true"><Icon name="check" size={16} /></span><div><h2 id={`source-import-guide-${batch.id}`}>已收好 {batch.fileCount} 份新记录</h2><p>原文已经保存。下面这一步决定它们怎样进入已有理解，你也可以稍后再说。</p></div></div><time>{new Date(batch.createdAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time></header>
+    <div className="source-import-guide-list">{shownRecords.map((record) => {
+      const state = sourceBuildPresentation(record.file);
+      return <article key={record.file.storedPath}><div><b>{sourceBuildTitle(record)}</b><span>{record.file.buildKind === "direct" ? "这份记录语境完整，可以直接读懂" : record.file.buildKind === "dialogue" ? "账单只留下线索，需要你说出背后的故事" : "我还不确定这份材料是什么"}</span></div><div className="source-import-guide-state"><span className={`source-build-chip is-${state.tone}`}><i aria-hidden="true" />{state.label}</span><SourceBuildAction record={record} busy={busyPath === record.file.storedPath} onStart={onStart} /></div></article>;
+    })}</div>
+    {!hasActive ? <footer><span>{records.length > shownRecords.length ? `另有 ${records.length - shownRecords.length} 份，` : ""}这些记录会继续留在完整列表里。</span><div>{directRecords.length > 1 ? <button type="button" className="source-import-build-all" onClick={() => onStartAll(directRecords)}>全部收进理解</button> : null}<button type="button" onClick={() => onDefer(records)}>稍后再说</button></div></footer> : null}
+  </section>;
 }
 
 function SourceKnowledgeConnections({ page }: { page: WikiPage }) {
@@ -264,6 +340,7 @@ function NewSourceForm({ folder, onCancel, onCreated }: { folder: string; onCanc
 
 export function OrganizedSources({ revision }: { revision: number }) {
   const { data, loading } = useApi<WikiPageSummary[]>("/api/pages?sources=true", revision);
+  const { data: importBatches } = useApi<SourceImportBatch[]>("/api/imports", revision);
   const [params, setParams] = useSearchParams();
   const [creatingSource, setCreatingSource] = useState(false);
   const [createdPageId, setCreatedPageId] = useState<string>();
@@ -271,6 +348,9 @@ export function OrganizedSources({ revision }: { revision: number }) {
   const [filePaneOpen, setFilePaneOpen] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [recentJourney, setRecentJourney] = useState<PaymentJourneySummary>();
+  const [recentBatch, setRecentBatch] = useState<SourceImportBatch>();
+  const [busyBuildPath, setBusyBuildPath] = useState<string>();
+  const [buildError, setBuildError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ kind: "file"; page: WikiPageSummary } | { kind: "folder"; folder: string; count: number }>();
   useEffect(() => {
     if (!creatingSource && !importOpen) return;
@@ -284,10 +364,13 @@ export function OrganizedSources({ revision }: { revision: number }) {
   }, [creatingSource, importOpen]);
   if (loading || !data) return <Loading label="正在打开生活记录" />;
   const pages = data;
+  const buildRecords = sourceBuildRecords(importBatches || []);
+  const pendingBuilds = pendingSourceBuildRecords(importBatches || []);
+  const shownBatch = recentBatch || importBatches?.find((batch) => batch.id === params.get("batch"));
   const query = params.get("q") || "";
   const folder = params.get("folder") || "";
   const requestedType = params.get("type") || "all";
-  const type = (sourceRecordTypes.some((item) => item.id === requestedType) ? requestedType : "all") as "all" | SourceRecordType;
+  const type = (requestedType === "pending" || sourceRecordTypes.some((item) => item.id === requestedType) ? requestedType : "all") as "all" | SourceRecordType | "pending";
   const month = params.get("month") || "";
   const folderCounts = new Map<string, number>();
   for (const page of pages) {
@@ -303,7 +386,7 @@ export function OrganizedSources({ revision }: { revision: number }) {
   const filtered = pages.filter((page) => {
     const sourcePath = cleanSourcePath(page.relativePath);
     return (!folder || sourcePath.startsWith(`${folder}/`))
-      && (type === "all" || sourceRecordType(page) === type)
+      && (type === "all" ? true : type === "pending" ? Boolean(sourceBuildRecordForPage(page, pendingBuilds)) : sourceRecordType(page) === type)
       && (!month || sourceRecordMonth(page) === month)
       && `${page.title} ${sourcePath} ${page.excerpt}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
   }).sort((a, b) => sourceRecordDate(b).getTime() - sourceRecordDate(a).getTime());
@@ -330,6 +413,69 @@ export function OrganizedSources({ revision }: { revision: number }) {
     const parentFolder = deleteTarget.folder.split("/").slice(0, -1).join("/");
     update({ q: undefined, type: undefined, month: undefined, folder: parentFolder || undefined, file: undefined, limit: undefined });
   }
+  async function updateBuildStatus(record: SourceBuildRecord, status: "deferred") {
+    return api<SourceImportBatch>(`/api/imports/${encodeURIComponent(record.batch.id)}/build-status`, { method: "PATCH", body: JSON.stringify({ storedPath: record.file.storedPath, status }) });
+  }
+  async function beginBuild(record: SourceBuildRecord) {
+    if (busyBuildPath) return;
+    setBusyBuildPath(record.file.storedPath);
+    setBuildError("");
+    try {
+      const flow = record.file.buildKind!;
+      const title = sourceBuildTitle(record);
+      const sourceContext = { importId: record.batch.id, storedPath: record.file.storedPath, flow };
+      if (flow === "direct") {
+        openContextAgent({
+          mode: "write",
+          autoSubmit: true,
+          displayPrompt: "把这份记录收进我的理解",
+          prompt: `请按 build-wiki 的「导入后冷启构建」入口读取生活记录「${record.file.storedPath}」，保持原始记录正文不变，把其中具体、耐久且证据充分的内容收进真正受到影响的已有理解；完成该入口要求的派生内容与质量门，并清楚列出新增、更新或因证据不足而跳过了什么。`,
+          sourceContext,
+          attachedContext: { title, currentUnderstanding: "这份记录的叙事和上下文较完整，可以直接进入构建。", reason: "用户已经明确选择把它收进已有理解。" },
+        });
+      } else {
+        const firstClue = record.batch.journey?.clusters[0];
+        openContextAgent({
+          mode: "auto",
+          autoSubmit: true,
+          displayPrompt: flow === "dialogue" ? "从这段旅程开始聊" : "先帮我看看这是什么",
+          prompt: flow === "dialogue"
+            ? `请围绕生活记录「${record.file.storedPath}」开始一次回忆对话。${firstClue ? `先把「${firstClue.title}」作为候选线索，并说明：${firstClue.summary}` : "先挑一条最完整的候选线索。"} 候选不是事实；一次只问我一个关于人物、动机或感受的问题。只有我的讲述形成具体、耐久且有证据支持的新理解时，才按仓库规则沉淀，并告诉我实际改了什么。`
+            : `请读取生活记录「${record.file.storedPath}」。我还不知道它属于哪类材料；先用一句自然的问题请我说明这是什么，不要把无法判类当作错误，也不要在我确认前修改知识库。`,
+          sourceContext,
+          attachedContext: { title, currentUnderstanding: flow === "dialogue" ? `${record.file.clueCount || 0} 条结构化线索只是回忆候选，还不是已确认经历。` : "这份材料的格式或语境不足，暂时无法判类。", reason: "先由用户补上材料本身没有留下的语境，再决定是否构建。" },
+        });
+      }
+    } catch (reason: any) {
+      setBuildError(reason.message || "暂时无法开始，可以稍后再试");
+    } finally {
+      setBusyBuildPath(undefined);
+    }
+  }
+  function beginBatchBuild(records: SourceBuildRecord[]) {
+    if (busyBuildPath || records.length < 2) return;
+    setBuildError("");
+    const batch = records[0]!.batch;
+    openContextAgent({
+      mode: "write",
+      autoSubmit: true,
+      displayPrompt: `把这 ${records.length} 份记录收进我的理解`,
+      prompt: `请按 build-wiki 的「导入后冷启构建」入口读取导入批次「${batch.id}」中全部 ${records.length} 份标记为 direct 的生活记录；批次清单位于当前知识库来源目录的 .imports 中。保持原始记录正文不变，把其中具体、耐久且证据充分的内容收进真正受到影响的已有理解；合并重复判断，完成该入口要求的派生内容与质量门，并清楚列出新增、更新或因证据不足而跳过了什么。`,
+      sourceContext: { importId: batch.id, storedPath: records[0]!.file.storedPath, allDirect: true, flow: "direct" },
+      attachedContext: { title: `${records.length} 份语境完整的新记录`, currentUnderstanding: "这些记录可以直接进入构建，但每一条判断仍需保留来源。", reason: "用户已经明确选择批量收进已有理解。" },
+    });
+  }
+  async function deferBuilds(records: SourceBuildRecord[]) {
+    if (busyBuildPath) return;
+    setBuildError("");
+    try {
+      await Promise.all(records.map((record) => updateBuildStatus(record, "deferred")));
+      setRecentBatch(undefined);
+      update({ batch: undefined });
+    } catch (reason: any) {
+      setBuildError(reason.message || "暂时无法记住这个选择");
+    }
+  }
   return <div className="organized-sources-page">
     <header className="source-workspace-intro">
       <div><h1>生活记录</h1><p>日记、笔记、对话和其他原话都留在这里。它们让我记得你的来路，也让每一次理解都能回到真正发生过的生活。</p></div>
@@ -338,7 +484,7 @@ export function OrganizedSources({ revision }: { revision: number }) {
         <div className="source-workspace-buttons"><button type="button" className="source-secondary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog"><Icon name="up" size={15} />带一段材料进来</button><button type="button" className="primary-action" onClick={() => setCreatingSource(true)} aria-haspopup="dialog"><Icon name="plus" size={15} />写一条记录</button></div>
       </div>
     </header>
-    {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} onImported={(batch) => { setImportOpen(false); setCreatedPageId(undefined); update({ q: undefined, type: undefined, month: undefined, folder: importedFolderForBatch(batch) || undefined, file: undefined, limit: undefined }); }} onJourney={setRecentJourney} /> : null}
+    {importOpen ? <ImportMaterialsModal folders={folders.map(([name]) => name)} currentFolder={folder} onClose={() => setImportOpen(false)} onImported={(batch) => { setImportOpen(false); setRecentBatch(batch); setCreatedPageId(undefined); update({ q: undefined, type: undefined, month: undefined, folder: importedFolderForBatch(batch) || undefined, file: undefined, limit: undefined, batch: batch.id }); }} onJourney={setRecentJourney} /> : null}
     {deleteTarget ? <ConfirmDeleteDialog
       title={deleteTarget.kind === "folder" ? "删除这个文件夹？" : "删除这份生活记录？"}
       description={deleteTarget.kind === "folder" ? "文件夹内的记录和所有子文件夹都会一起删除。" : "文件会从生活记录中永久移除。"}
@@ -349,8 +495,10 @@ export function OrganizedSources({ revision }: { revision: number }) {
       onConfirm={deleteSelectedTarget}
     /> : null}
     {creatingSource ? <div className="source-compose-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreatingSource(false); }}><div className="source-compose-dialog" role="dialog" aria-modal="true" aria-label="写一条生活记录"><NewSourceForm folder={folder} onCancel={() => setCreatingSource(false)} onCreated={(page) => { const nextFolder = cleanSourcePath(page.relativePath).split("/").slice(0, -1).join("/"); setCreatingSource(false); setCreatedPageId(page.id); update({ q: undefined, type: undefined, month: undefined, folder: nextFolder || undefined, file: page.id, limit: undefined }); }} /></div></div> : null}
+    {shownBatch ? <ImportedBatchGuide batch={shownBatch} busyPath={busyBuildPath} onStart={beginBuild} onStartAll={beginBatchBuild} onDefer={deferBuilds} /> : null}
+    {buildError ? <p className="source-build-error" role="alert">{buildError}</p> : null}
     <section className="source-discovery-tools" aria-label="筛选生活记录">
-      <div className="source-type-filter" role="group" aria-label="按来源类型筛选">{sourceRecordTypes.map((item) => <button type="button" key={item.id} className={type === item.id ? "active" : ""} aria-pressed={type === item.id} onClick={() => { setCreatedPageId(undefined); update({ type: item.id === "all" ? undefined : item.id, file: undefined, limit: undefined }); }}>{item.id !== "all" ? <Icon name={item.id === "notes" ? "journal" : item.id === "ai" ? "spark" : item.id === "wechat" ? "message" : "receipt"} size={14} /> : null}{item.label}</button>)}</div>
+      <div className="source-type-filter" role="group" aria-label="按来源类型筛选">{sourceRecordTypes.map((item) => <button type="button" key={item.id} className={type === item.id ? "active" : ""} aria-pressed={type === item.id} onClick={() => { setCreatedPageId(undefined); update({ type: item.id === "all" ? undefined : item.id, file: undefined, limit: undefined }); }}>{item.id !== "all" ? <Icon name={item.id === "notes" ? "journal" : item.id === "ai" ? "spark" : item.id === "wechat" ? "message" : "receipt"} size={14} /> : null}{item.label}</button>)}{pendingBuilds.length ? <button type="button" className={`source-pending-filter${type === "pending" ? " active" : ""}`} aria-pressed={type === "pending"} onClick={() => { setCreatedPageId(undefined); update({ type: type === "pending" ? undefined : "pending", file: undefined, limit: undefined }); }}><Icon name="spark" size={14} />待构建 <b>{pendingBuilds.length}</b></button> : null}</div>
       <label className="source-global-search"><Icon name="search" size={16} /><input name="organized-source-search" autoComplete="off" aria-label="搜索生活记录标题或内容" value={query} onChange={(event) => { setCreatedPageId(undefined); update({ q: event.target.value || undefined, file: undefined, limit: undefined }); }} placeholder="搜索标题或内容…" /></label>
     </section>
     {months.length > 0 ? <div className="source-month-browser"><span><Icon name="history" size={14} />按月回望</span><nav aria-label="按月份浏览记录">{months.map((item) => <button type="button" key={item.id} className={month === item.id ? "active" : ""} aria-current={month === item.id ? "date" : undefined} onClick={() => { setCreatedPageId(undefined); update({ month: month === item.id ? undefined : item.id, file: undefined, limit: undefined }); }}><i style={{ "--month-weight": Math.min(11, 5 + item.count) } as React.CSSProperties} />{sourceMonthLabel(item.id)}</button>)}</nav>{month ? <button type="button" className="source-month-clear" onClick={() => update({ month: undefined, file: undefined, limit: undefined })}>清除月份</button> : null}</div> : null}
@@ -359,7 +507,27 @@ export function OrganizedSources({ revision }: { revision: number }) {
         <aside className="source-folder-pane"><header><div><b>文件夹</b><span>{folders.length}</span></div><div className="source-pane-header-actions">{folder ? <button type="button" className="source-delete-action" onClick={() => setDeleteTarget({ kind: "folder", folder, count: folderCounts.get(folder) || 0 })} aria-label={`删除文件夹「${folder}」`} title="删除当前文件夹"><Icon name="trash" size={14} /></button> : null}<button type="button" className="source-pane-collapse" onClick={() => setFolderPaneOpen((value) => !value)} aria-expanded={folderPaneOpen} aria-label={`${folderPaneOpen ? "收起" : "展开"}文件夹栏`}><Icon name={folderPaneOpen ? "back" : "arrow"} size={13} /></button></div></header><div className="source-folder-contents"><button className={!folder ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ folder: undefined, file: undefined, limit: undefined }); }}><Icon name="source" size={15} /><span>全部材料</span><small>{pages.length}</small></button>{folders.map(([name, count]) => { const recordType = sourceRecordType({ relativePath: name, tags: [], type: undefined }); return <button key={name} className={folder === name ? "active" : ""} style={{ paddingLeft: 10 + Math.min(name.split("/").length - 1, 3) * 16 }} onClick={() => { setCreatedPageId(undefined); update({ folder: name, file: undefined, limit: undefined }); }}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={15} /><span>{name.split("/").at(-1)}</span><small>{count}</small></button>; })}</div></aside>
       </div>
       <div className={`source-pane-shell source-file-shell${filePaneOpen ? "" : " collapsed"}`}>
-        <section className="source-file-pane"><header><div><b>{folder ? folder.split("/").at(-1) : "全部记录"}</b><span>{filtered.length} 份</span></div><div className="source-pane-header-actions">{selected ? <button type="button" className="source-delete-action" onClick={() => setDeleteTarget({ kind: "file", page: selected })} aria-label={`删除文件「${documentIdentity(selected.relativePath).fileName}」`} title="删除当前文件"><Icon name="trash" size={14} /></button> : null}<button type="button" className="source-pane-collapse" onClick={() => setFilePaneOpen((value) => !value)} aria-expanded={filePaneOpen} aria-label={`${filePaneOpen ? "收起" : "展开"}文件列表`}><Icon name={filePaneOpen ? "back" : "arrow"} size={13} /></button></div></header><div className="source-file-contents"><div className="source-file-order"><span>按记录时间排列</span></div><div className="source-file-list">{visiblePages.map((page) => { const fileName = documentIdentity(page.relativePath).fileName; const recordType = sourceRecordType(page); const date = sourceRecordDate(page); return <button key={page.id} aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date)}`} className={selected?.id === page.id ? "active" : ""} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}><span className="source-file-card-meta"><em className={`source-type-chip source-type-chip--${recordType}`}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={11} />{sourceRecordTypes.find((item) => item.id === recordType)?.label}</em><time>{new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date)}</time></span><b>{fileName}</b><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small></button>; })}{visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}{visiblePages.length === 0 ? <div className="source-list-empty"><b>没有匹配的记录</b><p>换一个来源、月份或搜索词试试。</p></div> : null}</div></div></section>
+        <section className="source-file-pane">
+          <header><div><b>{folder ? folder.split("/").at(-1) : "全部记录"}</b><span>{filtered.length} 份</span></div><div className="source-pane-header-actions">{selected ? <button type="button" className="source-delete-action" onClick={() => setDeleteTarget({ kind: "file", page: selected })} aria-label={`删除文件「${documentIdentity(selected.relativePath).fileName}」`} title="删除当前文件"><Icon name="trash" size={14} /></button> : null}<button type="button" className="source-pane-collapse" onClick={() => setFilePaneOpen((value) => !value)} aria-expanded={filePaneOpen} aria-label={`${filePaneOpen ? "收起" : "展开"}文件列表`}><Icon name={filePaneOpen ? "back" : "arrow"} size={13} /></button></div></header>
+          <div className="source-file-contents"><div className="source-file-order"><span>按记录时间排列</span></div><div className="source-file-list">
+            {visiblePages.map((page) => {
+              const fileName = documentIdentity(page.relativePath).fileName;
+              const recordType = sourceRecordType(page);
+              const date = sourceRecordDate(page);
+              const buildRecord = sourceBuildRecordForPage(page, buildRecords);
+              const buildState = buildRecord ? sourceBuildPresentation(buildRecord.file) : undefined;
+              return <article key={page.id} className={`source-file-row${selected?.id === page.id ? " active" : ""}`}>
+                <button type="button" className="source-file-select" aria-label={`${fileName}，${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date)}`} onClick={() => { setCreatedPageId(undefined); update({ file: page.id }); }}>
+                  <span className="source-file-card-meta"><em className={`source-type-chip source-type-chip--${recordType}`}><Icon name={recordType === "notes" ? "journal" : recordType === "ai" ? "spark" : recordType === "wechat" ? "message" : "receipt"} size={11} />{sourceRecordTypes.find((item) => item.id === recordType)?.label}</em><time>{new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date)}</time></span>
+                  <b>{fileName}</b><small>{page.excerpt || cleanSourcePath(page.relativePath)}</small>
+                </button>
+                {buildRecord && buildState ? <div className="source-file-build"><span className={`source-build-chip is-${buildState.tone}`}><i aria-hidden="true" />{buildState.label}{buildState.detail ? <small>{buildState.detail}</small> : null}</span><SourceBuildAction record={buildRecord} busy={busyBuildPath === buildRecord.file.storedPath} onStart={beginBuild} /></div> : null}
+              </article>;
+            })}
+            {visiblePages.length < filtered.length ? <button className="source-file-list-more" onClick={() => update({ limit: String(visibleLimit + 120) })}>继续显示 <b>{Math.min(120, filtered.length - visiblePages.length)}</b> 份</button> : null}
+            {visiblePages.length === 0 ? <div className="source-list-empty"><b>没有匹配的记录</b><p>{type === "pending" ? "新带进来的记录都已经收进理解。" : "换一个来源、月份或搜索词试试。"}</p></div> : null}
+          </div></div>
+        </section>
       </div>
       {selected ? <SourcePreview page={selected} revision={revision} startEditing={selected.id === createdPageId} onRenamed={(renamed) => { setCreatedPageId(undefined); update({ file: renamed.id }); }} /> : <div className="source-preview-empty"><span>没有匹配的来源</span><p>换一个文件夹或搜索词。</p></div>}
     </div>

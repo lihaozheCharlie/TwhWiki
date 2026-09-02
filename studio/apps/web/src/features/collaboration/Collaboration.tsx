@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { AgentApprovalDecision, AgentOutputTarget, AgentReasoningEffort, VaultInfo, WikiRun } from "@the-way-here/shared";
+import type { AgentApprovalDecision, AgentOutputTarget, AgentReasoningEffort, SourceRunContext, VaultInfo, WikiRun } from "@the-way-here/shared";
 import { api, useApi } from "../../api";
 import { useReturnContext } from "../../shared/routing";
 import { resizeComposerTextarea } from "../../shared/composer-input";
@@ -34,6 +34,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   const [historyReturnRunId, setHistoryReturnRunId] = useState("");
   const [mode, setMode] = useState<WikiRun["mode"]>(() => resolveComposerMode(context.defaultMode));
   const [outputTarget, setOutputTarget] = useState<AgentOutputTarget>();
+  const [sourceContext, setSourceContext] = useState<SourceRunContext>();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -64,6 +65,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
       setAttachedContext(request.attachedContext);
       setMode(resolveComposerMode(request.mode || context.defaultMode));
       setOutputTarget(request.outputTarget);
+      setSourceContext(request.sourceContext);
       pendingAutoSubmissionRef.current = autoSubmission;
     };
     window.addEventListener("open-context-agent", openDock);
@@ -115,6 +117,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
     setRunId("");
     setMode(resolveComposerMode(context.defaultMode));
     setOutputTarget(undefined);
+    setSourceContext(undefined);
     setView("compose");
     setError("");
     pendingAutoSubmissionRef.current = undefined;
@@ -124,7 +127,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
     const pending = pendingAutoSubmissionRef.current;
     if (!pending || !open || view !== "compose" || runId || submitting || vaultLoading || agent.loading || !vault?.agentAvailable) return;
     pendingAutoSubmissionRef.current = undefined;
-    void startRun(pending.prompt, pending.mode, pending.outputTarget, pending.displayPrompt);
+    void startRun(pending.prompt, pending.mode, pending.outputTarget, pending.displayPrompt, pending.sourceContext);
   }, [agent.loading, open, runId, submitting, vault?.agentAvailable, vaultLoading, view]);
 
   function startNewQuestion() {
@@ -135,6 +138,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
     setAttachedContext(undefined);
     setMode(resolveComposerMode(context.defaultMode));
     setOutputTarget(undefined);
+    setSourceContext(undefined);
     setError("");
     pendingAutoSubmissionRef.current = undefined;
   }
@@ -154,7 +158,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
     startNewQuestion();
   }
 
-  async function startRun(requestText: string, requestedMode = mode, requestedOutputTarget = outputTarget, displayPrompt = requestText) {
+  async function startRun(requestText: string, requestedMode = mode, requestedOutputTarget = outputTarget, displayPrompt = requestText, requestedSourceContext = sourceContext) {
     const request = requestText.trim();
     if (requestedMode !== "validate" && !request) {
       setError("先写下你想从哪里开始。");
@@ -183,6 +187,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
           effort: selection?.effort,
           title: requestedMode === "validate" ? "知识健康检查" : `处理：${runContext.title}`,
           outputTarget: requestedOutputTarget,
+          sourceContext: requestedSourceContext,
         }),
       });
       setRunId(run.id);
@@ -223,7 +228,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
             <button type="button" className="context-agent-icon-button" aria-label="关闭对话窗口" onClick={closeDock}><Icon name="close" size={17} /></button>
           </div>
         </header>
-        {!runId && view === "compose" && <div className="context-agent-context-chip"><span>{mode === "validate" ? "检查" : collaborationModes[mode].short}</span><b>{attachedContext ? context.scope : context.title}</b><i aria-hidden="true" /><small>{vault?.name || context.scope}</small></div>}
+        {!runId && view === "compose" && <div className="context-agent-context-chip"><span>{mode === "validate" ? "检查" : collaborationModes[mode].short}</span><b>{attachedContext ? attachedContext.title : context.title}</b><i aria-hidden="true" /><small>{vault?.name || context.scope}</small></div>}
         {runId ? <ContextualRunPanel runId={runId} revision={revision} runList={runList || []} onRunId={setRunId} onNew={startNewQuestion} /> : view === "history" ? <AgentHistory threads={threads} loading={runsLoading} error={runsError} knowledgeBaseName={vault?.name} onOpen={setRunId} onNew={startNewQuestion} /> : <form className="context-agent-compose" onSubmit={submit}>
           <div className={`context-agent-compose-body${draft ? " has-draft" : ""}`}>
             {outputTarget?.kind === "letter-version" && <div className="context-output-target"><Icon name="library" size={15} /><div><b>将保留为「{outputTarget.label}」</b><span>完成后会成为这封回信的最新版本，原始回信仍可随时切换查看。</span></div></div>}

@@ -9,8 +9,8 @@ skills:
   - id: build-wiki
     path: knowledge-engine/skills/build/wiki-build/SKILL.md
     modes: [write]
-    responsibility: "新增日记、多来源、对话及其他来源的统一摄取编排"
-    triggers: ["跑一下 Wiki", "新增日记", "摄取来源", "将对话收入 Wiki"]
+    responsibility: "新增日记、多来源、对话、导入后冷启及其他来源的统一摄取编排"
+    triggers: ["跑一下 Wiki", "新增日记", "摄取来源", "导入后冷启构建", "将对话收入 Wiki"]
   - id: build-life-review
     path: knowledge-engine/skills/build/life-review/SKILL.md
     modes: [write]
