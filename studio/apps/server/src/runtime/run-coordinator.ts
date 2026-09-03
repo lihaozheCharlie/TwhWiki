@@ -15,7 +15,8 @@ import type {
   UpdateAgentGlobalSettings,
   WikiRun,
 } from "@the-way-here/shared";
-import { buildRunPrompt, parseAgentOutputTarget, parseAgentRuntimePreference, parseReasoningEffort, parseRunMode } from "../services/run-policy.js";
+import { JourneyReportStore, JourneyReportTargetError } from "../modules/imports/journey-report-store.js";
+import { addOutputTargetInstructions, buildRunPrompt, parseAgentOutputTarget, parseAgentRuntimePreference, parseReasoningEffort, parseRunMode } from "../services/run-policy.js";
 import { runValidationCommands } from "../services/validation-runner.js";
 import type { AgentExecutionRef, AgentRuntimeEnvelope } from "./agent-runtime/types.js";
 import type { AgentRuntimeProvider, ResolvedAgentSelection } from "./agent-runtime/registry.js";
@@ -44,6 +45,7 @@ export class RunRequestError extends Error {
 
 export class RunCoordinator {
   private readonly runs: RunStore;
+  private readonly journeyReports: JourneyReportStore;
   private readonly runByExecution = new Map<string, string>();
 
   constructor(
@@ -52,6 +54,7 @@ export class RunCoordinator {
     private readonly logger: FastifyBaseLogger,
   ) {
     this.runs = new RunStore(knowledge.vaultRoot, undefined, [path.join(knowledge.vaultRoot, "vault")]);
+    this.journeyReports = new JourneyReportStore(knowledge.vaultRoot);
     this.runtimes.subscribe((envelope) => {
       void this.recordRuntimeEvent(envelope).catch((error) => this.logger.error(error));
     });
@@ -114,8 +117,18 @@ export class RunCoordinator {
     const outputTarget = input.outputTarget === undefined ? undefined : parseAgentOutputTarget(input.outputTarget);
     if (input.outputTarget !== undefined && !outputTarget) throw new RunRequestError(400, "结果保存目标无效");
     if (outputTarget) {
-      const targetPage = resolvedKnowledge.index.get(outputTarget.pageId);
-      if (!targetPage || targetPage.category !== "letters") throw new RunRequestError(404, "要保存版本的回信不存在");
+      if (outputTarget.kind === "letter-version") {
+        const targetPage = resolvedKnowledge.index.get(outputTarget.pageId);
+        if (!targetPage || targetPage.category !== "letters") throw new RunRequestError(404, "要保存版本的回信不存在");
+      } else {
+        if (mode !== "read") throw new RunRequestError(400, "消费旅程对话必须使用只读模式");
+        try {
+          await this.journeyReports.assertTarget(taskConfig, outputTarget);
+        } catch (error) {
+          if (error instanceof JourneyReportTargetError) throw new RunRequestError(404, error.message);
+          throw error;
+        }
+      }
     }
     const normalizedInput = { ...input, outputTarget };
     if (!prompt && mode !== "validate") throw new RunRequestError(400, "请输入任务内容");
@@ -141,7 +154,25 @@ export class RunCoordinator {
     if (previous?.runtimeId && requestedRuntime && requestedRuntime !== "auto" && requestedRuntime !== previous.runtimeId) {
       throw new RunRequestError(400, "同一会话不能切换 Agent 运行时；请新建任务");
     }
+    normalizedInput.outputTarget = outputTarget || previous?.outputTarget;
     normalizedInput.sourceContext = input.sourceContext || previous?.sourceContext;
+    if (normalizedInput.outputTarget?.kind === "journey-report" && mode !== "read") {
+      throw new RunRequestError(400, "消费旅程对话必须保持只读；请另行点击构建这份记录");
+    }
+    if (normalizedInput.outputTarget?.kind === "journey-report") {
+      const target = normalizedInput.outputTarget;
+      const context = normalizedInput.sourceContext;
+      if (context && (context.importId !== target.importId || context.storedPath !== target.storedPath || context.flow !== "dialogue" || context.operation && context.operation !== "enrich")) {
+        throw new RunRequestError(400, "消费旅程报告与对话上下文不一致");
+      }
+      normalizedInput.sourceContext = { importId: target.importId, storedPath: target.storedPath, flow: "dialogue", operation: "enrich" };
+      try {
+        normalizedInput.outputTarget = await this.journeyReports.prepareTarget(taskConfig, target);
+      } catch (error) {
+        if (error instanceof JourneyReportTargetError) throw new RunRequestError(409, error.message);
+        throw error;
+      }
+    }
     let selection: ResolvedAgentSelection;
     try {
       selection = await this.runtimes.resolve(
@@ -164,7 +195,7 @@ export class RunCoordinator {
       if (mode === "write" || mode === "auto") await this.runs.snapshot(run.id, taskConfig);
       const ref = await selection.runtime.start({
         cwd: this.knowledge.vaultRoot,
-        prompt: buildRunPrompt(mode, prompt!, taskConfig),
+        prompt: buildRunPrompt(mode, addOutputTargetInstructions(prompt!, normalizedInput.outputTarget), taskConfig),
         model: selection.model.id,
         effort: selection.effort,
         mode,
@@ -315,6 +346,16 @@ export class RunCoordinator {
     if (!stored || ["validating", "completed", "failed", "interrupted"].includes(stored.status)) return;
     const run = await this.ensureContext(stored);
     if (run.mode === "read") {
+      if (run.outputTarget?.kind === "journey-report") {
+        try {
+          const saved = await this.journeyReports.materialize(run.configSnapshot, run.outputTarget, run.result?.finalAnswer || "");
+          await this.knowledge.rebuildIfActive(run.knowledgeBaseId);
+          await this.runs.update(runId, { status: "completed", result: { ...run.result, finalAnswer: saved.visibleAnswer, outputSavedAt: saved.savedAt, completedAt: saved.savedAt } });
+        } catch (error: any) {
+          await this.runs.update(runId, { status: "failed", error: error?.message || "消费旅程报告没有更新", result: { ...run.result, completedAt: new Date().toISOString() } });
+        }
+        return;
+      }
       await this.runs.update(runId, { status: "completed", result: { ...run.result, completedAt: new Date().toISOString() } });
       return;
     }
@@ -354,6 +395,7 @@ function validSourceContext(value: SourceRunContext): boolean {
     && typeof value.storedPath === "string" && value.storedPath.trim()
     && (value.storedPaths === undefined || Array.isArray(value.storedPaths) && value.storedPaths.length > 0 && value.storedPaths.every((path) => typeof path === "string" && path.trim()))
     && (value.allDirect === undefined || typeof value.allDirect === "boolean")
+    && (value.operation === undefined || new Set(["enrich", "build"]).has(value.operation))
     && new Set(["direct", "dialogue", "identify"]).has(value.flow));
 }
 

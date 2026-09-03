@@ -18,7 +18,12 @@ function smallStatement(): string {
   return ["支付宝交易记录明细查询", header, row(1, "2026-08-01 12:00:00"), row(2, "2026-08-02 12:00:00"), row(3, "2026-08-03 12:00:00"), "----------", "共3笔记录"].join("\r");
 }
 
-describe("ImportStore payment journey", () => {
+describe("ImportStore", () => {
+  it("rejects the removed WeChat import channel", async () => {
+    const store = new ImportStore({} as KnowledgeRuntime);
+    await expect(store.create({ channel: "wechat" as never, files: [{ name: "chat.txt", content: "hello" }] })).rejects.toThrow("不支持这个导入渠道");
+  });
+
   it("stores the report and normalized CSV and returns an Agent-ready report path", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-bill-"));
     roots.push(root);
@@ -84,6 +89,49 @@ describe("ImportStore payment journey", () => {
       builtRefs: [{ pageId: "wiki/理解", path: "wiki/理解.md", title: "新的理解" }],
       buildError: "知识质量检查未通过",
     });
+  });
+
+  it("keeps journey enrichment separate from an explicit Wiki build", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-journey-state-"));
+    roots.push(root);
+    const knowledge = {
+      vaultRoot: root,
+      index: {
+        config: { paths: { sources: "sources", wiki: "wiki" } },
+        rebuild: vi.fn(async () => undefined),
+        lastIndexedAt: "2026-09-03T00:00:00.000Z",
+        list: () => [],
+      },
+      events: { broadcast: vi.fn() },
+    } as unknown as KnowledgeRuntime;
+    const store = new ImportStore(knowledge);
+    const batch = await store.create({ channel: "alipay", targetFolder: "消费账单", files: [{ name: "alipay.csv", content: Buffer.from(smallStatement()).toString("base64"), encoding: "base64" }] });
+    const record = batch.files.find((file) => file.buildKind === "dialogue")!;
+    const enriched = {
+      id: "run-enrich-1", status: "completed", mode: "read", updatedAt: "2026-09-03T01:00:00.000Z", changes: [],
+      outputTarget: { kind: "journey-report", importId: batch.id, storedPath: record.storedPath, label: "消费旅程报告" },
+      sourceContext: { importId: batch.id, storedPath: record.storedPath, flow: "dialogue", operation: "enrich" },
+      result: { completedAt: "2026-09-03T01:00:00.000Z", outputSavedAt: "2026-09-03T01:00:00.000Z" },
+    } as unknown as WikiRun;
+    expect((await store.list([enriched]))[0]?.files.find((file) => file.storedPath === record.storedPath)).toMatchObject({
+      buildStatus: "ready-to-build", dialogueRunId: "run-enrich-1", journeyUpdatedAt: "2026-09-03T01:00:00.000Z",
+    });
+
+    const built = {
+      id: "run-build", status: "completed", mode: "write", updatedAt: "2026-09-03T02:00:00.000Z", changes: [],
+      sourceContext: { importId: batch.id, storedPath: record.storedPath, flow: "dialogue", operation: "build" },
+      result: { completedAt: "2026-09-03T02:00:00.000Z" },
+      configSnapshot: { paths: { wiki: "wiki" } },
+    } as unknown as WikiRun;
+    expect((await store.list([enriched, built]))[0]?.files.find((file) => file.storedPath === record.storedPath)?.buildStatus).toBe("built");
+
+    const enrichedAgain = {
+      ...enriched,
+      id: "run-enrich-2",
+      updatedAt: "2026-09-03T03:00:00.000Z",
+      result: { completedAt: "2026-09-03T03:00:00.000Z", outputSavedAt: "2026-09-03T03:00:00.000Z" },
+    } as WikiRun;
+    expect((await store.list([enriched, built, enrichedAgain]))[0]?.files.find((file) => file.storedPath === record.storedPath)?.buildStatus).toBe("ready-to-build");
   });
 
   it("reconciles only the records explicitly selected for a batch build", async () => {

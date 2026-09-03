@@ -103,11 +103,13 @@ export interface SourceImportFile {
   mimeType?: string;
 }
 
-export type SourceImportChannel = "files" | "chatgpt" | "gemini" | "deepseek" | "doubao" | "other-ai" | "wechat" | "alipay";
+export type SourceChatImportChannel = "chatgpt" | "claude" | "gemini" | "deepseek" | "doubao" | "other-ai";
+
+export type SourceImportChannel = "files" | SourceChatImportChannel | "alipay";
 
 export type SourceBuildKind = "direct" | "dialogue" | "identify";
 
-export type SourceBuildStatus = "ready" | "needs-dialogue" | "in-dialogue" | "building" | "built" | "deferred";
+export type SourceBuildStatus = "ready" | "needs-dialogue" | "in-dialogue" | "ready-to-build" | "building" | "built" | "deferred";
 
 export interface SourceBuiltRef {
   pageId: string;
@@ -121,6 +123,7 @@ export interface SourceRunContext {
   storedPaths?: string[];
   allDirect?: boolean;
   flow: SourceBuildKind;
+  operation?: "enrich" | "build";
 }
 
 export type PaymentJourneyClusterKind = "journey" | "place" | "routine" | "day-story" | "theme";
@@ -165,7 +168,9 @@ export interface SourceImportBatch {
     buildKind?: SourceBuildKind;
     buildStatus?: SourceBuildStatus;
     clueCount?: number;
+    dialogueRunId?: string;
     buildRunId?: string;
+    journeyUpdatedAt?: string;
     builtRefs?: SourceBuiltRef[];
     buildError?: string;
     buildUpdatedAt?: string;
@@ -533,6 +538,7 @@ export type AgentRuntimeEvent =
 export interface AgentRunResult {
   finalAnswer?: string;
   completedAt?: string;
+  outputSavedAt?: string;
 }
 
 export interface LetterVersionOutputTarget {
@@ -543,7 +549,20 @@ export interface LetterVersionOutputTarget {
   label: string;
 }
 
-export type AgentOutputTarget = LetterVersionOutputTarget;
+export interface JourneyReportOutputTarget {
+  kind: "journey-report";
+  importId: string;
+  storedPath: string;
+  label: string;
+  expectedContentHash?: string;
+}
+
+export const JOURNEY_REPORT_OUTPUT_START = "<journey-report>";
+export const JOURNEY_REPORT_OUTPUT_END = "</journey-report>";
+export const JOURNEY_REPORT_DRAFT_START = "<!-- the-way-here:journey-draft:start -->";
+export const JOURNEY_REPORT_DRAFT_END = "<!-- the-way-here:journey-draft:end -->";
+
+export type AgentOutputTarget = LetterVersionOutputTarget | JourneyReportOutputTarget;
 
 export interface WikiRun {
   id: string;

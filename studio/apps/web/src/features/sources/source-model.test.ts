@@ -22,7 +22,7 @@ function page(overrides: Partial<WikiPageSummary>): WikiPageSummary {
 describe("life record presentation model", () => {
   it("classifies the supported source families from their durable metadata", () => {
     expect(sourceRecordType(page({ relativePath: "sources/AI聊天记录/ChatGPT/对话.md" }))).toBe("ai");
-    expect(sourceRecordType(page({ relativePath: "sources/微信聊天记录/朋友.md" }))).toBe("wechat");
+    expect(sourceRecordType(page({ relativePath: "sources/AI聊天记录/Claude/对话.md" }))).toBe("ai");
     expect(sourceRecordType(page({ tags: ["支付宝"] }))).toBe("bill");
     expect(sourceRecordType(page({ relativePath: "sources/随手笔记/灵感.md" }))).toBe("notes");
   });
@@ -121,5 +121,11 @@ describe("life record presentation model", () => {
     expect(sourceBuildActionPresentation({ ...journey, buildStatus: "in-dialogue" })).toEqual({ kind: "open", label: "查看进度", runId: "run-journey" });
     expect(sourceBuildActionPresentation({ ...journey, buildStatus: "needs-dialogue" })).toEqual({ kind: "open", label: "继续聊聊", runId: "run-journey" });
     expect(sourceBuildActionPresentation({ ...journey, buildStatus: "built" })).toEqual({ kind: "open", label: "继续聊聊", runId: "run-journey" });
+  });
+
+  it("marks an enriched journey as ready for an explicit build", () => {
+    const journey = { originalName: "账单.md", storedPath: "sources/消费账单/账单.md", bytes: 12, buildKind: "dialogue" as const, buildStatus: "ready-to-build" as const, dialogueRunId: "run-enrich" };
+    expect(sourceBuildPresentation(journey)).toEqual({ label: "草稿已更新", detail: "对话补充已保存 · 尚未构建", tone: "attention" });
+    expect(sourceBuildActionPresentation(journey)).toEqual({ kind: "open", label: "继续聊聊", runId: "run-enrich" });
   });
 });

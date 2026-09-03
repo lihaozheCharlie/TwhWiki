@@ -4,7 +4,7 @@ import type { ConversationPrompt, FocusWorkspaceView, GraphData, PaymentJourneyS
 import { useApi } from "../../api";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent, shouldSubmitAgentInput } from "../collaboration/model";
-import { ImportMaterialsModal } from "../sources/Sources";
+import { ImportMaterialsModal, RecordImportTrigger } from "../sources/Sources";
 import { cleanSourcePath, importedFolderForBatch, pendingSourceBuildRecords } from "../sources/source-model";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
@@ -237,19 +237,18 @@ export function Today({ revision }: { revision: number }) {
 
   return (
     <div className="home-overview">
-      {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onImported={openImportedFolder} onJourney={setImportedJourney} /> : null}
+      {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" onClose={() => setImportOpen(false)} onImported={openImportedFolder} onJourney={setImportedJourney} /> : null}
       <section className="home-intro-card" aria-labelledby="home-intro-title">
         <div className="home-intro-main">
           <span className="friend-mark" aria-hidden="true"><Icon name="message" size={22} /></span>
           <div>
             <div className="home-intro-identity"><h1 id="home-intro-title">The Way Here</h1><span>一个会越来越懂你的朋友</span></div>
-            <p>我们聊得越多，我就越懂你。<br />你也可以把日记、聊天记录带给我看，帮我更快跟上你。</p>
+            <p>我们聊得越多，我就越懂你。<br />你也可以把日记、聊天记录或账单带给我看，帮我更快跟上你。</p>
           </div>
         </div>
         <div className="home-intro-ways">
           <button type="button" onClick={() => openContextAgent({ mode: "read" })}><Icon name="message" size={16} />和你聊天</button>
-          <button type="button" aria-haspopup="dialog" onClick={() => setImportOpen(true)}><Icon name="library" size={16} />读你的日记</button>
-          <button type="button" aria-haspopup="dialog" onClick={() => setImportOpen(true)}><Icon name="journal" size={16} />看你的记录</button>
+          <RecordImportTrigger onClick={() => setImportOpen(true)} />
         </div>
       </section>
 
@@ -306,7 +305,7 @@ export function QuestionsHub({ revision }: { revision: number }) {
   }
 
   return <div className="questions-hub">
-    {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" initialRoute="files" onClose={() => setImportOpen(false)} onImported={openImportedFolder} onJourney={setImportedJourney} /> : null}
+    {importOpen ? <ImportMaterialsModal folders={importFolders} currentFolder="" onClose={() => setImportOpen(false)} onImported={openImportedFolder} onJourney={setImportedJourney} /> : null}
     <header className="questions-intro">
       <h1>这段时间你说的话，我都还记得。</h1>
     </header>
@@ -352,7 +351,7 @@ export function QuestionsHub({ revision }: { revision: number }) {
         <div className="questions-import-types"><span><Icon name="journal" size={14} />日记</span><span><Icon name="message" size={14} />对话</span><span><Icon name="receipt" size={14} />账单</span></div>
         <div><h2 id="questions-import-title">日记、对话和账单，都可以带进来</h2><p>留下原话，让之后的问题更具体——不用替我总结，原样丢给我就好。</p></div>
       </div>
-      <button type="button" className="primary-action" onClick={() => setImportOpen(true)} aria-haspopup="dialog">带进来 <Icon name="arrow" size={16} /></button>
+      <RecordImportTrigger onClick={() => setImportOpen(true)} />
     </section>
     <ContextualAgentDock revision={revision} context={{ scope: "值得聊聊", title: topicCards[0]?.question || "最近值得聊的话题", summary: "从具体线索里挑一个想说的，我会沿着它继续问。", defaultMode: "read", launcherLabel: "继续聊", compactLauncher: true, suggestions: [topicCards[0]?.agentPrompt || "我想从最近一件还没有说清楚的事开始。", "我觉得这里有一条理解不符合我。请先让我说明哪里不准确，再帮我找可能的反例。"] }} />
   </div>;

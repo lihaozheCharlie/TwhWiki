@@ -48,6 +48,8 @@ describe("Alipay payment statement", () => {
     expect(result.journey.clusters.some((item) => /是否|是不是|有没有/.test(item.question))).toBe(false);
     expect(result.files).toHaveLength(2);
     expect(result.files[0]?.content).toContain("# 值得继续讲述的线索");
+    expect(result.files[0]?.content).toContain("# 已确认的消费旅程");
+    expect(result.files[0]?.content).toContain("<!-- the-way-here:journey-draft:start -->");
     expect(result.files[0]?.content).toContain("**适合展开：**");
     expect(result.files[0]?.content).toContain("# 规范化交易证据");
   });

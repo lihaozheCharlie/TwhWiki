@@ -1,4 +1,4 @@
-import type { AgentOutputTarget, AgentRuntimeEvent, SourceRunContext, WikiRun } from "@the-way-here/shared";
+import { JOURNEY_REPORT_OUTPUT_END, JOURNEY_REPORT_OUTPUT_START, type AgentOutputTarget, type AgentRuntimeEvent, type SourceRunContext, type WikiRun } from "@the-way-here/shared";
 
 export type AgentContext = {
   scope: string;
@@ -7,6 +7,8 @@ export type AgentContext = {
   summary?: string;
   suggestions: string[];
   defaultMode?: "read" | "write";
+  defaultOutputTarget?: AgentOutputTarget;
+  defaultSourceContext?: SourceRunContext;
   launcherLabel?: string;
   compactLauncher?: boolean;
 };
@@ -22,6 +24,7 @@ export type OpenContextAgentRequest = {
   displayPrompt?: string;
   attachedContext?: AgentAttachedContext;
   autoSubmit?: boolean;
+  lockMode?: boolean;
   mode?: WikiRun["mode"];
   runId?: string;
   view?: "compose" | "history";
@@ -36,6 +39,16 @@ export type AgentAutoSubmission = {
   outputTarget?: AgentOutputTarget;
   sourceContext?: SourceRunContext;
 };
+
+export function agentContextIdentity(context: AgentContext): string {
+  const target = context.defaultOutputTarget;
+  if (target?.kind === "journey-report") return `journey:${target.importId}:${target.storedPath}`;
+  if (target?.kind === "letter-version") return `letter:${target.pageId}:${target.lensId}`;
+  if (context.pageId) return `page:${context.pageId}`;
+  const source = context.defaultSourceContext;
+  if (source) return `source:${source.importId}:${source.storedPath}:${source.flow}`;
+  return `surface:${context.scope}:${context.title}`;
+}
 
 export function shouldSubmitAgentInput(event: { key: string; shiftKey: boolean; isComposing?: boolean }): boolean {
   return event.key === "Enter" && !event.shiftKey && !event.isComposing;
@@ -65,13 +78,15 @@ export function resolveAgentAutoSubmission(request: OpenContextAgentRequest, def
   return {
     prompt,
     displayPrompt: request.displayPrompt?.trim() || prompt,
-    mode: resolveComposerMode(request.mode || defaultMode),
+    mode: resolveComposerMode(request.mode || defaultMode, request.outputTarget, request.lockMode),
     outputTarget: request.outputTarget,
     ...(request.sourceContext ? { sourceContext: request.sourceContext } : {}),
   };
 }
 
-export function resolveComposerMode(requested?: WikiRun["mode"]): WikiRun["mode"] {
+export function resolveComposerMode(requested?: WikiRun["mode"], outputTarget?: AgentOutputTarget, lockMode = false): WikiRun["mode"] {
+  if (outputTarget?.kind === "journey-report") return "read";
+  if (lockMode && requested) return requested;
   return requested === "validate" ? "validate" : "auto";
 }
 
@@ -165,18 +180,26 @@ function eventItem(event: WikiRun["events"][number]): { type?: string; text?: st
 }
 
 export function runFinalAnswer(run: WikiRun): string | undefined {
-  if (run.result?.finalAnswer?.trim()) return run.result.finalAnswer.trim();
+  if (run.result?.finalAnswer?.trim()) return visibleAgentAnswer(run.result.finalAnswer, run.outputTarget);
   for (const event of run.events.slice().reverse()) {
     const runtimeEvent = event.payload as AgentRuntimeEvent | undefined;
-    if (runtimeEvent?.type === "assistant.message" && runtimeEvent.final && runtimeEvent.text.trim()) return runtimeEvent.text.trim();
-    if (runtimeEvent?.type === "turn.completed" && runtimeEvent.finalAnswer?.trim()) return runtimeEvent.finalAnswer.trim();
+    if (runtimeEvent?.type === "assistant.message" && runtimeEvent.final && runtimeEvent.text.trim()) return visibleAgentAnswer(runtimeEvent.text, run.outputTarget);
+    if (runtimeEvent?.type === "turn.completed" && runtimeEvent.finalAnswer?.trim()) return visibleAgentAnswer(runtimeEvent.finalAnswer, run.outputTarget);
     const item = eventItem(event);
-    if (item?.type === "agentMessage" && item.phase === "final_answer" && item.text?.trim()) return item.text.trim();
+    if (item?.type === "agentMessage" && item.phase === "final_answer" && item.text?.trim()) return visibleAgentAnswer(item.text, run.outputTarget);
     const turnItems = (event.payload as { turn?: { items?: Array<{ type?: string; text?: string; phase?: string }> } } | undefined)?.turn?.items;
     const answer = turnItems?.slice().reverse().find((candidate) => candidate.type === "agentMessage" && candidate.phase === "final_answer" && candidate.text?.trim());
-    if (answer?.text) return answer.text.trim();
+    if (answer?.text) return visibleAgentAnswer(answer.text, run.outputTarget);
   }
   return undefined;
+}
+
+export function visibleAgentAnswer(answer: string, target?: AgentOutputTarget): string {
+  if (target?.kind !== "journey-report") return answer.trim();
+  const start = answer.lastIndexOf(JOURNEY_REPORT_OUTPUT_START);
+  const end = answer.indexOf(JOURNEY_REPORT_OUTPUT_END, start + JOURNEY_REPORT_OUTPUT_START.length);
+  if (start < 0 || end < 0) return answer.trim();
+  return `${answer.slice(0, start)}${answer.slice(end + JOURNEY_REPORT_OUTPUT_END.length)}`.trim();
 }
 
 export function runConversation(run: WikiRun) {

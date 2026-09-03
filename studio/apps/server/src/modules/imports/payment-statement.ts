@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { PaymentJourneyCluster, PaymentJourneyClusterKind, PaymentJourneySummary, SourceImportFile } from "@the-way-here/shared";
+import { JOURNEY_REPORT_DRAFT_END, JOURNEY_REPORT_DRAFT_START } from "@the-way-here/shared";
 
 export interface PaymentStatementPreparedFile {
   originalName: string;
@@ -328,7 +329,7 @@ function buildReport(title: string, source: string, createdAt: string, entries: 
   const activeDays = new Set(entries.map((entry) => entry.date)).size;
   const clusterSections = clusters.map((item) => `## ${item.title}\n\n${item.summary}\n\n**适合展开：** ${item.question}\n\n**关联类别：** ${item.categories.join("、")}\n\n${item.evidence.map((line) => `- ${line}`).join("\n")}`).join("\n\n");
   const rows = entries.map((entry) => `| ${entry.id} | ${entry.createdAt} | ${markdownEscape(entry.merchant)} | ${markdownEscape(entry.product)} | ${entry.category} | ${entry.amount.toFixed(2)} | ${entry.status} | ${entry.refund.toFixed(2)} |`).join("\n");
-  return `---\ntype: source\nimport_channel: alipay\nsource: ${JSON.stringify(source)}\nimported_at: ${createdAt}\n---\n\n# ${title}\n\n这是一份由支付宝账单确定性解析得到的消费旅程报告。聚类是回忆候选，不代表已经确认的人生事实。\n\n- 交易记录：${entries.length} 笔\n- 活跃日期：${activeDays} 天\n- 净支出：${netExpense.toFixed(2)} 元\n- 退款记录：${entries.filter((entry) => entry.status === "退款成功").length} 笔\n- 旅程线索：${clusters.length} 组\n\n# 值得继续讲述的线索\n\n${clusterSections}\n\n# 与 Agent 继续回忆\n\n${agentPrompt}\n\n# 规范化交易证据\n\n| 编号 | 时间 | 交易对方 | 商品或说明 | 类别 | 金额 | 状态 | 成功退款 |\n| --- | --- | --- | --- | --- | ---: | --- | ---: |\n${rows}\n`;
+  return `---\ntype: source\nimport_channel: alipay\nsource: ${JSON.stringify(source)}\nimported_at: ${createdAt}\n---\n\n# ${title}\n\n这是一份由支付宝账单确定性解析得到的消费旅程报告。聚类是回忆候选，不代表已经确认的人生事实。\n\n- 交易记录：${entries.length} 笔\n- 活跃日期：${activeDays} 天\n- 净支出：${netExpense.toFixed(2)} 元\n- 退款记录：${entries.filter((entry) => entry.status === "退款成功").length} 笔\n- 旅程线索：${clusters.length} 组\n\n# 已确认的消费旅程\n\n${JOURNEY_REPORT_DRAFT_START}\n尚未经过对话确认。可以从下方线索开始，慢慢补全人物、动机、感受和后续影响。\n${JOURNEY_REPORT_DRAFT_END}\n\n# 值得继续讲述的线索\n\n${clusterSections}\n\n# 与 Agent 继续回忆\n\n${agentPrompt}\n\n# 规范化交易证据\n\n| 编号 | 时间 | 交易对方 | 商品或说明 | 类别 | 金额 | 状态 | 成功退款 |\n| --- | --- | --- | --- | --- | ---: | --- | ---: |\n${rows}\n`;
 }
 
 export function prepareAlipayStatement(file: SourceImportFile, createdAt: string): PreparedPaymentStatement {

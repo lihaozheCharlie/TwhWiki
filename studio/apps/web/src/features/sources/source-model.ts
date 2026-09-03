@@ -1,6 +1,6 @@
 import type { SourceImportBatch, WikiPageSummary } from "@the-way-here/shared";
 
-export type SourceRecordType = "notes" | "ai" | "wechat" | "bill";
+export type SourceRecordType = "notes" | "ai" | "bill";
 export type ImportSelectionKind = "file" | "files" | "folder" | "archive";
 export type SourceBuildRecord = { batch: SourceImportBatch; file: SourceImportBatch["files"][number] };
 export type SourceBuildPresentation = {
@@ -17,7 +17,6 @@ export const sourceRecordTypes: ReadonlyArray<{ id: "all" | SourceRecordType; la
   { id: "all", label: "全部" },
   { id: "notes", label: "日记与笔记" },
   { id: "ai", label: "AI 对话" },
-  { id: "wechat", label: "微信记录" },
   { id: "bill", label: "消费账单" },
 ];
 
@@ -40,7 +39,6 @@ export function importedFolderForBatch(batch: Pick<SourceImportBatch, "files" | 
 export function sourceRecordType(page: Pick<WikiPageSummary, "relativePath" | "type" | "tags">): SourceRecordType {
   const identity = `${page.relativePath} ${page.type || ""} ${page.tags.join(" ")}`.toLocaleLowerCase();
   if (/(消费账单|支付宝|alipay|payment|bill)/i.test(identity)) return "bill";
-  if (/(微信|wechat)/i.test(identity)) return "wechat";
   if (/(ai聊天记录|ai 对话|chatgpt|gemini|deepseek|豆包|claude)/i.test(identity)) return "ai";
   return "notes";
 }
@@ -103,7 +101,8 @@ export function sourceBuildRecordForPage(page: Pick<WikiPageSummary, "relativePa
 export function sourceBuildPresentation(file: SourceBuildRecord["file"]): SourceBuildPresentation {
   if (file.buildStatus === "built") return { label: "已构建", tone: "done" };
   if (file.buildStatus === "building") return { label: "构建中", detail: "完成后会显示实际改动", tone: "progress" };
-  if (file.buildStatus === "in-dialogue") return { label: "对话中", detail: "还没有需要确认的改动", tone: "progress" };
+  if (file.buildStatus === "in-dialogue") return { label: "对话中", detail: "只更新这份记录", tone: "progress" };
+  if (file.buildStatus === "ready-to-build") return { label: "草稿已更新", detail: "对话补充已保存 · 尚未构建", tone: "attention" };
   if (file.buildStatus === "deferred") return { label: "稍后再说", detail: file.buildKind === "direct" ? "可直接构建" : file.buildKind === "dialogue" ? "线索已经留好" : "等待确认类型", tone: "quiet" };
   if (file.buildKind === "dialogue") return { label: "待厘清", detail: file.clueCount ? `已识别 ${file.clueCount} 条候选线索` : "等一次对话", tone: "attention" };
   if (file.buildKind === "identify") return { label: "待确认类型", detail: "先告诉我这是什么", tone: "quiet" };
@@ -112,8 +111,11 @@ export function sourceBuildPresentation(file: SourceBuildRecord["file"]): Source
 
 export function sourceBuildActionPresentation(file: SourceBuildRecord["file"]): SourceBuildActionPresentation {
   const active = file.buildStatus === "building" || file.buildStatus === "in-dialogue";
-  if (file.buildKind === "dialogue" && file.buildRunId) {
-    return { kind: "open", label: active ? "查看进度" : "继续聊聊", runId: file.buildRunId };
+  if (file.buildKind === "dialogue") {
+    const runId = file.buildStatus === "building" ? file.buildRunId : file.dialogueRunId || file.buildRunId;
+    if (runId) return { kind: "open", label: active ? "查看进度" : "继续聊聊", runId };
+    if (file.buildStatus === "built") return { kind: "hidden" };
+    return { kind: "start", label: "开始聊聊" };
   }
   if (file.buildStatus === "built") return { kind: "hidden" };
   if (active) return file.buildRunId
@@ -121,6 +123,6 @@ export function sourceBuildActionPresentation(file: SourceBuildRecord["file"]): 
     : { kind: "hidden" };
   return {
     kind: "start",
-    label: file.buildKind === "direct" ? "构建这份记录" : file.buildKind === "dialogue" ? "聊聊这段旅程" : "帮我看看",
+    label: file.buildKind === "direct" ? "构建这份记录" : "帮我看看",
   };
 }

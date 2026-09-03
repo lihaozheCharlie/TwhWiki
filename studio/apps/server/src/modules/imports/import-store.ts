@@ -7,7 +7,7 @@ import { prepareImportBatch } from "../../import-materials.js";
 import { isPathInside, normalizeSourceFolder } from "../../path-policy.js";
 import { KnowledgeRuntime } from "../../runtime/knowledge-runtime.js";
 
-const importChannels = new Set<SourceImportChannel>(["files", "chatgpt", "gemini", "deepseek", "doubao", "other-ai", "wechat", "alipay"]);
+const importChannels = new Set<SourceImportChannel>(["files", "chatgpt", "claude", "gemini", "deepseek", "doubao", "other-ai", "alipay"]);
 
 export type ImportRequest = { files?: SourceImportFile[]; channel?: SourceImportChannel; targetFolder?: string };
 
@@ -148,14 +148,15 @@ export class ImportStore {
     let changed = false;
     for (const file of batch.files) {
       if (!file.buildKind) continue;
-      const run = runs.find((candidate) => {
-        const context = candidate.sourceContext;
-        if (!context) return false;
-        const selectedPaths = context.storedPaths;
-        if (selectedPaths?.includes(file.storedPath)) return true;
-        return context.importId === batch.id
-          && (context.storedPath === file.storedPath || Boolean(context.allDirect && file.buildKind === "direct"));
-      });
+      const relatedRuns = runs.filter((candidate) => runMatchesFile(candidate, batch.id, file.storedPath, file.buildKind!))
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      if (file.buildKind === "dialogue" && relatedRuns.length) {
+        const before = JSON.stringify(file);
+        reconcileDialogueBuild(file, relatedRuns, (run) => this.builtRefs(run));
+        if (before !== JSON.stringify(file)) changed = true;
+        continue;
+      }
+      const run = relatedRuns[0];
       if (!run || file.buildRunId === run.id && file.buildStatus === resolvedBuildStatus(file.buildKind, run)) continue;
       if (file.buildStatus === "deferred" && ["completed", "failed", "interrupted"].includes(run.status)) continue;
       const status = resolvedBuildStatus(file.buildKind, run);
@@ -212,4 +213,59 @@ function resolvedBuildStatus(kind: NonNullable<SourceImportBatch["files"][number
   const contentWasWritten = run.changes.length > 0 && Boolean(run.result?.completedAt);
   if ((run.status === "completed" || contentWasWritten) && (kind === "direct" || run.changes.length > 0)) return "built";
   return kind === "direct" || kind === "identify" ? "ready" : "needs-dialogue";
+}
+
+function runMatchesFile(run: WikiRun, importId: string, storedPath: string, kind: NonNullable<SourceImportBatch["files"][number]["buildKind"]>): boolean {
+  if (run.outputTarget?.kind === "journey-report") {
+    return run.outputTarget.importId === importId && run.outputTarget.storedPath === storedPath;
+  }
+  const context = run.sourceContext;
+  if (!context) return false;
+  if (context.storedPaths?.includes(storedPath)) return true;
+  return context.importId === importId && (context.storedPath === storedPath || Boolean(context.allDirect && kind === "direct"));
+}
+
+function reconcileDialogueBuild(file: SourceImportBatch["files"][number], runs: WikiRun[], builtRefs: (run: WikiRun) => SourceBuiltRef[]): void {
+  const enrichRuns = runs.filter((run) => run.outputTarget?.kind === "journey-report" || run.sourceContext?.operation === "enrich");
+  const buildRuns = runs.filter((run) => run.sourceContext?.operation === "build"
+    || run.sourceContext?.operation === undefined && run.outputTarget?.kind !== "journey-report");
+  const latestEnrich = enrichRuns[0];
+  const latestBuild = buildRuns[0];
+  const activeEnrich = enrichRuns.find((run) => activeRun(run));
+  const activeBuild = buildRuns.find((run) => activeRun(run));
+  const savedEnrich = enrichRuns.find((run) => run.status === "completed" && Boolean(run.result?.outputSavedAt));
+  const completedBuild = buildRuns.find((run) => (run.status === "completed" && run.sourceContext?.operation === "build")
+    || Boolean(run.result?.completedAt && run.changes.length));
+  const latestRelevant = runs[0];
+
+  file.dialogueRunId = latestEnrich?.id;
+  file.buildRunId = latestBuild?.id;
+  file.journeyUpdatedAt = savedEnrich?.result?.outputSavedAt;
+  file.builtRefs = completedBuild ? builtRefs(completedBuild) : undefined;
+  file.buildError = latestRelevant?.status === "failed" ? latestRelevant.error || "这一步没有完成，可以稍后再试" : undefined;
+  file.buildUpdatedAt = latestRelevant?.updatedAt;
+
+  const newestActive = [activeEnrich, activeBuild].filter((run): run is WikiRun => Boolean(run))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+  if (newestActive) {
+    file.buildStatus = newestActive.outputTarget?.kind === "journey-report" || newestActive.sourceContext?.operation === "enrich" ? "in-dialogue" : "building";
+    return;
+  }
+  if (savedEnrich && (!completedBuild || runTime(savedEnrich) > runTime(completedBuild))) {
+    file.buildStatus = "ready-to-build";
+    return;
+  }
+  if (completedBuild) {
+    file.buildStatus = "built";
+    return;
+  }
+  if (file.buildStatus !== "deferred") file.buildStatus = "needs-dialogue";
+}
+
+function activeRun(run: WikiRun): boolean {
+  return ["preparing", "running", "waiting-approval", "validating"].includes(run.status);
+}
+
+function runTime(run: WikiRun): number {
+  return new Date(run.result?.outputSavedAt || run.result?.completedAt || run.updatedAt).getTime();
 }

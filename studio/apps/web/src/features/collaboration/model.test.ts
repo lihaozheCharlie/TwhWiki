@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WikiRun } from "@the-way-here/shared";
-import { attachedContextPrompt, contextPrompt, groupAgentThreads, letterRunVersions, resolveAgentAutoSubmission, resolveComposerMode, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput } from "./model";
+import { agentContextIdentity, attachedContextPrompt, contextPrompt, groupAgentThreads, letterRunVersions, resolveAgentAutoSubmission, resolveComposerMode, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput, visibleAgentAnswer } from "./model";
 
 describe("collaboration model", () => {
   it("extracts the final answer from Codex events", () => {
@@ -85,7 +85,24 @@ describe("collaboration model", () => {
     expect(resolveComposerMode()).toBe("auto");
     expect(resolveComposerMode("read")).toBe("auto");
     expect(resolveComposerMode("write")).toBe("auto");
+    expect(resolveComposerMode("write", undefined, true)).toBe("write");
     expect(resolveComposerMode("auto")).toBe("auto");
     expect(resolveComposerMode("validate")).toBe("validate");
+  });
+
+  it("keeps journey enrichment strictly read-only and hides the report payload", () => {
+    const target = { kind: "journey-report" as const, importId: "batch-1", storedPath: "sources/消费账单/旅程.md", label: "消费旅程报告" };
+    expect(resolveComposerMode("auto", target)).toBe("read");
+    expect(resolveAgentAutoSubmission({ prompt: "继续", mode: "auto", autoSubmit: true, outputTarget: target })).toMatchObject({ mode: "read", outputTarget: target });
+    expect(visibleAgentAnswer("我理解了。\n<journey-report>\n## 完整旅程\n正文\n</journey-report>", target)).toBe("我理解了。");
+  });
+
+  it("keeps an open journey conversation stable while its report content refreshes", () => {
+    const target = { kind: "journey-report" as const, importId: "batch-1", storedPath: "sources/消费账单/旅程.md", label: "消费旅程报告" };
+    const before = { scope: "消费旅程", title: "支付宝消费旅程", summary: "12 笔消费", suggestions: [], defaultOutputTarget: target };
+    const after = { ...before, title: "支付宝消费旅程（已补充）", summary: "报告内容已经更新", defaultOutputTarget: { ...target } };
+
+    expect(agentContextIdentity(after)).toBe(agentContextIdentity(before));
+    expect(agentContextIdentity({ ...before, defaultOutputTarget: { ...target, storedPath: "sources/消费账单/另一段旅程.md" } })).not.toBe(agentContextIdentity(before));
   });
 });
