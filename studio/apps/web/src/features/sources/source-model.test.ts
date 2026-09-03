@@ -110,4 +110,9 @@ describe("life record presentation model", () => {
       builtRefs: [{ pageId: "wiki/阶段", path: "wiki/阶段.md", title: "阶段" }],
     })).toEqual({ label: "已构建", tone: "done" });
   });
+
+  it("uses the same concrete build language for ready and deferred direct records", () => {
+    expect(sourceBuildPresentation({ originalName: "新记录.md", storedPath: "sources/新记录.md", bytes: 12, buildKind: "direct", buildStatus: "ready" })).toEqual({ label: "待构建", detail: "可直接构建", tone: "attention" });
+    expect(sourceBuildPresentation({ originalName: "稍后.md", storedPath: "sources/稍后.md", bytes: 12, buildKind: "direct", buildStatus: "deferred" })).toEqual({ label: "稍后再说", detail: "可直接构建", tone: "quiet" });
+  });
 });

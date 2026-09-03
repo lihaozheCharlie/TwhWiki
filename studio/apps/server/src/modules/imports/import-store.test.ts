@@ -85,4 +85,38 @@ describe("ImportStore payment journey", () => {
       buildError: "知识质量检查未通过",
     });
   });
+
+  it("reconciles only the records explicitly selected for a batch build", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-batch-build-state-"));
+    roots.push(root);
+    const knowledge = {
+      vaultRoot: root,
+      index: {
+        config: { paths: { sources: "sources", wiki: "wiki" } },
+        rebuild: vi.fn(async () => undefined),
+        lastIndexedAt: "2026-09-02T00:00:00.000Z",
+        list: () => [],
+      },
+      events: { broadcast: vi.fn() },
+    } as unknown as KnowledgeRuntime;
+    const store = new ImportStore(knowledge);
+    const completeContext = "今天发生了一件具体的事，留下了完整的前因后果、人物、选择与感受，值得以后继续理解。";
+    const firstBatch = await store.create({ channel: "files", files: [{ name: "一.md", content: completeContext }, { name: "二.md", content: completeContext }] });
+    const secondBatch = await store.create({ channel: "files", files: [{ name: "三.md", content: completeContext }] });
+    const selected = [firstBatch.files[0]!.storedPath, secondBatch.files[0]!.storedPath];
+    const run = {
+      id: "run-batch",
+      status: "running",
+      updatedAt: "2026-09-02T02:00:00.000Z",
+      sourceContext: { importId: firstBatch.id, storedPath: selected[0], storedPaths: selected, flow: "direct" },
+      configSnapshot: { paths: { wiki: "wiki" } },
+      changes: [],
+    } as unknown as WikiRun;
+
+    const reconciled = await store.list([run]);
+    const records = reconciled.flatMap((batch) => batch.files);
+    expect(records.find((file) => file.storedPath === selected[0])?.buildStatus).toBe("building");
+    expect(records.find((file) => file.storedPath === selected[1])?.buildStatus).toBe("building");
+    expect(records.find((file) => file.storedPath === firstBatch.files[1]!.storedPath)?.buildStatus).toBe("ready");
+  });
 });

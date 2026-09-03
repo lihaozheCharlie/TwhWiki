@@ -233,7 +233,7 @@ export function documentIdentity(relativePath: string): { folder: string; fileNa
   return { folder: logicalParts.map((part) => part === "imported" ? "待整理" : part).join(" / ") || "知识库", fileName };
 }
 
-export function EditableDocument({ page, variant = "reader", startEditing = false, showOutline = false, showIdentity = true, afterContent, onRenamed }: { page: WikiPage; variant?: "reader" | "preview"; startEditing?: boolean; showOutline?: boolean; showIdentity?: boolean; afterContent?: ReactNode; onRenamed?: (page: WikiPage) => void }) {
+export function EditableDocument({ page, variant = "reader", startEditing = false, showOutline = false, showIdentity = true, identityActions, fileNameFocusToken = 0, afterContent, onRenamed }: { page: WikiPage; variant?: "reader" | "preview"; startEditing?: boolean; showOutline?: boolean; showIdentity?: boolean; identityActions?: ReactNode; fileNameFocusToken?: number; afterContent?: ReactNode; onRenamed?: (page: WikiPage) => void }) {
   const identity = documentIdentity(page.relativePath);
   const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState(page.markdown);
@@ -250,6 +250,7 @@ export function EditableDocument({ page, variant = "reader", startEditing = fals
   const pendingRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const fileNameInputRef = useRef<HTMLInputElement>(null);
   const documentBodyRef = useRef<HTMLDivElement>(null);
   const documentScrollTopRef = useRef(0);
 
@@ -275,6 +276,12 @@ export function EditableDocument({ page, variant = "reader", startEditing = fals
     setEditing(startEditing);
     setSaveState("已同步");
   }, [page.id, page.markdown, page.modifiedAt, startEditing]);
+
+  useEffect(() => {
+    if (!fileNameFocusToken) return;
+    fileNameInputRef.current?.focus();
+    fileNameInputRef.current?.select();
+  }, [fileNameFocusToken]);
 
   useEffect(() => {
     if (pageIdRef.current !== page.id || expectedModifiedAtRef.current === page.modifiedAt) return;
@@ -425,8 +432,8 @@ export function EditableDocument({ page, variant = "reader", startEditing = fals
 
   return <section className={`editable-document editable-document--${variant}${showIdentity ? "" : " knowledge-document"}${editing ? " editing" : ""}${outlineVisible ? " has-outline" : ""}`}>
     {showIdentity && <header className="editable-document-identity">
-      <div><small>{identity.folder}</small><label className="document-file-name"><span className="sr-only">文件名</span><input name={`file-name-${page.id}`} autoComplete="off" aria-label={`${page.title} 文件名`} style={{ width: `${Math.min(Math.max(fileName.length * 1.08 + 2, 12), 37)}em` }} value={fileName} onChange={(event) => changeFileName(event.target.value)} onBlur={() => void persistFileName(fileNameRef.current)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } if (event.key === "Escape") { changeFileName(lastSavedFileNameRef.current); event.currentTarget.blur(); } }} spellCheck={false} /></label></div>
-      <span className="document-save-state" aria-live="polite"><i className={saveState.includes("失败") || saveState.includes("不能为空") ? "error" : ""} />{statusMessage}{editing && <kbd>⌘ S</kbd>}</span>
+      <div><small>{identity.folder}</small><label className="document-file-name"><span className="sr-only">文件名</span><input ref={fileNameInputRef} name={`file-name-${page.id}`} autoComplete="off" aria-label={`${page.title} 文件名`} style={{ width: `${Math.min(Math.max(fileName.length * 1.08 + 2, 12), 37)}em` }} value={fileName} onChange={(event) => changeFileName(event.target.value)} onBlur={() => void persistFileName(fileNameRef.current)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } if (event.key === "Escape") { changeFileName(lastSavedFileNameRef.current); event.currentTarget.blur(); } }} spellCheck={false} /></label></div>
+      <span className="editable-document-identity-actions"><span className="document-save-state" aria-live="polite"><i className={saveState.includes("失败") || saveState.includes("不能为空") ? "error" : ""} />{statusMessage}{editing && <kbd>⌘ S</kbd>}</span>{identityActions}</span>
     </header>}
     {!showIdentity && <div className="editable-document-toolbar"><span aria-live="polite"><i className={saveState.includes("失败") || saveState.includes("不能为空") ? "error" : ""} />{statusMessage}</span>{editing && <kbd>⌘ S</kbd>}</div>}
     {propertiesPinned && Object.keys(properties).length > 0 && <div className="editable-document-properties"><NoteProperties properties={properties} compact /></div>}

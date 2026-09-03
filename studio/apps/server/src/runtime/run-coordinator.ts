@@ -352,6 +352,7 @@ export class RunCoordinator {
 function validSourceContext(value: SourceRunContext): boolean {
   return Boolean(value && typeof value.importId === "string" && value.importId.trim()
     && typeof value.storedPath === "string" && value.storedPath.trim()
+    && (value.storedPaths === undefined || Array.isArray(value.storedPaths) && value.storedPaths.length > 0 && value.storedPaths.every((path) => typeof path === "string" && path.trim()))
     && (value.allDirect === undefined || typeof value.allDirect === "boolean")
     && new Set(["direct", "dialogue", "identify"]).has(value.flow));
 }

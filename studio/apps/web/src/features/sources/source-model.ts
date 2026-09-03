@@ -100,8 +100,8 @@ export function sourceBuildPresentation(file: SourceBuildRecord["file"]): Source
   if (file.buildStatus === "built") return { label: "已构建", tone: "done" };
   if (file.buildStatus === "building") return { label: "构建中", detail: "完成后会显示实际改动", tone: "progress" };
   if (file.buildStatus === "in-dialogue") return { label: "对话中", detail: "还没有需要确认的改动", tone: "progress" };
-  if (file.buildStatus === "deferred") return { label: "稍后再说", detail: file.buildKind === "direct" ? "可直接收进理解" : file.buildKind === "dialogue" ? "线索已经留好" : "等待确认类型", tone: "quiet" };
+  if (file.buildStatus === "deferred") return { label: "稍后再说", detail: file.buildKind === "direct" ? "可直接构建" : file.buildKind === "dialogue" ? "线索已经留好" : "等待确认类型", tone: "quiet" };
   if (file.buildKind === "dialogue") return { label: "待厘清", detail: file.clueCount ? `已识别 ${file.clueCount} 条候选线索` : "等一次对话", tone: "attention" };
   if (file.buildKind === "identify") return { label: "待确认类型", detail: "先告诉我这是什么", tone: "quiet" };
-  return { label: "待构建", detail: "可直接收进理解", tone: "attention" };
+  return { label: "待构建", detail: "可直接构建", tone: "attention" };
 }

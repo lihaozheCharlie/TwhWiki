@@ -118,6 +118,7 @@ export interface SourceBuiltRef {
 export interface SourceRunContext {
   importId: string;
   storedPath: string;
+  storedPaths?: string[];
   allDirect?: boolean;
   flow: SourceBuildKind;
 }

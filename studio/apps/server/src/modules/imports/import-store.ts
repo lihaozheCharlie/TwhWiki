@@ -148,8 +148,14 @@ export class ImportStore {
     let changed = false;
     for (const file of batch.files) {
       if (!file.buildKind) continue;
-      const run = runs.find((candidate) => candidate.sourceContext?.importId === batch.id
-        && (candidate.sourceContext.storedPath === file.storedPath || Boolean(candidate.sourceContext.allDirect && file.buildKind === "direct")));
+      const run = runs.find((candidate) => {
+        const context = candidate.sourceContext;
+        if (!context) return false;
+        const selectedPaths = context.storedPaths;
+        if (selectedPaths?.includes(file.storedPath)) return true;
+        return context.importId === batch.id
+          && (context.storedPath === file.storedPath || Boolean(context.allDirect && file.buildKind === "direct"));
+      });
       if (!run || file.buildRunId === run.id && file.buildStatus === resolvedBuildStatus(file.buildKind, run)) continue;
       if (file.buildStatus === "deferred" && ["completed", "failed", "interrupted"].includes(run.status)) continue;
       const status = resolvedBuildStatus(file.buildKind, run);

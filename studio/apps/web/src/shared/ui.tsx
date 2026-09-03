@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
-export type IconName = "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "history" | "plus" | "back" | "close" | "down" | "check" | "trash";
+export type IconName = "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "more" | "edit" | "build" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "history" | "plus" | "back" | "close" | "down" | "check" | "trash";
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -14,6 +14,9 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     controls: <><path d="M4 7h8M18 7h2M4 17h2M12 17h8M14 4v6M8 14v6" /><circle cx="14" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
+    more: <><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none" /></>,
+    edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
+    build: <><path d="M12 3v12M8 11l4 4 4-4" /><path d="M5 20h14" /></>,
     spark: <><path d="m12 3 1.2 4.1L17 9l-3.8 1.9L12 15l-1.2-4.1L7 9l3.8-1.9L12 3Z" /><path d="m18.5 15 .7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3Z" /></>,
     arrow: <><path d="M5 12h14M14 7l5 5-5 5" /></>,
     up: <><path d="M12 19V5M7 10l5-5 5 5" /></>,
