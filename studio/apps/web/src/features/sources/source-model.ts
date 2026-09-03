@@ -8,6 +8,10 @@ export type SourceBuildPresentation = {
   detail?: string;
   tone: "attention" | "progress" | "done" | "quiet";
 };
+export type SourceBuildActionPresentation =
+  | { kind: "hidden" }
+  | { kind: "open"; label: "查看进度" | "继续聊聊"; runId: string }
+  | { kind: "start"; label: string };
 
 export const sourceRecordTypes: ReadonlyArray<{ id: "all" | SourceRecordType; label: string }> = [
   { id: "all", label: "全部" },
@@ -104,4 +108,19 @@ export function sourceBuildPresentation(file: SourceBuildRecord["file"]): Source
   if (file.buildKind === "dialogue") return { label: "待厘清", detail: file.clueCount ? `已识别 ${file.clueCount} 条候选线索` : "等一次对话", tone: "attention" };
   if (file.buildKind === "identify") return { label: "待确认类型", detail: "先告诉我这是什么", tone: "quiet" };
   return { label: "待构建", detail: "可直接构建", tone: "attention" };
+}
+
+export function sourceBuildActionPresentation(file: SourceBuildRecord["file"]): SourceBuildActionPresentation {
+  const active = file.buildStatus === "building" || file.buildStatus === "in-dialogue";
+  if (file.buildKind === "dialogue" && file.buildRunId) {
+    return { kind: "open", label: active ? "查看进度" : "继续聊聊", runId: file.buildRunId };
+  }
+  if (file.buildStatus === "built") return { kind: "hidden" };
+  if (active) return file.buildRunId
+    ? { kind: "open", label: "查看进度", runId: file.buildRunId }
+    : { kind: "hidden" };
+  return {
+    kind: "start",
+    label: file.buildKind === "direct" ? "构建这份记录" : file.buildKind === "dialogue" ? "聊聊这段旅程" : "帮我看看",
+  };
 }

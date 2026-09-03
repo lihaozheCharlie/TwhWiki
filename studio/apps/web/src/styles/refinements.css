@@ -83,12 +83,16 @@
 .import-file-actions.is-unified { grid-template-columns: minmax(0, 1fr); }
 .import-file-picker { min-height: 82px; position: relative; display: grid; align-content: center; gap: 5px; padding: 16px 18px; overflow: hidden; color: var(--ink); background: var(--canvas); border: 1px solid transparent; border-radius: 15px; cursor: pointer; transition: background-color .18s var(--ease), border-color .18s var(--ease); }
 .import-file-picker:hover { background: #eeeef2; border-color: #d8d8dd; }
-.import-file-picker.is-dropzone { min-height: 94px; }
+.import-file-picker.is-dropzone { min-height: 122px; cursor: default; }
 .import-file-picker.is-dragging { color: var(--accent-primary); background: rgba(87, 138, 131, .09); border-color: rgba(87, 138, 131, .5); }
 .import-file-picker:focus-within { outline: 3px solid rgba(87, 138, 131, .18); outline-offset: 2px; }
 .import-file-picker b { font-size: 14px; font-weight: 680; }
 .import-file-picker span { color: var(--muted); font-size: 12px; }
 .import-file-picker input { width: 1px; height: 1px; position: absolute; overflow: hidden; opacity: 0; }
+.import-file-picker-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.import-file-picker-controls button { min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; font-weight: 650; }
+.import-file-picker-controls button:hover { color: var(--accent-primary); background: #fff; border-color: rgba(87, 138, 131, .48); }
+.import-file-picker-controls button:focus-visible { outline: 3px solid rgba(87, 138, 131, .2); outline-offset: 2px; }
 .import-selection { min-height: 66px; display: grid; align-content: center; gap: 5px; margin-top: 10px; padding: 13px 16px; color: var(--muted); background: #fafafa; border: 1px solid var(--line); border-radius: 13px; }
 .import-selection > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
 .import-selection b { color: var(--ink); font-size: 13px; }

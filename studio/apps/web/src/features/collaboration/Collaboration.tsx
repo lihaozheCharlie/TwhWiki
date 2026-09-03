@@ -288,7 +288,12 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
   const statusRef = useRef<HTMLDivElement>(null);
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
-    if (!loading && run) statusRef.current?.focus();
+    if (loading || !run) return;
+    const frame = window.requestAnimationFrame(() => {
+      statusRef.current?.focus({ preventScroll: true });
+      statusRef.current?.scrollTo({ top: statusRef.current.scrollHeight });
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [runId, loading]);
   useLayoutEffect(() => resizeComposerTextarea(replyTextareaRef.current), [reply]);
   if (loading && !run) return <Loading label="正在接入知识上下文" />;

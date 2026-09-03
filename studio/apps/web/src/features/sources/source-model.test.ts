@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SourceImportBatch, WikiPageSummary } from "@the-way-here/shared";
-import { countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildPresentation, sourceBuildRecordForPage, sourceMonthOptions, sourceRecordMonth, sourceRecordType } from "./source-model";
+import { countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildActionPresentation, sourceBuildPresentation, sourceBuildRecordForPage, sourceMonthOptions, sourceRecordMonth, sourceRecordType } from "./source-model";
 
 function page(overrides: Partial<WikiPageSummary>): WikiPageSummary {
   return {
@@ -114,5 +114,12 @@ describe("life record presentation model", () => {
   it("uses the same concrete build language for ready and deferred direct records", () => {
     expect(sourceBuildPresentation({ originalName: "新记录.md", storedPath: "sources/新记录.md", bytes: 12, buildKind: "direct", buildStatus: "ready" })).toEqual({ label: "待构建", detail: "可直接构建", tone: "attention" });
     expect(sourceBuildPresentation({ originalName: "稍后.md", storedPath: "sources/稍后.md", bytes: 12, buildKind: "direct", buildStatus: "deferred" })).toEqual({ label: "稍后再说", detail: "可直接构建", tone: "quiet" });
+  });
+
+  it("returns to an existing journey conversation instead of starting another one", () => {
+    const journey = { originalName: "账单.md", storedPath: "sources/消费账单/账单.md", bytes: 12, buildKind: "dialogue" as const, buildRunId: "run-journey" };
+    expect(sourceBuildActionPresentation({ ...journey, buildStatus: "in-dialogue" })).toEqual({ kind: "open", label: "查看进度", runId: "run-journey" });
+    expect(sourceBuildActionPresentation({ ...journey, buildStatus: "needs-dialogue" })).toEqual({ kind: "open", label: "继续聊聊", runId: "run-journey" });
+    expect(sourceBuildActionPresentation({ ...journey, buildStatus: "built" })).toEqual({ kind: "open", label: "继续聊聊", runId: "run-journey" });
   });
 });

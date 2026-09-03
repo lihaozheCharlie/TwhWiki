@@ -9,7 +9,7 @@ import { EditableDocument, documentIdentity } from "../../shared/markdown";
 import { apiPageHref, PageLink, pageHref } from "../../shared/routing";
 import { ConfirmDeleteDialog } from "../../shared/ConfirmDeleteDialog";
 import { CollapsibleIndexPane, Empty, HeroMetric, Icon, Loading, PageHero } from "../../shared/ui";
-import { cleanSourcePath, countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildPresentation, sourceBuildRecordForPage, sourceBuildRecords, sourceMonthLabel, sourceMonthOptions, sourceRecordDate, sourceRecordMonth, sourceRecordType, sourceRecordTypes, type SourceBuildRecord, type SourceRecordType } from "./source-model";
+import { cleanSourcePath, countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildActionPresentation, sourceBuildPresentation, sourceBuildRecordForPage, sourceBuildRecords, sourceMonthLabel, sourceMonthOptions, sourceRecordDate, sourceRecordMonth, sourceRecordType, sourceRecordTypes, type SourceBuildRecord, type SourceRecordType } from "./source-model";
 
 export type ImportRoute = "files" | "ai" | "wechat" | "bill";
 
@@ -76,6 +76,8 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
   const [draggingMaterials, setDraggingMaterials] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
   const dragDepthRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   const importingRef = useRef(importing);
@@ -131,6 +133,12 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
     setFiles(selected);
     setMessage("");
     setError(selected.length || !candidates.length ? "" : route === "bill" ? "请选择支付宝导出的 CSV 账单。" : route === "files" ? "请选择 Markdown、TXT、ZIP 文件或包含这些文件的文件夹。" : "请选择聊天平台导出的 ZIP、JSON、HTML、TXT、Markdown 文件或文件夹。");
+  }
+
+  function selectInputFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const candidates = selectedFiles(event.currentTarget.files);
+    event.currentTarget.value = "";
+    selectFiles(candidates);
   }
 
   async function selectDroppedFiles(transfer: DataTransfer) {
@@ -212,21 +220,30 @@ export function ImportMaterialsModal({ folders, currentFolder, initialRoute = "f
               </div> : <>
               {route === "ai" ? <div className="import-provider-list" role="group" aria-label="AI 平台">{aiImportProviders.map((item) => <button type="button" key={item.id} aria-pressed={provider === item.id} className={provider === item.id ? "active" : ""} onClick={() => { setProvider(item.id); setFiles([]); setMessage(""); setError(""); }}>{item.label}</button>)}</div> : null}
               <div className={`import-file-actions${route === "bill" ? "" : " is-unified"}`}>
-                <label
-                  className={`import-file-picker${route === "bill" ? "" : " is-dropzone"}${draggingMaterials ? " is-dragging" : ""}`}
-                  onDragEnter={route === "bill" ? undefined : (event) => { event.preventDefault(); dragDepthRef.current += 1; setDraggingMaterials(true); }}
-                  onDragOver={route === "bill" ? undefined : (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
-                  onDragLeave={route === "bill" ? undefined : (event) => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDraggingMaterials(false); }}
-                  onDrop={route === "bill" ? undefined : (event) => { event.preventDefault(); dragDepthRef.current = 0; setDraggingMaterials(false); void selectDroppedFiles(event.dataTransfer); }}
+                {route === "bill" ? <label className="import-file-picker">
+                  <b>选择支付宝账单</b>
+                  <span>支付宝导出的 CSV</span>
+                  <input key={`${route}-${provider}-bill`} name="import-files" type="file" accept={accept} onChange={selectInputFiles} />
+                </label> : <div
+                  className={`import-file-picker is-dropzone${draggingMaterials ? " is-dragging" : ""}`}
+                  onDragEnter={(event) => { event.preventDefault(); dragDepthRef.current += 1; setDraggingMaterials(true); }}
+                  onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
+                  onDragLeave={(event) => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDraggingMaterials(false); }}
+                  onDrop={(event) => { event.preventDefault(); dragDepthRef.current = 0; setDraggingMaterials(false); void selectDroppedFiles(event.dataTransfer); }}
                 >
-                  <b>{route === "bill" ? "选择支付宝账单" : draggingMaterials ? "放在这里" : "选择或拖入材料"}</b>
-                  <span>{route === "bill" ? "支付宝导出的 CSV" : route === "files" ? "文件、文件夹或 ZIP，自动识别并保留层级" : "文件、文件夹或 ZIP，自动识别格式"}</span>
-                  <input key={`${route}-${provider}-files`} name="import-files" type="file" accept={accept} multiple={route !== "bill"} onChange={(event) => selectFiles(selectedFiles(event.target.files))} />
-                </label>
+                  <b>{draggingMaterials ? "放在这里" : "选择或拖入材料"}</b>
+                  <span>{route === "files" ? "文件、文件夹或 ZIP，自动识别并保留层级" : "文件、文件夹或 ZIP，自动识别格式"}</span>
+                  <div className="import-file-picker-controls">
+                    <button type="button" onClick={() => fileInputRef.current?.click()}><Icon name="journal" size={14} />选择文件</button>
+                    <button type="button" onClick={() => folderInputRef.current?.click()}><Icon name="source" size={14} />选择文件夹</button>
+                  </div>
+                  <input ref={fileInputRef} key={`${route}-${provider}-files`} name="import-files" type="file" accept={accept} multiple tabIndex={-1} aria-hidden="true" onChange={selectInputFiles} />
+                  <input ref={(node) => { folderInputRef.current = node; if (node) node.webkitdirectory = true; }} key={`${route}-${provider}-folder`} name="import-folder" type="file" accept={accept} multiple tabIndex={-1} aria-hidden="true" onChange={selectInputFiles} />
+                </div>}
                 {route === "bill" ? <div className="bill-import-method"><Icon name="spark" size={18} /><b>自动整理</b><span>归并退款，识别重复地点、消费节律与跨类型旅程。</span></div> : null}
               </div>
               <div className={`import-selection${files.length ? " has-files" : ""}`}>
-                {files.length ? <><div><b>{selectionKind === "folder" ? `已识别文件夹 · ${files.length} 个文件` : selectionKind === "archive" ? "已识别 ZIP 压缩包" : selectionKind === "files" ? `${files.length} 个文件` : "已识别文件"}</b><span>{new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024)} MB</span></div><p>{files.slice(0, 4).map((item) => item.relativePath).join(" · ")}{files.length > 4 ? ` · 另有 ${files.length - 4} 个` : ""}</p></> : <><b>{route === "bill" ? "尚未选择账单" : "尚未选择材料"}</b><p>{route === "bill" ? "单次最多 100 MB。" : "点击选择文件，或把文件夹拖到这里；单次最多 100 MB。"}</p></>}
+                {files.length ? <><div><b>{selectionKind === "folder" ? `已识别文件夹 · ${files.length} 个文件` : selectionKind === "archive" ? "已识别 ZIP 压缩包" : selectionKind === "files" ? `${files.length} 个文件` : "已识别文件"}</b><span>{new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024)} MB</span></div><p>{files.slice(0, 4).map((item) => item.relativePath).join(" · ")}{files.length > 4 ? ` · 另有 ${files.length - 4} 个` : ""}</p></> : <><b>{route === "bill" ? "尚未选择账单" : "尚未选择材料"}</b><p>{route === "bill" ? "单次最多 100 MB。" : "可以选择文件、选择整个文件夹，或直接拖入；单次最多 100 MB。"}</p></>}
               </div></>}
             </section>
             {!journey && route === "bill" ? <section className="import-modal-section bill-import-destination"><h3>保存到生活记录</h3><p>原始 CSV 与聚类报告会保存在「消费账单」中，每条线索都能回到具体交易证据。</p></section> : !journey ? <section className="import-modal-section import-destination"><h3>保存到</h3><p>记录会进入所选文件夹；同名文件会自动追加序号。</p>
@@ -282,10 +299,10 @@ function SourceItemMenu({ label, actions, placement = "row" }: { label: string; 
 
 function SourceBuildAction({ record, busy, onStart }: { record: SourceBuildRecord; busy: boolean; onStart: (record: SourceBuildRecord) => void }) {
   const { file } = record;
-  if (file.buildStatus === "built") return null;
-  if (file.buildStatus === "building" || file.buildStatus === "in-dialogue") return file.buildRunId ? <button type="button" className="source-build-action is-quiet" onClick={() => openContextAgent({ runId: file.buildRunId })}>查看进度</button> : null;
-  const label = file.buildKind === "direct" ? "构建这份记录" : file.buildKind === "dialogue" ? "聊聊这段旅程" : "帮我看看";
-  return <button type="button" className={`source-build-action is-${file.buildKind}`} disabled={busy} onClick={() => onStart(record)}>{file.buildKind === "direct" && !busy ? <Icon name="build" size={13} /> : null}{busy ? "正在准备…" : label}</button>;
+  const action = sourceBuildActionPresentation(file);
+  if (action.kind === "hidden") return null;
+  if (action.kind === "open") return <button type="button" className="source-build-action is-quiet" onClick={() => openContextAgent({ runId: action.runId })}>{action.label}</button>;
+  return <button type="button" className={`source-build-action is-${file.buildKind}`} disabled={busy} onClick={() => onStart(record)}>{file.buildKind === "direct" && !busy ? <Icon name="build" size={13} /> : null}{busy ? "正在准备…" : action.label}</button>;
 }
 
 function ImportedBatchGuide({ batch, busyPath, onStart, onStartAll, onDefer }: { batch: SourceImportBatch; busyPath?: string; onStart: (record: SourceBuildRecord) => void; onStartAll: (records: SourceBuildRecord[]) => void; onDefer: (records: SourceBuildRecord[]) => void }) {
