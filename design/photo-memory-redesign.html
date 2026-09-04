@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>照片记忆 · 交互简化设计稿</title>
+<style>
+  :root {
+    --paper: #fbfcfc;
+    --canvas: #f4f7f6;
+    --ink: #263440;
+    --muted: #5f706f;
+    --faint: #8a9694;
+    --line: #d9e1df;
+    --line-strong: #c7d1cf;
+    --surface-tinted: #e9f1ef;
+    --surface-subtle: #eef3f2;
+    --accent-primary: #578a83;
+    --accent-attention: #b9874c;
+    --accent-attention-soft: #f7efe4;
+    --good: #4f7f68;
+    --watch: #9f633d;
+    --shadow: 0 18px 46px rgba(39, 62, 61, .10);
+    --ease: cubic-bezier(.28, .11, .32, 1);
+    --font-display: Georgia, "Songti SC", "STSong", "Source Han Serif SC", "Noto Serif CJK SC", serif;
+    --font-ui: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    color: var(--ink);
+    background: var(--canvas);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    padding: 48px 20px 80px;
+  }
+  .page-intro { max-width: 880px; margin: 0 auto 34px; }
+  .page-intro .kicker { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; margin-bottom: 16px; color: var(--accent-primary); background: var(--surface-tinted); border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+  .page-intro h1 { margin: 0 0 10px; font: 500 30px/1.35 var(--font-display); letter-spacing: -.01em; }
+  .page-intro p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.85; max-width: 74ch; }
+  .compare { max-width: 880px; margin: 26px auto 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .compare > div { padding: 16px 18px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+  .compare h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; }
+  .compare .before h3 { color: var(--watch); }
+  .compare .after h3 { color: var(--good); }
+  .compare ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.85; }
+  .compare li { margin-bottom: 4px; }
+
+  /* ---- Modal card shell ---- */
+  .stage { max-width: 880px; margin: 40px auto 0; }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 26px; border-bottom: 1px solid var(--line); }
+  .card-head-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .card-head-thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--line); }
+  .card-head-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-head-text h2 { margin: 0; font: 500 17px/1.3 var(--font-display); }
+  .card-head-text p { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; }
+  .card-close { width: 32px; height: 32px; flex-shrink: 0; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 16px; }
+  .card-close:hover { background: var(--surface-subtle); color: var(--ink); }
+
+  /* Progress: three quiet segments, not a busy step list */
+  .progress { display: flex; align-items: center; gap: 10px; padding: 16px 26px 0; }
+  .progress-step { flex: 1; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border: 0; background: none; padding: 0; text-align: left; font-family: inherit; }
+  .progress-bar { height: 3px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .progress-bar > i { display: block; height: 100%; width: 0%; background: var(--accent-primary); transition: width .35s var(--ease); }
+  .progress-step.done .progress-bar > i { width: 100%; }
+  .progress-step.current .progress-bar > i { width: 100%; background: var(--ink); }
+  .progress-step span { font-size: 11.5px; color: var(--faint); font-weight: 600; letter-spacing: .01em; }
+  .progress-step.current span { color: var(--ink); }
+  .progress-step.done span { color: var(--muted); }
+
+  .card-body { padding: 26px; min-height: 420px; }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fade-in .28s var(--ease) both; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } }
+
+  /* Filmstrip — quieter status, dot instead of long labels */
+  .filmstrip { display: flex; gap: 10px; margin-bottom: 22px; overflow-x: auto; padding-bottom: 4px; }
+  .filmstrip button { position: relative; flex: 0 0 64px; height: 64px; padding: 0; border-radius: 8px; border: 2px solid transparent; background: none; cursor: pointer; overflow: hidden; }
+  .filmstrip button img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 6px; }
+  .filmstrip button.active { border-color: var(--ink); }
+  .filmstrip button .dot { position: absolute; right: 4px; bottom: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); border: 1.5px solid var(--paper); }
+  .filmstrip button .dot.done { background: var(--good); }
+  .filmstrip button .dot.pending { background: var(--accent-attention); }
+
+  /* Step 1 — recognize people, inline on the photo */
+  .step1-copy { margin: 0 0 18px; }
+  .step1-copy h3 { margin: 0 0 6px; font: 500 20px/1.4 var(--font-display); }
+  .step1-copy p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.8; max-width: 60ch; }
+  .photo-frame { position: relative; border-radius: 10px; overflow: hidden; background: var(--canvas); }
+  .photo-frame img { display: block; width: 100%; }
+  .face-tag { position: absolute; border: 2px solid var(--accent-primary); border-radius: 6px; cursor: pointer; }
+  .face-tag.named { border-color: var(--good); }
+  .face-tag.empty { border-style: dashed; border-color: var(--accent-attention); }
+  .face-tag > span { position: absolute; left: 0; bottom: 100%; margin-bottom: 4px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; white-space: nowrap; }
+  .face-tag.named > span { background: var(--good); color: #fff; }
+  .face-tag.empty > span { background: var(--paper); color: var(--watch); border: 1px solid var(--accent-attention); }
+
+  /* Inline naming popover, anchored to the tapped face */
+  .name-pop { position: absolute; z-index: 5; width: 220px; padding: 12px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 14px 30px rgba(39,62,61,.16); }
+  .name-pop label { display: block; margin-bottom: 6px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .name-pop input { width: 100%; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; font: inherit; font-size: 13px; color: var(--ink); background: #fff; }
+  .name-pop input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(87,138,131,.14); }
+  .name-pop .suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .name-pop .suggest button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-subtle); color: var(--ink); font-size: 11.5px; cursor: pointer; }
+  .name-pop .suggest button:hover { border-color: var(--accent-primary); background: var(--surface-tinted); }
+  .name-pop .pop-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  .name-pop .pop-actions button { border: 0; background: none; font-size: 12px; cursor: pointer; padding: 4px 6px; }
+  .name-pop .pop-skip { color: var(--muted); }
+  .name-pop .pop-save { color: var(--accent-primary); font-weight: 700; }
+
+  .step1-hint { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: var(--muted); font-size: 12.5px; }
+  .step1-hint .spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent-primary); animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Step 2 — telling the story, one surface */
+  .step2-copy { margin: 0 0 16px; }
+  .step2-copy h3 { margin: 0 0 6px; font: 500 20px/1.4 var(--font-display); }
+  .step2-copy p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.8; max-width: 60ch; }
+  .story-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .story-chip-row .chip { padding: 5px 11px; border-radius: 999px; background: var(--surface-tinted); color: var(--accent-primary); font-size: 12px; font-weight: 600; }
+  textarea.story-input { width: 100%; min-height: 180px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); font: 14px/1.9 var(--font-ui); color: var(--ink); resize: vertical; }
+  textarea.story-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(87,138,131,.12); }
+  textarea.story-input::placeholder { color: var(--faint); }
+  .assist-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; color: var(--muted); font-size: 12.5px; background: none; border: 0; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+  .assist-link:hover { color: var(--ink); text-decoration-color: var(--accent-primary); }
+
+  /* Step 3 — done, quiet summary */
+  .done-icon { width: 52px; height: 52px; display: grid; place-items: center; margin: 4px 0 18px; border-radius: 50%; background: var(--surface-tinted); color: var(--good); font-size: 24px; }
+  .step3-copy h3 { margin: 0 0 6px; font: 500 20px/1.4 var(--font-display); }
+  .step3-copy p { margin: 0 0 22px; color: var(--muted); font-size: 13.5px; line-height: 1.8; max-width: 60ch; }
+  .summary-card { display: flex; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
+  .summary-card img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+  .summary-card-body { min-width: 0; }
+  .summary-card-body .people { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .summary-card-body .people span { padding: 3px 9px; border-radius: 999px; background: var(--surface-tinted); color: var(--accent-primary); font-size: 11.5px; font-weight: 600; }
+  .summary-card-body p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+  .summary-edit { margin-top: 14px; }
+  .summary-edit button { border: 0; background: none; color: var(--muted); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 0; }
+  .summary-edit button:hover { color: var(--ink); }
+
+  /* Footer — exactly one primary action, one quiet exit */
+  .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 26px; border-top: 1px solid var(--line); background: var(--paper); }
+  .foot-back { border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 8px 4px; }
+  .foot-back:hover { color: var(--ink); }
+  .foot-back:disabled { opacity: 0; pointer-events: none; }
+  .foot-right { display: flex; align-items: center; gap: 16px; }
+  .foot-skip { border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); padding: 8px 4px; }
+  .foot-skip:hover { color: var(--ink); text-decoration-color: var(--accent-primary); }
+  .primary-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 10px 22px; background: var(--ink); color: #fff; border: 0; border-radius: 8px; font: 600 14px/1 var(--font-ui); cursor: pointer; transition: background .15s var(--ease), transform .15s var(--ease); }
+  .primary-btn:hover { background: #344651; }
+  .primary-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .primary-btn svg { width: 15px; height: 15px; }
+
+  .annot { max-width: 880px; margin: 22px auto 0; padding: 14px 18px; background: var(--accent-attention-soft); border: 1px solid color-mix(in srgb, var(--accent-attention) 32%, var(--line)); border-radius: 10px; color: var(--watch); font-size: 12.5px; line-height: 1.8; }
+  .annot b { color: inherit; }
+
+  @media (max-width: 640px) {
+    .card-body { padding: 20px 18px; }
+    .card-head, .card-foot, .progress { padding-left: 18px; padding-right: 18px; }
+    .compare { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="page-intro">
+    <span class="kicker">交互简化 · 设计稿</span>
+    <h1>照片记忆标注流程 — 从 5 步繁琐操作简化为 3 步引导</h1>
+    <p>原流程把「选照片 → AI 看图 → 认人物 → 确认标注 → 讲故事 → 确认讲述 → 构建」拆成了一长串平铺的按钮，用户容易不知道下一步该点哪个。下面这版把整个交互收进一张卡片、一次只做一件事：<b>认人</b>（AI 识别自动在后台完成，无需手动点按钮）→ <b>讲故事</b> → <b>完成</b>。每一屏只保留一个主按钮，其余操作都降级为不抢注意力的文字链接。</p>
+    <div class="compare">
+      <div class="before">
+        <h3>现状的问题</h3>
+        <ul>
+          <li>4~5 个阶段并列展示，主次不分</li>
+          <li>「让AI看图」「确认标注」「放弃更改」「继续聊聊」「确认讲述」「构建」同屏出现</li>
+          <li>人物标注是独立表单区，和照片本身脱节</li>
+          <li>草稿恢复、检测失败等状态各有一套按钮</li>
+        </ul>
+      </div>
+      <div class="after">
+        <h3>这版的改法</h3>
+        <ul>
+          <li>3 步引导（认人 · 讲故事 · 完成），每步一个主按钮</li>
+          <li>AI 识别人脸自动在后台跑，不需要用户手动触发</li>
+          <li>点人脸直接弹出命名框，标注即所见即所得</li>
+          <li>次要操作（跳过、AI 帮写、返回修改）统一做成安静的文字链接</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-head-title">
+          <div class="card-head-thumb"><img src="assets/sample-family-photo.png" alt="" /></div>
+          <div class="card-head-text">
+            <h2>1998 年夏天 · 外婆家的院子</h2>
+            <p>3 张照片 · 原图保留在本地</p>
+          </div>
+        </div>
+        <button class="card-close" aria-label="关闭">×</button>
+      </div>
+
+      <div class="progress">
+        <button class="progress-step done" data-goto="1"><div class="progress-bar"><i></i></div><span>1 · 认人</span></button>
+        <button class="progress-step current" data-goto="2"><div class="progress-bar"><i></i></div><span>2 · 讲故事</span></button>
+        <button class="progress-step" data-goto="3"><div class="progress-bar"><i></i></div><span>3 · 完成</span></button>
+      </div>
+
+      <div class="card-body">
+
+        <!-- STEP 1 -->
+        <section class="panel" data-panel="1">
+          <div class="filmstrip">
+            <button class="active"><img src="assets/sample-family-photo.png" alt="照片 1" /><span class="dot done"></span></button>
+            <button><img src="assets/sample-family-photo.png" alt="照片 2" /><span class="dot pending"></span></button>
+            <button><img src="assets/sample-family-photo.png" alt="照片 3" /><span class="dot"></span></button>
+          </div>
+          <div class="step1-copy">
+            <h3>照片里有谁？</h3>
+            <p>点一下人脸就能起名字；认不出的先跳过，之后随时可以回来补。</p>
+          </div>
+          <div class="photo-frame">
+            <img src="assets/sample-family-photo.png" alt="1998 年夏天，外婆家院子里的合照" />
+            <div class="face-tag named" style="left:16%; top:20%; width:15%; height:22%;"><span>外婆</span></div>
+            <div class="face-tag named" style="left:38%; top:16%; width:14%; height:20%;"><span>妈妈</span></div>
+            <div class="face-tag empty" style="left:63%; top:22%; width:14%; height:20%;" id="openTag"><span>+ 是谁？</span></div>
+
+            <div class="name-pop" style="left:60%; top:46%;">
+              <label>这是谁</label>
+              <input type="text" placeholder="输入名字，或从下面选" autofocus />
+              <div class="suggest">
+                <button>舅舅</button>
+                <button>邻居家哥哥</button>
+              </div>
+              <div class="pop-actions">
+                <button class="pop-skip">先不认</button>
+                <button class="pop-save">保存</button>
+              </div>
+            </div>
+          </div>
+          <p class="step1-hint"><span class="spinner"></span>其他照片还在后台自动找人脸，找到后你随时可以切过去认一认。</p>
+        </section>
+
+        <!-- STEP 2 -->
+        <section class="panel active" data-panel="2">
+          <div class="step2-copy">
+            <h3>这张照片背后的故事</h3>
+            <p>时间、发生的事、只有你知道的细节——写多写少都行，留白也没关系。</p>
+          </div>
+          <div class="story-chip-row">
+            <span class="chip">外婆</span>
+            <span class="chip">妈妈</span>
+            <span class="chip">舅舅</span>
+          </div>
+          <textarea class="story-input" placeholder="那年夏天我们回外婆家……">那年夏天我们回外婆家过暑假，院子里的葡萄架刚好结果，舅舅从部队休假回来，难得一家人凑齐拍了这张照片。</textarea>
+          <button class="assist-link">✦ 不知道怎么写？让 AI 陪我聊几句</button>
+        </section>
+
+        <!-- STEP 3 -->
+        <section class="panel" data-panel="3">
+          <div class="done-icon">✓</div>
+          <div class="step3-copy">
+            <h3>这段记忆准备好了</h3>
+            <p>确认后会收进你的理解库；照片原图始终留在本地，不会被上传。</p>
+          </div>
+          <div class="summary-card">
+            <img src="assets/sample-family-photo.png" alt="" />
+            <div class="summary-card-body">
+              <div class="people"><span>外婆</span><span>妈妈</span><span>舅舅</span></div>
+              <p>那年夏天我们回外婆家过暑假，院子里的葡萄架刚好结果，舅舅从部队休假回来，难得一家人凑齐拍了这张照片。</p>
+            </div>
+          </div>
+          <div class="summary-edit"><button>人物或故事记错了？点这里改</button></div>
+        </section>
+
+      </div>
+
+      <div class="card-foot">
+        <button class="foot-back" id="backBtn">上一步</button>
+        <div class="foot-right">
+          <button class="foot-skip" id="skipBtn">跳过这步</button>
+          <button class="primary-btn" id="nextBtn">下一步
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <b>演示说明：</b>这是可点击的静态设计稿——用顶部的三个进度条或右下角按钮切换步骤，感受一屏一个重点的节奏。真实实现时人脸识别在后台自动跑，命名弹窗跟随点击的人脸出现，故事页默认展开、无需先点按钮唤起输入框。
+  </div>
+
+<script>
+  const panels = Array.from(document.querySelectorAll('.panel'));
+  const steps = Array.from(document.querySelectorAll('.progress-step'));
+  const nextBtn = document.getElementById('nextBtn');
+  const backBtn = document.getElementById('backBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  let current = 2;
+
+  const labels = { 1: { next: '下一步', skip: '跳过这步' }, 2: { next: '确认这段讲述', skip: '先聊聊再写' }, 3: { next: '收进理解', skip: '' } };
+
+  function render() {
+    panels.forEach(p => p.classList.toggle('active', Number(p.dataset.panel) === current));
+    steps.forEach((s, i) => {
+      const n = i + 1;
+      s.classList.remove('done', 'current');
+      if (n < current) s.classList.add('done');
+      if (n === current) s.classList.add('current');
+    });
+    backBtn.disabled = current === 1;
+    nextBtn.textContent = '';
+    const label = document.createTextNode(labels[current].next + ' ');
+    nextBtn.appendChild(label);
+    const svg = document.querySelector('.card-foot svg') || document.createElementNS('http://www.w3.org/2000/svg','svg');
+    nextBtn.innerHTML = labels[current].next + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+    skipBtn.style.display = current === 3 ? 'none' : 'inline-flex';
+    skipBtn.textContent = labels[current].skip;
+  }
+
+  steps.forEach((s, i) => s.addEventListener('click', () => { current = i + 1; render(); }));
+  nextBtn.addEventListener('click', () => { if (current < 3) { current += 1; render(); } });
+  backBtn.addEventListener('click', () => { if (current > 1) { current -= 1; render(); } });
+  skipBtn.addEventListener('click', () => { if (current < 3) { current += 1; render(); } });
+
+  render();
+</script>
+</body>
+</html>
