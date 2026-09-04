@@ -5,6 +5,8 @@ import fastifyStatic from "@fastify/static";
 import { registerContentRoutes } from "./routes/content-routes.js";
 import { registerImportRoutes } from "./routes/import-routes.js";
 import { registerRunRoutes } from "./routes/run-routes.js";
+import { registerPhotoMemoryRoutes } from "./routes/photo-memory-routes.js";
+import { ImportStore } from "./modules/imports/import-store.js";
 import { AgentRuntimeRegistry } from "./runtime/agent-runtime/registry.js";
 import { KnowledgeRuntime } from "./runtime/knowledge-runtime.js";
 import { RunCoordinator } from "./runtime/run-coordinator.js";
@@ -27,9 +29,11 @@ export class StudioServer {
     const knowledge = await KnowledgeRuntime.create(options.vaultRoot, options.knowledgeBaseId);
     const runtimes = await AgentRuntimeRegistry.create(knowledge.index.config.agents, knowledge.vaultRoot);
     const runs = new RunCoordinator(knowledge, runtimes, app.log);
-    registerContentRoutes(app, knowledge, () => runs.runtimeCatalog(), (knowledgeBaseId) => runs.hasActiveKnowledgeBaseRun(knowledgeBaseId));
-    registerImportRoutes(app, knowledge, runs);
+    const imports = new ImportStore(knowledge);
+    registerContentRoutes(app, knowledge, imports, () => runs.runtimeCatalog(), (knowledgeBaseId) => runs.hasActiveKnowledgeBaseRun(knowledgeBaseId));
+    registerImportRoutes(app, imports, runs);
     registerRunRoutes(app, runs);
+    registerPhotoMemoryRoutes(app, knowledge, runs);
     app.get("/api/events", async (request, reply) => knowledge.events.connect(request, reply));
 
     if (!options.development) {

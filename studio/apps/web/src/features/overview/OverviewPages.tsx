@@ -4,7 +4,7 @@ import type { ConversationPrompt, FocusWorkspaceView, GraphData, PaymentJourneyS
 import { useApi } from "../../api";
 import { ContextualAgentDock } from "../collaboration/Collaboration";
 import { openContextAgent, shouldSubmitAgentInput } from "../collaboration/model";
-import { ImportMaterialsModal, RecordImportTrigger } from "../sources/Sources";
+import { ImportMaterialsModal, RecordImportTrigger } from "../sources/ImportMaterialsModal";
 import { cleanSourcePath, importedFolderForBatch, pendingSourceBuildRecords } from "../sources/source-model";
 import { graphCategoryNames } from "../../app/config";
 import { PageLink, pageHref, useReturnContext } from "../../shared/routing";
@@ -18,17 +18,19 @@ export function KnowledgeHome({ revision }: { revision: number }) {
   const { data: vault, loading } = useApi<VaultInfo>("/api/vault", revision);
   if (loading || !vault) return <Loading label="正在整理已有理解" />;
   const selfCount = (vault.categories["personal-lines"] || 0) + (vault.categories.cycles || 0) + (vault.categories.systems || 0) + (vault.categories["mental-models"] || 0);
-  const lifeCount = (vault.categories["life-stages"] || 0) + (vault.categories.events || 0) + (vault.categories.letters || 0);
+  const lifeCount = (vault.categories["life-stages"] || 0) + (vault.categories.events || 0);
+  const letterCount = vault.categories.letters || 0;
   const peopleCount = (vault.categories.entities || 0) + (vault.categories["relationship-roles"] || 0);
   const groups = [
     { to: "/insights", tone: "self" as const, title: "理解自己", description: "把个人主线、反复循环、现实系统与思维模型放在同一张判断地图里。", count: selfCount, label: "条自我理解" },
-    { to: "/timeline", tone: "life" as const, title: "人生轨迹", description: "沿着阶段、转折和近况回信，回到一段经历当时真实的处境。", count: lifeCount, label: "个阶段与片段" },
+    { to: "/timeline", tone: "life" as const, title: "人生轨迹", description: "沿着阶段与转折，回到一段经历当时真实的处境。", count: lifeCount, label: "个阶段与片段" },
+    { to: "/letters", tone: "letter" as const, title: "近况回信", description: "从过去的记录回望此刻，让当时的经历与现在重新发生联系。", count: letterCount, label: "封近况回信" },
     { to: "/relationships", tone: "people" as const, title: "人与世界", description: "看见具体的人，也看见一段关系在生命中长期承担的功能。", count: peopleCount, label: "个人与关系页面" },
   ];
   return <div className="knowledge-home understanding-overview">
     <header className="understanding-overview-lede">
       <h1>已有理解</h1>
-      <p>这里汇总系统从你的生活记录中持续读出的三类内容：关于你自己的判断、关于人生的轨迹，以及关于身边人与关系的记录。</p>
+      <p>这里汇总系统从你的生活记录中持续读出的理解：关于你自己的判断、人生轨迹、近况回信，以及关于身边人与关系的记录。</p>
       <span>{vault.pageCount} 条理解 · 来自 {vault.sourceCount} 份生活记录</span>
     </header>
     <section className="understanding-entry-grid" aria-label="已有理解分类">
@@ -64,15 +66,6 @@ function openLifeConversation(question: TalkingQuestion): void {
       reason: question.reason,
     },
   });
-}
-
-function updateLabel(value?: string): string {
-  if (!value) return "等待更多记录";
-  const days = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000));
-  if (days === 0) return "今天更新";
-  if (days < 7) return `${days} 天前更新`;
-  if (days < 30) return `${Math.floor(days / 7)} 周前更新`;
-  return `${Math.floor(days / 30)} 个月前更新`;
 }
 
 type TalkingQuestion = {
@@ -560,17 +553,6 @@ export function GrowthHub({ revision }: { revision: number }) {
     <section className="insights-foot-cta"><div><h2>这些理解会继续变化</h2><p>新的生活记录可能补充证据，也可能让旧判断失效。你随时可以打开一条理解，说明哪里不像你。</p></div><button type="button" onClick={() => openContextAgent({ mode: "read", prompt: "我想一起核对这页已有的理解。请先问我哪一条最不像我，再结合证据和反例继续聊。" })}><Icon name="spark" size={15} />一起核对</button></section>
     <ContextualAgentDock revision={revision} context={{ scope: "理解自己", title: "个人主线、反复循环、现实系统与思维模型", summary: "从当前问题出发，结合已有的长期命题、循环、系统和判断工具。", defaultMode: "read", launcherLabel: "一起理解", suggestions: ["结合我的个人主线、反复循环和近期状态，现在最值得理解的一个问题是什么？", "最近发生的事更像哪一种旧模式？请给出证据和竞争解释。", "我有一个新的自我观察，帮我判断它应该补充到哪条路径。"] }} />
   </div>;
-}
-
-function Signal({ signal }: { signal: StateSignal }) {
-  const tone = signal.kind.includes("做得好") ? "good" : signal.kind.includes("关注") ? "watch" : "neutral";
-  return (
-    <div className="signal-item">
-      <span className={`signal-dot ${tone}`} />
-      <div><b>{signal.name}</b><p>{signal.judgment}</p></div>
-      <em>{signal.kind}</em>
-    </div>
-  );
 }
 
 function SectionHeading({ title, action }: { title: string; action?: React.ReactNode }) {

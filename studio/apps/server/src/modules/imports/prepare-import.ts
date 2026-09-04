@@ -1,8 +1,8 @@
 import path from "node:path";
 import { inflateRawSync } from "node:zlib";
 import type { PaymentJourneySummary, SourceImportChannel, SourceImportFile } from "@the-way-here/shared";
-import { prepareChatImport } from "./modules/imports/chat/index.js";
-import { prepareAlipayStatement } from "./modules/imports/payment-statement.js";
+import { prepareChatImport } from "./chat/index.js";
+import { prepareAlipayStatement } from "./payment-statement.js";
 
 export interface PreparedImportFile {
   originalName: string;
@@ -129,14 +129,11 @@ function prepareFileImports(files: SourceImportFile[], createdAt: string): Prepa
 }
 
 export function prepareImportBatch(files: SourceImportFile[], channel: SourceImportChannel, createdAt: string): PreparedImportBatch {
+  if (channel === "photos") throw new Error("照片请通过专用照片导入入口上传");
   if (channel === "alipay") {
     if (files.length !== 1) throw new Error("每次请选择一份支付宝账单，以免不同时间范围相互覆盖");
     return prepareAlipayStatement(files[0]!, createdAt);
   }
   if (channel === "files") return { files: prepareFileImports(files, createdAt) };
   return { files: prepareChatImport(expandedFiles(files), channel, createdAt) };
-}
-
-export function prepareImportFiles(files: SourceImportFile[], channel: SourceImportChannel, createdAt: string): PreparedImportFile[] {
-  return prepareImportBatch(files, channel, createdAt).files;
 }

@@ -17,6 +17,13 @@ const provider: AgentProviderConfig = {
 };
 
 describe("PiModelCatalog", () => {
+  it("exposes image support only when the configured model declares it", async () => {
+    const catalog = new PiModelCatalog([{ ...provider, models: [...provider.models, { ...provider.models[0]!, id: "vision", inputModalities: ["text", "image"] }] }]);
+    const models = await catalog.list();
+    expect(models.find((m) => m.id.endsWith("/qwen3"))?.inputModalities).toEqual(["text"]);
+    expect(models.find((m) => m.id.endsWith("/vision"))?.inputModalities).toEqual(["text", "image"]);
+    expect(catalog.get("local-openai/vision")?.input).toEqual(["text", "image"]);
+  });
   it("exposes a configured keyless local model without making a network request", async () => {
     const catalog = new PiModelCatalog([provider]);
     await expect(catalog.list()).resolves.toEqual([expect.objectContaining({

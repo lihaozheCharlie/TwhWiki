@@ -1,0 +1,99 @@
+.photo-memory { margin: 0 0 30px; padding: 28px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+.photo-memory-head, .photo-analysis-bar, .photo-story > header, .photo-story > footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.photo-memory h2, .photo-memory h3, .photo-memory h4, .photo-memory p { margin: 0; }
+.photo-memory h2 { font: 500 28px/1.3 var(--font-display); }
+.photo-memory h3 { font: 500 22px/1.4 var(--font-display); }
+.photo-memory h4 { font-size: 14px; }
+.photo-memory-head p, .photo-story header p, .photo-help, .photo-caption { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.photo-state { flex-shrink: 0; padding: 5px 10px; border-radius: 4px; background: var(--accent-attention-soft); color: var(--watch); font-size: 12px; }
+.photo-state.is-built { color: var(--good); background: var(--surface-tinted); }
+.photo-steps { display: flex; list-style: none; padding: 0; margin: 24px 0; gap: 30px; border-bottom: 1px solid var(--line); }
+.photo-steps li { padding: 0 0 12px; color: var(--muted); font-size: 13px; border-bottom: 2px solid transparent; }
+.photo-steps li.active { border-color: var(--accent-primary); color: var(--ink); font-weight: 600; }
+.photo-analysis-bar { padding: 16px 18px; background: var(--canvas); border-radius: 5px; }
+.photo-analysis-bar b { font-size: 14px; }
+.photo-analysis-bar label { display: flex; align-items: start; gap: 8px; margin-top: 8px; color: var(--muted); font-size: 12px; max-width: 72ch; line-height: 1.7; }
+.photo-memory input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent-primary); flex-shrink: 0; }
+.photo-memory button { cursor: pointer; }
+.photo-memory .secondary-action { min-height: 36px; padding: 8px 13px; color: var(--ink); background: var(--paper); border: 1px solid var(--line-strong); font: 500 13px/1.4 var(--font-ui); flex-shrink: 0; }
+.photo-memory .secondary-action:hover:not(:disabled) { background: var(--surface-tinted); border-color: var(--accent-primary); }
+.photo-memory button:disabled { opacity: .5; cursor: not-allowed; }
+.photo-memory button, .photo-memory input, .photo-memory select, .photo-memory textarea { border-radius: 5px; }
+.photo-memory :is(button, input, select, textarea, summary):focus-visible { outline: 3px solid var(--accent-primary); outline-offset: 3px; }
+.photo-memory button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.photo-filmstrip { display: flex; gap: 12px; padding: 24px 0; overflow-x: auto; scrollbar-color: var(--line-strong) var(--canvas); }
+.photo-filmstrip button { display: flex; flex-direction: column; align-items: stretch; flex: 0 0 126px; overflow: hidden; padding: 4px; border: 1px solid var(--line); background: var(--paper); }
+.photo-filmstrip button.active { border-color: var(--accent-primary); background: var(--surface-tinted); }
+.photo-filmstrip img { width: 116px; height: 76px; object-fit: cover; border-radius: 3px; }
+.photo-filmstrip span { padding: 3px 4px; font-size: 12px; color: var(--muted); text-align: left; }
+.photo-clue-workspace { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); gap: 30px; }
+.photo-evidence { min-width: 0; }
+.photo-canvas { position: relative; width: 100%; background: var(--canvas); }
+.photo-canvas > img { display: block; width: 100%; height: 100%; }
+.photo-face-box { position: absolute; border: 2px solid var(--accent-primary); border-radius: 5px; pointer-events: none; }
+.photo-face-box span { position: absolute; top: 0; left: 0; padding: 3px 6px; font-size: 12px; background: var(--paper); color: var(--ink); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.photo-clues > section { padding: 20px 0; border-bottom: 1px solid var(--line); }
+.photo-clues h4 small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; margin-top: 4px; }
+.photo-clues section > p { font-size: 14px; line-height: 1.8; margin-top: 10px; }
+.photo-clues blockquote { margin: 14px 0 0; padding: 12px 16px; background: var(--canvas); font-family: var(--font-display); font-size: 16px; line-height: 1.8; }
+.photo-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.photo-inline-actions button, .photo-skip { padding: 7px 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 12px; }
+.photo-inline-actions button:hover, .photo-skip:hover { background: var(--surface-tinted); }
+.photo-person-editor { margin: 18px 0 0; padding: 12px 0 16px; border: 0; border-top: 1px solid var(--line); min-width: 0; }
+.photo-person-editor legend { font-size: 13px; font-weight: 600; padding-right: 10px; }
+.photo-person-editor label:not(.photo-check) { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 10px; font-size: 12px; }
+.photo-person-editor :is(input:not([type=checkbox]), select) { width: 100%; padding: 7px; border: 1px solid var(--line); background: var(--paper); font: inherit; color: var(--ink); min-width: 0; }
+.photo-check { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.photo-person-editor details { margin: 12px 0; font-size: 12px; }
+.photo-person-editor summary { cursor: pointer; color: var(--muted); margin-bottom: 12px; }
+.photo-crop-control input[type=range] { padding: 0; accent-color: var(--accent-primary); }
+.photo-story { padding-top: 28px; margin-top: 28px; border-top: 1px solid var(--line); }
+.photo-story > label { display: block; margin: 24px 0 8px; font-size: 13px; font-weight: 600; }
+.photo-story textarea { width: 100%; resize: vertical; min-height: 180px; padding: 16px; color: var(--ink); background: var(--canvas); border: 1px solid var(--line); font: 14px/1.9 var(--font-ui); caret-color: var(--accent-primary); }
+.photo-story textarea::placeholder { color: var(--muted); }
+.photo-story > footer { margin-top: 14px; }
+.photo-story footer p { font-size: 12px; line-height: 1.8; color: var(--muted); max-width: 55ch; }
+.photo-story footer > div { display: flex; gap: 10px; flex-shrink: 0; }
+.photo-feedback { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.photo-feedback:not(:empty) { margin-top: 14px; }
+.photo-feedback button { border: 0; background: none; text-decoration: underline; text-underline-offset: 3px; color: var(--ink); }
+.photo-error { color: var(--watch); font-size: 13px; margin-top: 10px !important; }
+.photo-caption a { margin-left: 12px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.source-preview-photo-header { padding: 24px; border-bottom: 1px solid var(--line); }
+.source-preview-photo-header h2 { margin: 0; font: 500 22px/1.4 var(--font-display); }
+.source-preview-photo-header p { color: var(--muted); font-size: 13px; line-height: 1.8; }
+.source-preview-photo > .markdown-body { padding: 24px; }
+.import-modal .import-type-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.import-photo-selection { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.import-photo-selection figure { margin: 0; width: 104px; position: relative; }
+.import-photo-selection img { width: 104px; height: 78px; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; }
+.import-photo-selection figcaption { font-size: 11px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.import-photo-selection button { position: absolute; right: 3px; top: 3px; width: 24px; height: 24px; border: 1px solid var(--line); background: var(--paper); border-radius: 4px; }
+.import-photo-privacy { grid-column: 1 / -1; color: var(--muted); background: var(--canvas); border: 1px solid var(--line); padding: 14px; font-size: 13px; line-height: 1.8; }
+.relationships-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.relationships-photo-gallery { display: flex; gap: 14px; padding: 18px 0; overflow-x: auto; }
+.relationships-photo-gallery a { flex: 0 0 160px; display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.relationships-photo-gallery img { width: 160px; height: 110px; object-fit: cover; border-radius: 5px; }
+.relationships-person-detail > section[aria-label="人物影像"] { padding: 0 22px 18px; }
+.relationships-person-detail > section[aria-label="人物影像"] h3 { margin: 0; font: 500 20px/1.4 var(--font-display); }
+.relationships-photo-gallery { padding: 12px 0 0; }
+.photo-draft-recovery { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px; margin-top: 18px; border: 1px solid var(--line-strong); background: var(--canvas); font-size: 13px; }
+.photo-draft-recovery p { margin-top: 6px; color: var(--muted); line-height: 1.8; }
+.photo-draft-recovery > div:last-child { display: flex; gap: 8px; flex-shrink: 0; }
+.photo-analysis-bar p { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.photo-person-picker { position: relative; display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; }
+.photo-person-editor .photo-person-picker > label { display: block; margin: 0; }
+.photo-person-options { position: absolute; top: 100%; left: 96px; right: 0; z-index: 2; max-height: 230px; overflow-y: auto; padding: 4px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 5px; }
+.photo-person-options > button { display: block; width: 100%; padding: 8px; border: 0; background: var(--paper); color: var(--ink); text-align: left; font: inherit; }
+.photo-person-options > button:hover, .photo-person-options > button[aria-selected=true] { background: var(--surface-tinted); }
+.photo-person-options > p { padding: 8px; color: var(--muted); }
+.photo-person-tabs { display: flex; gap: 18px; max-width: 100%; margin-top: 16px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-color: var(--line-strong) var(--canvas); }
+.photo-person-tabs > button { flex: 0 0 auto; max-width: 160px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 9px 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); background: transparent; font: 500 13px/1.5 var(--font-ui); }
+.photo-person-tabs > button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent-primary); }
+.photo-person-tabs > button:hover { color: var(--ink); }
+.photo-person-tabs + [role=tabpanel] .photo-person-editor { margin-top: 16px; border-top: 0; }
+.photo-memory .photo-face-box { display: block; padding: 0; pointer-events: auto; background: transparent; border: 1px solid var(--accent-primary); }
+.photo-memory .photo-face-box.is-selected { border-width: 3px; }
+.photo-face-box.is-selected span { background: var(--accent-primary); color: var(--paper); }
+.photo-detection-status .secondary-action { margin-top: 10px; }
+.photo-person-tabs + [role=tabpanel]:focus-visible { outline: 3px solid var(--accent-primary); outline-offset: 3px; }

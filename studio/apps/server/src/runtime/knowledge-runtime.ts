@@ -1,4 +1,3 @@
-import path from "node:path";
 import chokidar, { type FSWatcher } from "chokidar";
 import { WikiIndex } from "@the-way-here/wiki-core";
 import type { AgentRuntimeDescriptor } from "@the-way-here/shared";

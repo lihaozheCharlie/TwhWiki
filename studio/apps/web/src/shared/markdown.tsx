@@ -115,6 +115,15 @@ function markdownDocumentParts(markdown: string): { frontmatter: string; body: s
   return match ? { frontmatter: match[0], body: markdown.slice(match[0].length) } : { frontmatter: "", body: markdown };
 }
 
+export function editableMarkdownDocument(markdown: string, isSource: boolean): { prefix: string; body: string } {
+  const { frontmatter, body } = markdownDocumentParts(markdown);
+  if (!isSource) return { prefix: frontmatter, body };
+  const legacyTitle = /^(?:[ \t]*\r?\n)*#\s+[^\r\n]*(?:\r?\n|$)(?:[ \t]*\r?\n)?/.exec(body);
+  return legacyTitle
+    ? { prefix: `${frontmatter}${legacyTitle[0]}`, body: body.slice(legacyTitle[0].length) }
+    : { prefix: frontmatter, body };
+}
+
 function markdownWithoutSourceRelations(markdown: string): string {
   const result: string[] = [];
   let hiddenLevel = 0;
@@ -231,6 +240,23 @@ export function documentIdentity(relativePath: string): { folder: string; fileNa
   const logicalRoot = parts.findIndex((part) => /^(wiki|原始知识库|sources?)$/i.test(part));
   const logicalParts = logicalRoot >= 0 ? parts.slice(logicalRoot + 1) : parts;
   return { folder: logicalParts.map((part) => part === "imported" ? "待整理" : part).join(" / ") || "知识库", fileName };
+}
+
+function DocumentFrame({ variant, showIdentity = false, editing = false, showOutline, markdown, headingPrefix, children }: { variant: "reader" | "preview"; showIdentity?: boolean; editing?: boolean; showOutline: boolean; markdown: string; headingPrefix: string; children: ReactNode }) {
+  const outlineVisible = showOutline && markdownOutline(markdown, headingPrefix).length > 1;
+  return <section className={`editable-document editable-document--${variant}${showIdentity ? "" : " knowledge-document"}${editing ? " editing" : ""}${outlineVisible ? " has-outline" : ""}`}>
+    {children}
+    {outlineVisible && <DocumentOutline markdown={markdown} headingPrefix={headingPrefix} inactive={editing} />}
+  </section>;
+}
+
+// Snapshots share the document layout without acquiring file-save behavior.
+export function ReadOnlyDocument({ id, markdown, toolbar }: { id: string; markdown: string; toolbar?: ReactNode }) {
+  const headingPrefix = documentHeadingPrefix(id);
+  return <DocumentFrame variant="preview" showOutline markdown={markdown} headingPrefix={headingPrefix}>
+    {toolbar && <div className="editable-document-toolbar">{toolbar}</div>}
+    <div className="editable-document-body"><MarkdownBody headingPrefix={headingPrefix}>{markdown}</MarkdownBody></div>
+  </DocumentFrame>;
 }
 
 export function EditableDocument({ page, variant = "reader", startEditing = false, showOutline = false, showIdentity = true, identityActions, fileNameFocusToken = 0, beforeContent, afterContent, onRenamed }: { page: WikiPage; variant?: "reader" | "preview"; startEditing?: boolean; showOutline?: boolean; showIdentity?: boolean; identityActions?: ReactNode; fileNameFocusToken?: number; beforeContent?: ReactNode; afterContent?: ReactNode; onRenamed?: (page: WikiPage) => void }) {
@@ -399,8 +425,8 @@ export function EditableDocument({ page, variant = "reader", startEditing = fals
   }
 
   function changeDocumentBody(value: string) {
-    const { frontmatter } = markdownDocumentParts(draftRef.current);
-    changeDraft(`${frontmatter}${value}`);
+    const { prefix } = editableMarkdownDocument(draftRef.current, page.isSource);
+    changeDraft(`${prefix}${value}`);
   }
 
   function changeFileName(value: string) {
@@ -422,22 +448,23 @@ export function EditableDocument({ page, variant = "reader", startEditing = fals
   }
 
   const headingPrefix = documentHeadingPrefix(page.id);
-  const outlineVisible = showOutline && markdownOutline(draft, headingPrefix).length > 1;
   const properties = pageNoteProperties(page);
   const propertiesPinned = true;
-  const documentBody = markdownDocumentParts(draft).body;
-  const indexedMarkdown = draft === page.markdown ? page.renderedMarkdown : documentBody;
+  const documentBody = editableMarkdownDocument(draft, page.isSource).body;
+  const indexedMarkdown = draft === page.markdown
+    ? editableMarkdownDocument(page.renderedMarkdown, page.isSource).body
+    : documentBody;
   const readingMarkdown = page.isSource ? markdownWithoutSourceRelations(indexedMarkdown) : indexedMarkdown;
   const statusMessage = editing ? saveState : saveState === "已同步" ? "双击正文开始修改 · 自动保存" : saveState;
+  const toolbar = !showIdentity && <div className="editable-document-toolbar"><span aria-live="polite"><i className={saveState.includes("失败") || saveState.includes("不能为空") ? "error" : ""} />{statusMessage}</span>{editing && <kbd>⌘ S</kbd>}</div>;
+  const propertyPanel = propertiesPinned && Object.keys(properties).length > 0 && <div className="editable-document-properties"><NoteProperties properties={properties} compact /></div>;
 
-  return <section className={`editable-document editable-document--${variant}${showIdentity ? "" : " knowledge-document"}${editing ? " editing" : ""}${outlineVisible ? " has-outline" : ""}`}>
+  return <DocumentFrame variant={variant} showIdentity={showIdentity} editing={editing} showOutline={showOutline} markdown={readingMarkdown} headingPrefix={headingPrefix}>
     {showIdentity && <header className="editable-document-identity">
       <div><small>{identity.folder}</small><label className="document-file-name"><span className="sr-only">文件名</span><input ref={fileNameInputRef} name={`file-name-${page.id}`} autoComplete="off" aria-label={`${page.title} 文件名`} style={{ width: `${Math.min(Math.max(fileName.length * 1.08 + 2, 12), 37)}em` }} value={fileName} onChange={(event) => changeFileName(event.target.value)} onBlur={() => void persistFileName(fileNameRef.current)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } if (event.key === "Escape") { changeFileName(lastSavedFileNameRef.current); event.currentTarget.blur(); } }} spellCheck={false} /></label></div>
       <div className="editable-document-identity-actions"><span className="document-save-state" aria-live="polite"><i className={saveState.includes("失败") || saveState.includes("不能为空") ? "error" : ""} />{statusMessage}{editing && <kbd>⌘ S</kbd>}</span>{identityActions}</div>
     </header>}
-    {!showIdentity && <div className="editable-document-toolbar"><span aria-live="polite"><i className={saveState.includes("失败") || saveState.includes("不能为空") ? "error" : ""} />{statusMessage}</span>{editing && <kbd>⌘ S</kbd>}</div>}
-    {propertiesPinned && Object.keys(properties).length > 0 && <div className="editable-document-properties"><NoteProperties properties={properties} compact /></div>}
+    {toolbar}{propertyPanel}
     {editing ? <textarea ref={editorRef} name={`page-${page.id}`} aria-label={`${page.title} Markdown 正文`} value={documentBody} onChange={(event) => changeDocumentBody(event.target.value)} onBlur={() => { documentScrollTopRef.current = window.scrollY; void persist(draftRef.current); setEditing(false); }} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "s") { event.preventDefault(); void persist(draftRef.current); } if (event.key === "Escape") event.currentTarget.blur(); }} spellCheck={false} /> : <div ref={documentBodyRef} className="editable-document-body editable-document-activate" role="textbox" aria-label={`${page.title} 正文，双击后编辑`} aria-readonly="true" tabIndex={0} onDoubleClick={requestEditing} onKeyDown={(event) => { if (event.key === "Enter" || event.key === "F2") { event.preventDefault(); beginEditing(); } }}>{beforeContent}<MarkdownBody headingPrefix={headingPrefix} properties={propertiesPinned ? undefined : properties}>{readingMarkdown}</MarkdownBody>{afterContent}</div>}
-    {outlineVisible && <DocumentOutline markdown={draft} headingPrefix={headingPrefix} inactive={editing} />}
-  </section>;
+  </DocumentFrame>;
 }

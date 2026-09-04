@@ -9,7 +9,7 @@ import { resizeComposerTextarea } from "../../shared/composer-input";
 import { Icon, Loading } from "../../shared/ui";
 import { AiConfiguration, reasoningLabels, useAgentSelection } from "./AgentSettings";
 import { localWikiHref } from "./local-page-link";
-import { agentContextIdentity, attachedContextPrompt, collaborationModes, contextPrompt, groupAgentThreads, plainPreview, resolveAgentAutoSubmission, resolveComposerMode, runConversation, runDisplayPrompt, runFinalAnswer, runTechnicalEvents, shouldSubmitAgentInput, type AgentAttachedContext, type AgentAutoSubmission, type AgentContext, type AgentThread, type OpenContextAgentRequest } from "./model";
+import { agentContextIdentity, attachedContextPrompt, boundAgentThreadForPage, collaborationModes, contextPrompt, groupAgentThreads, plainPreview, resolveAgentAutoSubmission, resolveComposerMode, runConversation, runDisplayPrompt, runFinalAnswer, runTechnicalEvents, shouldSubmitAgentInput, type AgentAttachedContext, type AgentAutoSubmission, type AgentContext, type AgentThread, type OpenContextAgentRequest } from "./model";
 
 const defaultAgentModel = "gpt-5.6-sol";
 const defaultAgentEffort: AgentReasoningEffort = "high";
@@ -42,10 +42,12 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   const launcherRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
+  const restoredContextRef = useRef("");
   const submittingRef = useRef(false);
   const pendingAutoSubmissionRef = useRef<AgentAutoSubmission | undefined>(undefined);
   const threads = groupAgentThreads(runList || []);
   const contextIdentity = agentContextIdentity(context);
+  const boundRunId = boundAgentThreadForPage(runList || [], context.pageId)?.latest.id || "";
 
   useEffect(() => {
     const openDock = (event: Event) => {
@@ -116,16 +118,19 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
   }, [draft, open, runId, view]);
 
   useEffect(() => {
+    if (runsLoading || restoredContextRef.current === contextIdentity) return;
+    restoredContextRef.current = contextIdentity;
     setDraft("");
     setAttachedContext(undefined);
-    setRunId("");
+    setRunId(boundRunId);
     setMode(resolveComposerMode(context.defaultMode, context.defaultOutputTarget));
     setOutputTarget(context.defaultOutputTarget);
     setSourceContext(context.defaultSourceContext);
-    setView("compose");
+    setView(boundRunId ? "history" : "compose");
+    if (boundRunId) setOpen(true);
     setError("");
     pendingAutoSubmissionRef.current = undefined;
-  }, [contextIdentity]);
+  }, [boundRunId, context.defaultMode, context.defaultOutputTarget, context.defaultSourceContext, contextIdentity, runsLoading]);
 
   useEffect(() => {
     const pending = pendingAutoSubmissionRef.current;
@@ -192,6 +197,8 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
           title: requestedMode === "validate" ? "知识健康检查" : `处理：${runContext.title}`,
           outputTarget: requestedOutputTarget,
           sourceContext: requestedSourceContext,
+          contextPageId: context.pageId,
+          knowledgeBaseId: vault?.knowledgeBaseId,
         }),
       });
       setRunId(run.id);
@@ -236,7 +243,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
         {runId ? <ContextualRunPanel runId={runId} revision={revision} runList={runList || []} onRunId={setRunId} onNew={startNewQuestion} /> : view === "history" ? <AgentHistory threads={threads} loading={runsLoading} error={runsError} knowledgeBaseName={vault?.name} onOpen={setRunId} onNew={startNewQuestion} /> : <form className="context-agent-compose" onSubmit={submit}>
           <div className={`context-agent-compose-body${draft ? " has-draft" : ""}`}>
             {outputTarget?.kind === "letter-version" && <div className="context-output-target"><Icon name="library" size={15} /><div><b>将保留为「{outputTarget.label}」</b><span>完成后会成为这封回信的最新版本，原始回信仍可随时切换查看。</span></div></div>}
-            {outputTarget?.kind === "journey-report" && <div className="context-output-target is-journey"><Icon name="receipt" size={15} /><div><b>只更新「{outputTarget.label}」</b><span>会查阅已有 Wiki 帮你理解线索，但这段对话不会构建或修改 Wiki。</span></div></div>}
+            {(outputTarget?.kind === "journey-report" || outputTarget?.kind === "photo-memory") && <div className="context-output-target is-journey"><Icon name="receipt" size={15} /><div><b>只更新「{outputTarget.label}」</b><span>会查阅已有 Wiki 帮你理解线索，但这段对话不会构建或修改 Wiki。</span></div></div>}
             {mode === "validate" ? <div className="context-validate-summary"><span className="context-agent-empty-glyph"><Icon name="check" size={20} /></span><b>检查当前知识库</b><p>运行既有标签、链接与结构检查，不生成新的知识内容。</p></div> : <>
               <div className="context-agent-empty-state"><span className="context-agent-empty-glyph"><Icon name="spark" size={19} /></span><b>从这页真正想说的事开始</b><p>我已经带上了这页的上下文。说说你想聊、补充或整理什么，我会判断接下来怎么做。</p></div>
               {!attachedContext && context.suggestions.length > 0 && <div className="context-suggestions" aria-label="建议问题">{context.suggestions.slice(0, 3).map((suggestion) => <button key={suggestion} type="button" onClick={() => { setDraft(suggestion); setMode(resolveComposerMode(context.defaultMode, context.defaultOutputTarget)); setOutputTarget(context.defaultOutputTarget); setSourceContext(context.defaultSourceContext); window.setTimeout(() => textareaRef.current?.focus(), 0); }}>{suggestion}</button>)}</div>}
@@ -258,7 +265,7 @@ export function ContextualAgentDock({ revision, context }: { revision: number; c
               </details>}
               <button type="submit" className="context-agent-send" disabled={submitDisabled} aria-label={submitting ? "正在开始" : collaborationModes[mode].action} title={submitting ? "正在开始…" : collaborationModes[mode].action}><Icon name="up" size={16} /></button>
             </div>
-            <p className="context-agent-boundary">{outputTarget?.kind === "journey-report" ? "Wiki 仅检索；本轮只更新消费旅程报告" : collaborationModes[mode].boundary}</p>
+            <p className="context-agent-boundary">{outputTarget?.kind === "photo-memory" ? "只保存照片线索或故事草稿；确认后才能构建" : outputTarget?.kind === "journey-report" ? "Wiki 仅检索；本轮只更新消费旅程报告" : collaborationModes[mode].boundary}</p>
             {error && <p className="context-agent-error" role="alert">{error}</p>}
             {!vaultLoading && !vault?.agentAvailable && <p className="context-agent-offline">暂时无法开始对话；安装 Codex 或配置 Pi 模型后即可使用。</p>}
           </div>
@@ -309,7 +316,8 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
   const active = ["preparing", "running", "waiting-approval", "validating"].includes(activeRun.status);
   const hasFailed = activeRun.status === "failed" || activeRun.status === "interrupted";
   const isJourneyConversation = activeRun.outputTarget?.kind === "journey-report" || activeRun.sourceContext?.flow === "dialogue";
-  const legacyJourneyConversation = isJourneyConversation && activeRun.outputTarget?.kind !== "journey-report";
+  const isPhotoConversation = activeRun.outputTarget?.kind === "photo-memory";
+  const legacyJourneyConversation = isJourneyConversation && activeRun.outputTarget?.kind !== "journey-report" && !isPhotoConversation;
   const mayWrite = activeRun.mode === "write" || activeRun.mode === "auto";
   const latest = conversation.at(-1)?.message;
   const storedThreadRuns = activeRun.runtimeSessionId ? runList.filter((candidate) => candidate.runtimeSessionId === activeRun.runtimeSessionId) : [];
@@ -349,7 +357,7 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
       if (active && activeRun.status !== "validating") {
         await api(`/api/runs/${activeRun.id}/steer`, { method: "POST", body: JSON.stringify({ prompt: reply }) });
       } else {
-        const legacyJourneyTarget = activeRun.sourceContext?.flow === "dialogue" && activeRun.outputTarget?.kind !== "journey-report"
+        const legacyJourneyTarget = activeRun.sourceContext?.flow === "dialogue" && activeRun.outputTarget?.kind !== "journey-report" && !isPhotoConversation
           ? { kind: "journey-report" as const, importId: activeRun.sourceContext.importId, storedPath: activeRun.sourceContext.storedPath, label: "消费旅程报告" }
           : undefined;
         const next = await api<WikiRun>("/api/runs", { method: "POST", body: JSON.stringify({
@@ -361,6 +369,7 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
           effort: activeRun.effort,
           title: legacyJourneyTarget ? "继续丰富消费旅程" : `继续${collaborationModes[activeRun.mode].short}`,
           sessionId: activeRun.runtimeSessionId,
+          knowledgeBaseId: activeRun.knowledgeBaseId,
           outputTarget: legacyJourneyTarget,
           sourceContext: legacyJourneyTarget ? { ...activeRun.sourceContext, operation: "enrich" } : undefined,
         }) });
@@ -388,6 +397,7 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
   return <div className="context-run">
     <div ref={statusRef} tabIndex={-1} className="context-run-body">
       {activeRun.outputTarget?.kind === "letter-version" && <div className={`context-run-artifact ${activeRun.status === "completed" ? "saved" : "pending"}`}><Icon name={activeRun.status === "completed" ? "library" : "spark"} size={15} /><div><b>{activeRun.status === "completed" ? `已保留为「${activeRun.outputTarget.label}」` : `完成后将保留为「${activeRun.outputTarget.label}」`}</b><span>{activeRun.status === "completed" ? "关闭窗口后，回信页会默认显示这个最新版本。" : "原始回信不会被覆盖，完成后可在回信页切换版本。"}</span></div></div>}
+      {isPhotoConversation && <div className="context-run-artifact pending"><Icon name="image" size={15} /><div><b>照片线索与讲述只保存为草稿</b><span>关闭抽屉回到记忆报告，核对后点击“确认这份讲述”，再选择构建。</span></div></div>}
       {legacyJourneyConversation && <div className="context-run-artifact journey pending"><Icon name="receipt" size={15} /><div><b>继续聊聊会先丰富消费旅程报告</b><span>这是一段旧对话。下一段讲述开始只查阅 Wiki、更新报告；需要构建时再由你明确选择。</span></div></div>}
       <div className="context-thread" aria-label="对话内容">{threadRuns.map((threadRun) => {
       const answer = runFinalAnswer(threadRun);
@@ -404,7 +414,7 @@ function ContextualRunPanel({ runId, revision, runList, onRunId, onNew }: { runI
       {actionError && <p className="context-agent-error" role="alert">{actionError}</p>}
       {hasFailed && <button type="button" className="context-retry-run" onClick={onNew}>带着新问题重新开始</button>}
     </div>
-    {activeRun.mode !== "validate" && <form className={`context-run-reply${isJourneyConversation ? " is-journey" : ""}`} onSubmit={followUp}>{isJourneyConversation ? <header className="context-journey-reply-heading"><b>继续聊聊，丰富旅程</b><span>你的下一段讲述只会更新报告，不会构建 Wiki。</span></header> : null}<label className="sr-only" htmlFor={`context-run-reply-${run.id}`}>{active ? "再补充一句" : "沿着这件事继续聊"}</label><div className="context-composer-shell"><textarea ref={replyTextareaRef} id={`context-run-reply-${run.id}`} name="context-run-reply" autoComplete="off" value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={submitAgentFormOnEnter} placeholder={active && legacyJourneyConversation ? "本轮结束后即可按新流程继续…" : isJourneyConversation ? "补充人物、动机、当时的感受，或告诉我哪里需要修正…" : active ? "补充范围、来路，或者告诉我希望避开什么…" : "接着说，或者提出新的要求"} rows={1} disabled={active && legacyJourneyConversation} /><button type="submit" className="context-agent-send" disabled={sending || !reply.trim() || active && legacyJourneyConversation} aria-label={sending ? "正在发送" : active ? "补充一句" : "继续聊聊"}><Icon name="up" size={16} /></button></div></form>}
+    {activeRun.mode !== "validate" && <form className={`context-run-reply${isJourneyConversation ? " is-journey" : ""}`} onSubmit={followUp}>{isJourneyConversation ? <header className="context-journey-reply-heading"><b>{isPhotoConversation ? "继续聊聊，丰富这段记忆" : "继续聊聊，丰富旅程"}</b><span>你的下一段讲述只会更新报告，不会构建 Wiki。</span></header> : null}<label className="sr-only" htmlFor={`context-run-reply-${run.id}`}>{active ? "再补充一句" : "沿着这件事继续聊"}</label><div className="context-composer-shell"><textarea ref={replyTextareaRef} id={`context-run-reply-${run.id}`} name="context-run-reply" autoComplete="off" value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={submitAgentFormOnEnter} placeholder={active && legacyJourneyConversation ? "本轮结束后即可按新流程继续…" : isJourneyConversation ? "补充人物、动机、当时的感受，或告诉我哪里需要修正…" : active ? "补充范围、来路，或者告诉我希望避开什么…" : "接着说，或者提出新的要求"} rows={1} disabled={active && legacyJourneyConversation} /><button type="submit" className="context-agent-send" disabled={sending || !reply.trim() || active && legacyJourneyConversation} aria-label={sending ? "正在发送" : active ? "补充一句" : "继续聊聊"}><Icon name="up" size={16} /></button></div></form>}
   </div>;
 }
 

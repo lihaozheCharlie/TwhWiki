@@ -45,6 +45,13 @@ describe("RunStore", () => {
     await expect(store.get(run.id)).resolves.toMatchObject({ outputTarget });
   });
 
+  it("persists the page bound to an Agent conversation", async () => {
+    const { store } = await storeFixture();
+    const run = await store.create("聊聊这份记录", "继续理解", "read", "personal", config("personal"), { contextPageId: "sources/日记/今天" });
+
+    await expect(store.get(run.id)).resolves.toMatchObject({ contextPageId: "sources/日记/今天" });
+  });
+
   it("recovers the first complete object from an older corrupted run file", async () => {
     const { store, stateRoot } = await storeFixture();
     const run = await store.create("可恢复任务", "测试", "read", "personal", config("personal"));

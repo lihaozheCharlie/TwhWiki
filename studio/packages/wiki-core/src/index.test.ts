@@ -1,8 +1,8 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { extractSectionBlocks, extractSections, extractWikiLinks, loadVaultConfig, normalizeFrontmatterProperties, pageIdForPath } from "./index";
+import { extractSectionBlocks, extractSections, extractWikiLinks, loadVaultConfig, normalizeFrontmatterProperties, pageIdForPath, WikiIndex } from "./index";
 import type { VaultConfig } from "@the-way-here/shared";
 
 const temporaryRoots: string[] = [];
@@ -61,6 +61,30 @@ describe("wiki parser", () => {
       location: [],
       nested: { active: true },
     });
+  });
+
+  test("exposes a validated import channel in source summaries", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-index-"));
+    temporaryRoots.push(root);
+    await mkdir(path.join(root, "sources"), { recursive: true });
+    await writeFile(path.join(root, "sources", "conversation.md"), "---\ntype: source\nimport_channel: claude\n---\n\n# Claude conversation\n", "utf8");
+
+    const index = new WikiIndex(root);
+    await index.rebuild();
+
+    expect(index.list({ sources: true })[0]).toMatchObject({ importChannel: "claude" });
+  });
+
+  test("uses the source filename as its title instead of a legacy Markdown heading", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-index-"));
+    temporaryRoots.push(root);
+    await mkdir(path.join(root, "sources/日记"), { recursive: true });
+    await writeFile(path.join(root, "sources/日记/2026.09.03.md"), "# 旧标题\n\n正文\n", "utf8");
+
+    const index = new WikiIndex(root);
+    await index.rebuild();
+
+    expect(index.list({ sources: true })[0]).toMatchObject({ title: "2026.09.03" });
   });
 
   test("resolves one knowledge base from the workspace registry", async () => {

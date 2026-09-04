@@ -171,7 +171,7 @@ button.primary-action { margin-left: 0; }
 .people-index .load-more { color: var(--accent-primary); text-align: center; }
 .person-detail, .letter-detail, .model-detail, .collection-detail { min-height: 430px; padding: clamp(27px, 4vw, 50px); background: var(--paper); border-radius: 8px; }
 .person-detail > span { color: var(--muted); font-size: 10px; }
-.person-detail h2, .letter-detail h2, .model-detail > h2 { margin: 9px 0 14px; font-size: clamp(27px, 4vw, 43px); line-height: 1.12; letter-spacing: -.035em; }
+.person-detail h2, .letter-detail > h2, .model-detail > h2 { margin: 9px 0 14px; font-size: clamp(27px, 4vw, 43px); line-height: 1.12; letter-spacing: -.035em; }
 .person-aliases { color: var(--muted); font-size: 11px; }
 .person-excerpt, .letter-detail > p { max-width: 68ch; margin: 28px 0; color: var(--ink); font-size: 15px; line-height: 1.9; }
 .letter-index time, .letter-index b, .letter-index span { display: block; }

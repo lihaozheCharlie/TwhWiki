@@ -10,13 +10,13 @@ const violations = [];
 
 const pageLevelSelectors = [
   ".page-hero", ".workspace-page-head", ".layer-hero", ".knowledge-hero", ".focus-workspace-head",
-  ".now-board", ".life-atlas", ".stage-focus-turns", ".life-map-note", ".model-definition",
+  ".now-board", ".stage-focus-turns", ".life-map-note", ".model-definition",
   ".collection-detail-head", ".person-relationship-context", ".letter-date-context", ".advanced-safety",
   ".intent-selector button.active", ".session-steps li.current", ".route-sign", ".section-tabs",
   ".people-index", ".letter-index", ".model-index",
 ];
 const warmFill = /background(?:-color)?\s*:[^;]*(?:var\(--(?:signal|accent-attention)\)|#ffd60a|#ffe77a|#f2c94c)/i;
-const lifestyleDarkSelectors = [".life-atlas", ".growth-route", ".stage-focus", ".advanced-safety"];
+const lifestyleDarkSelectors = [".growth-route", ".stage-focus", ".advanced-safety"];
 const darkFill = /background(?:-color)?\s*:[^;]*(?:var\(--ink\)|#(?:151515|202020|22262d))/i;
 
 for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
@@ -37,7 +37,6 @@ assert(/shouldEnterDocumentEditMode/.test(source) && /onDoubleClick=\{requestEdi
 assert(/\.editable-document--preview[^}]*overflow:\s*visible/.test(css) && /\.source-pane-shell[^}]*position:\s*sticky/.test(css) && /\.document-outline[^}]*position:\s*sticky/.test(css), "Markdown pages must own the vertical scroll while both navigation sides stay sticky");
 assert(/--source-workspace-min-height:\s*clamp\(/.test(css) && /\.source-preview[^}]*min-height:\s*var\(--source-workspace-min-height\)/.test(css) && /\.source-preview[^}]*min-height:\s*min\(620px/.test(css), "sparse source lists and documents must retain a useful working height across breakpoints");
 assert(/\.collapsible-index-pane[^}]*height:\s*100%/.test(css) && /\.collection-detail[^}]*overflow:\s*visible/.test(css), "sticky Markdown navigation cannot be clipped or constrained by a short master-detail parent");
-assert(/buildParallelStageRoute/.test(source) && /atlas-branch-network/.test(source) && /<path\b/.test(source), "parallel life stages must grow from the main route through a reusable curved path");
 assert(/function CollapsibleIndexPane/.test(source) && [...source.matchAll(/<CollapsibleIndexPane\b/g)].length >= 3 && /relationships-person-detail/.test(source), "indexed master-detail views must reuse the shared collapsible index; relationships must keep its approved inline detail");
 assert(/function ContextualAgentDock/.test(source) && [...source.matchAll(/<ContextualAgentDock\b/g)].length >= 12, "contextual collaboration must reuse the shared dock");
 assert(/\/api\/agent-settings/.test(source) && /"agent-settings"/.test(source) && /一处设置，所有 Agent 入口共用/.test(source), "Agent settings must persist through one global interface and refresh every entry");

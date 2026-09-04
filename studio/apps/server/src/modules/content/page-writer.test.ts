@@ -53,7 +53,15 @@ async function fixture() {
   return { root, filePath, page, rebuild, broadcast, writer: new PageWriter(knowledge) };
 }
 
-describe("PageWriter source deletion", () => {
+describe("PageWriter source files", () => {
+  it("creates a life-record file without duplicating its filename as a Markdown heading", async () => {
+    const { root, writer } = await fixture();
+
+    await writer.createSource("新记录", "日记");
+
+    await expect(readFile(path.join(root, "sources/日记/新记录.md"), "utf8")).resolves.toBe("");
+  });
+
   it("deletes one indexed life-record file with a concurrency check", async () => {
     const { filePath, page, rebuild, broadcast, writer } = await fixture();
 

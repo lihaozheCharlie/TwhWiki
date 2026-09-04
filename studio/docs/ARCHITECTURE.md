@@ -33,19 +33,35 @@ Studio 不把知识构建规则重新写进 TypeScript。它提供编排、展�
 5. `AgentRuntimeRegistry` 按用户选择与配置解析 Codex 或 Pi，适配器把两者事件统一为消息、工具、审批、诊断和回合完成事件；审批请求停在界面等待用户决定。
 6. 回合完成后按 Run 绑定的知识库收集差异；只有实际发生改动时才运行质量门并重建索引。显式写入与 `auto` 任务按知识库串行化，不同知识库可以独立运行；重启时会从对应运行时的会话记录恢复状态。
 
-聊天记录导入由 `modules/imports/chat` 的单一深模块承担。外部接口只接收已解包的导出文件、平台渠道与导入时间，内部注册表将格式分派给 Claude、ChatGPT 或通用 JSON Adapter，再统一完成格式过滤、会话规范化、Markdown 渲染、文件名去重和大小检查。Claude Adapter 只选择官方导出包中的 `conversations.json`，按会话拆分可见消息，忽略 thinking 与工具协议块，并把缺失的附件实体明确保留为引用；`users.json` 与 `memories.json` 不会默认进入知识来源。新增平台格式只增加 Adapter 和注册项，不修改来源存储与后续构建流程。
+生活记录以 Markdown 文件名作为唯一标题，索引与界面都不再从正文 H1 推导来源标题。新建记录生成空正文；旧记录开头已有的 H1 在阅读和编辑时作为兼容标题隐藏，保存正文时原样保留，因此不会静默批量改写既有文件。
+
+聊天记录导入由 `modules/imports/chat` 的单一深模块承担。外部接口只接收已解包的导出文件、平台渠道与导入时间，内部注册表将格式分派给 Claude、ChatGPT 或通用 JSON Adapter，再统一完成格式过滤、会话规范化、Markdown 渲染、文件名去重和大小检查。Claude Adapter 只选择官方导出包中的 `conversations.json`，按会话拆分可见消息，忽略 thinking 与工具协议块，并把缺失的附件实体明确保留为引用；`users.json` 与 `memories.json` 不会默认进入知识来源。索引摘要会暴露经过白名单校验的 `import_channel`，因此界面按持久化来源元数据区分 AI 对话、普通文件与账单，不依赖用户选择的保存目录。新增平台格式只增加 Adapter 和注册项，不修改来源存储与后续构建流程。
 
 消费账单走同一来源导入 seam，但由后端的账单深模块处理平台格式。模块以一份平台导出文件为接口，内部完成编码识别、交易规范化、退款归并，以及重复商户、共同地点、异地旅程、单日复合活动和跨日期主题聚类；输出一份 UTF-8 原始 CSV、一份可索引的 Markdown 消费旅程报告和前端可展示的旅程摘要。报告内只有“已确认的消费旅程”是对话可更新的受管区，聚类与规范化交易保持为可追溯证据。
 
 消费旅程采用显式两阶段协议。丰富阶段使用严格只读 Run：Agent 可以读取报告并检索现有 Wiki 作为背景，但不能修改 Wiki 或其他文件；每轮末尾返回结构化 `journey-report` 结果，由服务端校验导入批次和来源路径后原子写回报告受管区，并把结构化负载从对话展示中隐藏。结果目标保存任务开始时的报告内容哈希，若对话期间报告被手工或并发修改则拒绝覆盖。报告更新后状态变为“可构建”，只有用户明确选择“构建这份记录”才启动独立写入 Run，按 `build-wiki` 路由摄取已确认叙述并运行质量门。构建后继续对话会再次更新报告并回到“可构建”，不会自动重建 Wiki。
 
-来源导入清单同时保存每份可索引记录的冷启构建状态：叙事完整的材料进入可直接构建，账单报告依次经历待丰富、正在丰富、报告已更新、构建中与已构建，语境过少的材料进入待确认。状态与 Run 通过 `sourceContext.operation` 区分 `enrich` 和 `build`；账单分别记录最近对话 Run 与最近构建 Run，单条构建记录一个 `storedPath`，批量构建记录用户实际勾选的 `storedPaths`。关联页来自构建 Run 的真实差异，不由前端猜测。用户选择“稍后再说”会持久化并停止重复展示导入确认卡，但记录仍保留在待构建筛选中。原始 CSV 与普通原始材料正文不会被冷启流程改写。
+来源构建清单同时保存每份可索引记录的冷启构建状态：导入材料按内容判定直接构建、对话丰富或待确认；界面中新建的 Markdown 记录也会登记为可直接构建，因此重新打开页面后仍保留“构建这份记录”入口。账单报告依次经历待丰富、正在丰富、报告已更新、构建中与已构建。状态与 Run 通过 `sourceContext.operation` 区分 `enrich` 和 `build`；账单分别记录最近对话 Run 与最近构建 Run，单条构建记录一个 `storedPath`，批量构建记录用户实际勾选的 `storedPaths`。关联页来自构建 Run 的真实差异，不由前端猜测。用户选择“稍后再说”会持久化并停止重复展示导入确认卡，但记录仍保留在待构建筛选中。原始 CSV 与普通原始材料正文不会被冷启流程改写。
 
 冷启 direct 运行显式进入 `build-wiki` 的冷启配方，除综合理解外还检查“值得聊聊”和代表性近况回信。导入完成状态以 Agent 已结束且确有持久化变更为准；若内容已经落盘但后续质量门失败，来源不会退回成完全未处理，界面保留质量提醒和真实 Run 供追踪。
 
 “值得聊聊”遵循同样的知识边界：`build-state-tracking` 在 Wiki 中维护带有当前理解、提问时机、仍然未知和相关知识链接的问题池；`life-views` 只做确定性解析并通过 `TodayView.conversationPrompts` 暴露给产品。前端以按日期稳定的加权顺序展示，不在 TypeScript 中复制问题生成判断，也不会因一次刷新改变用户正在阅读的内容。状态信号仍独立服务证据工作区，不与对话问题混成同一个模型。
 
 ## Agent 运行时
+
+### 照片记忆冷启
+
+`PhotoMemoryStore` 统一管理照片二进制、人物框、候选线索和确认稿。`POST /api/imports/photos` 接收显式知识库 ID，整批验证后在该库来源目录的 `.photo-memories/<id>/` 保存原图、自动转正且去除元数据的 JPEG 分析副本与版本化 `memory.json`；可索引的 Markdown 报告、导入清单沿用现有来源入口。第一版每批 1–10 张 JPG/PNG/WebP，服务端单张 20 MB、合计 100 MB、解码最多 5000 万像素，不接收动画及 HEIC。浏览器允许选择单张不超过 100 MB 的照片；超过 20 MB 时逐张通过独立 Worker 压缩为最长边 2560px、质量 0.85 的 JPEG 后再预览及上传。压缩有 60 秒超时和取消清理，失败按文件提示，保存的是压缩副本，电脑原文件不变。
+
+照片工作区打开后，浏览器 Worker 默认按批次逐张使用随应用分发的 MediaPipe WASM 与 BlazeFace 模型本地检测人脸，不访问 CDN。检测不锁定照片切换，单张失败可重试，离开批次终止检测；已有标注和本机草稿（含主动清空的人物列表）不被覆盖。这里只返回人脸框，不做身份识别或跨照片人脸聚类。用户可调整检测框，但不再手动添加；人物编辑使用标签页，一次展示一人，点击照片上的框亦可切换人物，通过可搜索的人物选择器明确关联本库已有人物或填写新称呼；确认人物时默认启用裁剪头像，不另设复选框。服务端 Sharp 从转正副本裁剪头像，避免 EXIF 方向与坐标错位。
+
+人物和故事的未确认编辑按知识库 ID、照片批次 ID 隔离暂存于本机浏览器。人物草稿再按照片 ID 分别保存，切换照片不受未确认标注阻塞；确认或放弃仅清除当前照片的标注草稿，并兼容旧版单张草稿恢复。刷新、换批次或离开后须显式选择恢复或丢弃；如果远端版本已变化会提醒核对。确认成功或放弃全部修改后移除本机草稿。该暂存不等于来源确认，也不启用构建。浏览器禁用存储或空间不足时显示失败提示并启用关闭窗口警告。照片工作区提供原图下载，使用附件响应而不是把原图嵌入模型请求。
+
+照片 AI 协议为 `outputTarget.kind=photo-memory`：`analyze` 使用当前配置的视觉模型接收有序图片附件，返回可见场景和中性回忆问题；`enrich` 只接收照片线索、用户命名与讲述上下文，不重新发送图片。两者均为只读 Run，通过 `<photo-memory>` 结果区受控保存，不允许模型写文件。Codex 桥接传递 `localImage`，Pi 传递真实 image 内容块；模型目录的 `inputModalities` 检查不通过时明确拒绝，不静默切换供应商。用户点击看图即使用当前模型，不另设 AI 许可复选框；第三方服务的数据政策仍由该服务决定。
+
+视觉候选与未确认草稿只在隐藏元数据中保存，不写入可摄取报告。用户点击确认后，故事及用户指定的人物才写回来源；独立的 build Run 在入口检查确认状态及报告一致性，再按共享 `build-wiki` 路由处理，产品端不复制 Wiki 抽取判断。任务锁和单记忆串行版本号阻止并发旧结果覆盖，外部改过的来源报告不会被静默覆盖。路径逐级检查符号链接，图片 URL 绑定知识库 ID，服务端不接收任意本地文件路径。
+
+质量门成功后才发布人物影像关联。已有姓名必须由用户指定页面 ID；新姓名只在本次新增人物页中唯一匹配时关联，不按同名自动匹配旧人物。`/api/views/relationships` 在领域图谱上附加照片证据及头像 URL，不改变人物归类；列表、图谱和人物卡复用同一字段。撤销头像许可立即停止服务该头像；删除来源报告后影像不再进入人物视图。原图仍独立保留在隐藏来源目录，删除普通报告并不等于删除原图，第一版尚无整批照片的管理界面。
 
 `RunCoordinator` 只依赖通用的 `AgentRuntimeProvider` seam，不包含 Codex 或 Pi 的协议分支。Codex 适配器继续复用 `codex-bridge`；Pi 适配器使用 `pi-agent-core` 驱动用户配置的模型，并提供限定范围的列表、搜索、读取和写入工具。只读任务没有写工具；`auto` 模式由 Agent 按当前目标、耐久价值、证据质量与影响范围判断是否更新 Wiki，不要求额外写入确认。所有写入只允许落在当前 Run 固化的 Wiki 或来源目录，已有文件还要求读取时返回的 SHA-256，避免并发覆盖；规则、目录、批量重跑或难以撤销的操作仍需先确认范围。
 
@@ -89,6 +105,7 @@ agents:
 - `GET /api/agent-provider-presets`：第三方厂商、模型枚举及每个模型支持的思考深度；官网服务地址不会暴露给前端。
 - `GET /api/agent-settings`、`PUT /api/agent-settings`：读取或更新工作区级全局 Agent 设置；密钥字段只写不读。
 - `GET /api/pages`、`GET /api/pages/*`：页面列表与正文。
+- `GET /api/sources/folders`：读取当前知识库来源根目录中的可选文件夹；返回相对路径并包含空文件夹，供新建记录、导入等入口复用。
 - `DELETE /api/sources/file`、`DELETE /api/sources/folder`：删除当前知识库内的一份生活记录或一个非根文件夹；文件删除带并发检测，文件夹删除受来源根目录边界保护。
 - `GET /api/search`、`GET /api/views/*`：搜索与个人成长派生视图。
 - `PUT /api/pages/*`：编辑当前知识库内的 Wiki 或来源，带并发检测。
@@ -98,7 +115,7 @@ agents:
 
 ## 运行记录
 
-运行记录放在操作系统应用数据目录下的 `the-way-here/vaults/<workspace-hash>/`。记录包含知识库 ID、创建时配置、`runtimeId`、通用会话/回合 ID、provider、model、最终结果和可选的 `outputTarget`；Pi 对话也保存在该目录的 `agent-sessions/pi/`，不会直接写入知识文件。完成的人物视角重读通过 `letter-version` 目标关联到原回信；消费旅程通过 `journey-report` 目标由服务端只物化报告受管区，并记录 `outputSavedAt`。写入及 `auto` 任务的快照覆盖配置声明的根协议、Wiki、Skills、Tools 和来源。每个任务使用唯一临时文件，同一知识库内可能改写内容的任务串行执行；旧版 `threadId`/`turnId` 会按 Codex 运行时透明迁移，旧版并发写坏后仍保留首个完整 JSON 对象的记录可自动恢复。
+运行记录放在操作系统应用数据目录下的 `the-way-here/vaults/<workspace-hash>/`。记录包含知识库 ID、创建时配置、`runtimeId`、通用会话/回合 ID、provider、model、最终结果、可选的 `outputTarget`，以及发起会话时绑定的 `contextPageId`；后续轮次自动继承同一文件绑定。界面切换到某个文件时会恢复绑定到该文件的最新会话，运行中、等待审批和已结束状态使用同一恢复路径；旧版来源构建任务仍可通过 `sourceContext.storedPath` 匹配。Pi 对话也保存在该目录的 `agent-sessions/pi/`，不会直接写入知识文件。完成的人物视角重读通过 `letter-version` 目标关联到原回信；消费旅程通过 `journey-report` 目标由服务端只物化报告受管区，并记录 `outputSavedAt`。写入及 `auto` 任务的快照覆盖配置声明的根协议、Wiki、Skills、Tools 和来源。每个任务使用唯一临时文件，同一知识库内可能改写内容的任务串行执行；旧版 `threadId`/`turnId` 会按 Codex 运行时透明迁移，旧版并发写坏后仍保留首个完整 JSON 对象的记录可自动恢复。
 
 ## 代码组织
 
@@ -108,14 +125,16 @@ agents:
 - `apps/server/src/runtime/run-coordinator.ts`：运行时无关的任务状态、审批、验证和恢复编排深模块。
 - `apps/server/src/runtime/agent-runtime/`：通用运行时契约与注册表，以及 Codex/Pi 两个适配器；Pi 的模型目录、工具边界和会话仓库保持在适配器内部。
 - `apps/server/src/modules/content/page-writer.ts`：页面创建、保存、重命名、来源删除与并发安全写入。
+- `apps/server/src/modules/content/source-folder-catalog.ts`：当前知识库来源文件夹的单一读取接口，隐藏目录遍历与系统目录过滤。
 - `apps/server/src/modules/knowledge-bases/knowledge-base-manager.ts`：创建或删除隔离的知识库目录，并原子更新工作区注册表。
-- `apps/server/src/modules/imports/`、`modules/skills/`：导入批次和 Skill 目录读取。
+- `apps/server/src/modules/imports/prepare-import.ts`：来源导入的单一准备接口，内部完成压缩包展开并分派到普通文件、聊天记录或账单适配器。
+- `apps/server/src/modules/imports/import-store.ts`：只负责导入批次落盘、清单状态和任务结果对账；`modules/skills/` 负责 Skill 目录读取。
 - `apps/server/src/modules/imports/payment-statement.ts`：支付宝账单的确定性解析、归并、聚类与回忆提示；后续支付平台通过同一账单导入 seam 增加适配器。
 - `apps/server/src/routes/`：HTTP 适配器，只处理请求/响应映射，不保存领域状态。
 - `apps/server/src/services/run-policy.ts`：运行时模式校验与绑定知识库的 Prompt。
 - `apps/server/src/services/validation-runner.ts`：按 Run 上下文执行质量命令。
 - `apps/web/src/app/`：应用壳、路由装配和稳定导航配置。
-- `apps/web/src/features/sources/`：原始材料导入、浏览和编辑。
+- `apps/web/src/features/sources/ImportMaterialsModal.tsx`：跨页面复用的材料选择与导入接口；`Sources.tsx` 只组织生活记录浏览、编辑和构建状态。
 - `apps/web/src/features/overview/`：此刻、已有理解总览、理解自己与问题依据工作区。
 - `apps/web/src/features/knowledge/`：人生地图、人物、回信、卡片、图谱、阅读与搜索。
 - `apps/web/src/features/collaboration/`：统一上下文 Agent 抽屉、对话历史、结果目标及纯展示模型。

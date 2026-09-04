@@ -9,6 +9,7 @@ import type {
   AgentRuntimeConfig,
   PageCategory,
   PageSection,
+  SourceImportChannel,
   VaultConfig,
   WikiLink,
   WikiPage,
@@ -84,6 +85,14 @@ function stringArray(value: unknown): string[] {
   return [String(value)];
 }
 
+const sourceImportChannels = new Set<SourceImportChannel>(["files", "chatgpt", "claude", "gemini", "deepseek", "doubao", "other-ai", "alipay", "photos"]);
+
+function sourceImportChannel(value: unknown): SourceImportChannel | undefined {
+  if (typeof value !== "string") return undefined;
+  const channel = value.trim().toLocaleLowerCase() as SourceImportChannel;
+  return sourceImportChannels.has(channel) ? channel : undefined;
+}
+
 function dateValue(value: unknown): string | undefined {
   if (!value) return undefined;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -119,12 +128,14 @@ function normalizeProviderConfig(value: unknown, label: string): AgentProviderCo
     const maxOutputTokens = Number(model.maxOutputTokens);
     if (!Number.isInteger(contextWindow) || contextWindow <= 0) throw new Error(`配置 ${label}.models[${index}].contextWindow 无效`);
     if (!Number.isInteger(maxOutputTokens) || maxOutputTokens <= 0) throw new Error(`配置 ${label}.models[${index}].maxOutputTokens 无效`);
+    if (model.inputModalities !== undefined && (!Array.isArray(model.inputModalities) || !model.inputModalities.length || model.inputModalities.some((value) => value !== "text" && value !== "image"))) throw new Error(`配置 ${label}.models[${index}].inputModalities 无效`);
     return {
       id: modelId,
       displayName: String(model.displayName || modelId),
       reasoning: Boolean(model.reasoning),
       contextWindow,
       maxOutputTokens,
+      inputModalities: (model.inputModalities || ["text"]) as Array<"text" | "image">,
     };
   });
   return { id, name: value.name ? String(value.name) : undefined, protocol, baseUrl, apiKeyEnv, models };
@@ -380,7 +391,8 @@ export class WikiIndex {
       }
       const id = pageIdForPath(relativePath, this.config);
       const body = parsedContent.trim();
-      const title = extractTitle(body, relativePath);
+      const isSource = !relativePath.startsWith(`${this.config.paths.wiki}/`);
+      const title = isSource ? path.posix.basename(withoutExtension(relativePath)) : extractTitle(body, relativePath);
       pages.set(id, {
         id,
         absolutePath,
@@ -388,6 +400,7 @@ export class WikiIndex {
         title,
         category: categoryForPath(relativePath, this.config),
         type: parsedData.type ? String(parsedData.type) : undefined,
+        importChannel: sourceImportChannel(parsedData.import_channel),
         aliases: stringArray(parsedData.aliases),
         tags: stringArray(parsedData.tags),
         status: parsedData.status ? String(parsedData.status) : undefined,
@@ -397,7 +410,7 @@ export class WikiIndex {
         sources: stringArray(parsedData.source),
         excerpt: plainText(body.replace(/^#\s+.+$/m, "")).slice(0, 260),
         modifiedAt: fileStat.mtime.toISOString(),
-        isSource: !relativePath.startsWith(`${this.config.paths.wiki}/`),
+        isSource,
         fileMarkdown: content,
         rawMarkdown: body,
         properties: normalizeFrontmatterProperties(parsedData),
@@ -459,7 +472,7 @@ export class WikiIndex {
       .map(this.summary);
     const renderedMarkdown = page.rawMarkdown.replace(
       /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g,
-      (raw, rawTarget: string, rawLabel?: string) => {
+      (_raw, rawTarget: string, rawLabel?: string) => {
         const target = rawTarget.split("#", 1)[0]!.trim();
         const label = (rawLabel || rawTarget.split("#").at(-1) || target).trim();
         const candidates = this.lookup.get(withoutExtension(target).toLocaleLowerCase()) || [];
@@ -512,6 +525,7 @@ export class WikiIndex {
     title: page.title,
     category: page.category,
     type: page.type,
+    importChannel: page.importChannel,
     aliases: page.aliases,
     tags: page.tags,
     status: page.status,

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WikiRun } from "@the-way-here/shared";
+import type { WikiPage, WikiRun } from "@the-way-here/shared";
 import type { KnowledgeRuntime } from "../../runtime/knowledge-runtime.js";
 import { ImportStore } from "./import-store.js";
 
@@ -19,6 +19,35 @@ function smallStatement(): string {
 }
 
 describe("ImportStore", () => {
+  it("tracks a newly created source as ready for a direct Wiki build", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "the-way-here-created-source-"));
+    roots.push(root);
+    const broadcast = vi.fn();
+    const knowledge = {
+      vaultRoot: root,
+      index: { config: { paths: { sources: "sources" } } },
+      events: { broadcast },
+    } as unknown as KnowledgeRuntime;
+    const store = new ImportStore(knowledge);
+
+    const batch = await store.trackCreatedSource({
+      id: "sources/日记/新记录",
+      relativePath: "sources/日记/新记录.md",
+      title: "新记录",
+      modifiedAt: "2026-09-03T10:00:00.000Z",
+      markdown: "",
+    } as WikiPage);
+
+    expect(batch.files[0]).toMatchObject({
+      originalName: "新记录.md",
+      storedPath: "sources/日记/新记录.md",
+      buildKind: "direct",
+      buildStatus: "ready",
+    });
+    expect((await store.list())[0]?.id).toBe(batch.id);
+    expect(broadcast).toHaveBeenCalledWith("import", expect.objectContaining({ importId: batch.id, storedPath: "sources/日记/新记录.md" }));
+  });
+
   it("rejects the removed WeChat import channel", async () => {
     const store = new ImportStore({} as KnowledgeRuntime);
     await expect(store.create({ channel: "wechat" as never, files: [{ name: "chat.txt", content: "hello" }] })).rejects.toThrow("不支持这个导入渠道");

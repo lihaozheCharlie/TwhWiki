@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
-export type IconName = "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "more" | "edit" | "build" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "history" | "plus" | "back" | "close" | "down" | "check" | "trash";
+export type IconName = "image" | "now" | "compass" | "route" | "people" | "library" | "source" | "controls" | "search" | "menu" | "more" | "edit" | "build" | "spark" | "arrow" | "up" | "refresh" | "journal" | "message" | "receipt" | "history" | "plus" | "back" | "close" | "down" | "check" | "trash";
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
+    image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></>,
     now: <><circle cx="12" cy="12" r="7" /><path d="M12 7v5l3 2" /></>,
     compass: <><circle cx="12" cy="12" r="8" /><path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1Z" /></>,
     route: <><path d="M5 19V8a3 3 0 0 1 3-3h8" /><path d="m13 2 3 3-3 3" /><circle cx="5" cy="19" r="2" /></>,
@@ -51,7 +52,7 @@ export function ParentBack({ to, label }: { to: string; label: string }) {
   return <NavLink className="context-back parent-back" to={to}><Icon name="back" size={16} />{label}</NavLink>;
 }
 
-export function PaneCollapseButton({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
+function PaneCollapseButton({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
   return <button type="button" className="pane-collapse-button" onClick={onToggle} aria-expanded={open} aria-label={`${open ? "收起" : "展开"}${label}`} title={`${open ? "收起" : "展开"}${label}`}>
     <span>{label}</span><Icon name={open ? "back" : "arrow"} size={12} />
   </button>;
@@ -75,8 +76,4 @@ export function PageHero({ title, description, aside, tone = "surface", compact 
   return <header className={`page-hero page-hero--${tone}${compact ? " page-hero--compact" : ""}${className ? ` ${className}` : ""}`}>
     <div className="page-hero-copy"><h1>{title}</h1><p>{description}</p></div>{aside ? <aside className="page-hero-aside">{aside}</aside> : null}
   </header>;
-}
-
-export function HeroMetric({ value, label, detail }: { value: number; label: string; detail?: string }) {
-  return <div className="hero-metric"><b>{new Intl.NumberFormat("zh-CN").format(value)}</b><span>{label}</span>{detail ? <small>{detail}</small> : null}</div>;
 }

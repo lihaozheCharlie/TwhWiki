@@ -28,7 +28,7 @@ export class PageWriter {
     if (!isPathInside(sourceRoot, target)) throw new ContentRequestError(403, "路径超出知识源目录");
     await mkdir(path.dirname(target), { recursive: true });
     try {
-      await writeFile(target, `# ${path.basename(target, ".md")}\n\n`, { encoding: "utf8", flag: "wx" });
+      await writeFile(target, "", { encoding: "utf8", flag: "wx" });
     } catch (error: any) {
       if (error?.code === "EEXIST") throw new ContentRequestError(409, "同名文件已经存在，请修改文件名后重试");
       throw error;

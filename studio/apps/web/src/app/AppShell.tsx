@@ -10,7 +10,6 @@ import { FocusWorkspace, GrowthHub, KnowledgeHome, QuestionsHub, Today } from ".
 import { Cards, Letters, MentalModels, Reader, Relationships, SearchResults, Timeline } from "../features/knowledge/KnowledgePages";
 import { CreateKnowledgeBaseDialog, DemoKnowledgeBaseNotice } from "../features/knowledge-bases/KnowledgeBaseOnboarding";
 
-const CREATE_KNOWLEDGE_BASE = "__create_knowledge_base__";
 type KnowledgeBaseSummary = VaultInfo["knowledgeBases"][number];
 
 function GlobalKnowledgeBaseSwitcher({ vault, disabled, onChange, onCreate, onDelete }: { vault: VaultInfo; disabled: boolean; onChange: (knowledgeBaseId: string) => void; onCreate: () => void; onDelete: (knowledgeBase: KnowledgeBaseSummary) => void }) {

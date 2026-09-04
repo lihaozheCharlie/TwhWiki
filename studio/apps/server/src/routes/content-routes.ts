@@ -5,10 +5,13 @@ import { listBuildSkills } from "../modules/skills/skill-catalog.js";
 import { listReasoningLenses } from "../modules/skills/lens-catalog.js";
 import { readSkillFile, readSkillTree, SkillFileRequestError } from "../modules/skills/skill-files.js";
 import { ContentRequestError, PageWriter } from "../modules/content/page-writer.js";
+import { listSourceFolders } from "../modules/content/source-folder-catalog.js";
+import { ImportRequestError, ImportStore } from "../modules/imports/import-store.js";
 import { KnowledgeBaseRequestError } from "../modules/knowledge-bases/knowledge-base-manager.js";
 import { KnowledgeRuntime } from "../runtime/knowledge-runtime.js";
+import { PhotoMemoryStore } from "../modules/imports/photo-memory-store.js";
 
-export function registerContentRoutes(app: FastifyInstance, knowledge: KnowledgeRuntime, runtimeCatalog: () => Promise<AgentRuntimeDescriptor[]>, hasActiveKnowledgeBaseRun: (knowledgeBaseId: string) => Promise<boolean>): void {
+export function registerContentRoutes(app: FastifyInstance, knowledge: KnowledgeRuntime, imports: ImportStore, runtimeCatalog: () => Promise<AgentRuntimeDescriptor[]>, hasActiveKnowledgeBaseRun: (knowledgeBaseId: string) => Promise<boolean>): void {
   const writer = new PageWriter(knowledge);
   app.get("/api/health", async () => ({ ok: true, vaultRoot: knowledge.vaultRoot, indexedAt: knowledge.index.lastIndexedAt }));
   app.get("/api/vault", async () => knowledge.vaultInfo(await runtimeCatalog()));
@@ -51,7 +54,12 @@ export function registerContentRoutes(app: FastifyInstance, knowledge: Knowledge
   });
   app.get<{ Querystring: { q?: string } }>("/api/search", async (request) => knowledge.index.search(request.query.q || ""));
 
-  app.post<{ Body: { title?: string; folder?: string } }>("/api/sources", async (request, reply) => handleContent(reply, () => writer.createSource(request.body?.title, request.body?.folder), 201));
+  app.get("/api/sources/folders", async () => listSourceFolders(knowledge));
+  app.post<{ Body: { title?: string; folder?: string } }>("/api/sources", async (request, reply) => handleContent(reply, async () => {
+    const page = await writer.createSource(request.body?.title, request.body?.folder);
+    if (page) await imports.trackCreatedSource(page);
+    return page;
+  }, 201));
   app.delete<{ Body: { pageId?: string; expectedModifiedAt?: string } }>("/api/sources/file", async (request, reply) => handleContent(reply, () => writer.deleteSource(request.body?.pageId, request.body?.expectedModifiedAt)));
   app.delete<{ Body: { folder?: string; expectedFileCount?: number } }>("/api/sources/folder", async (request, reply) => handleContent(reply, () => writer.deleteSourceFolder(request.body?.folder, request.body?.expectedFileCount)));
   app.post<{ Body: { pageId?: string } }>("/api/files/open-in-editor", async (request, reply) => handleContent(reply, () => writer.openInEditor(request.body?.pageId)));
@@ -76,7 +84,10 @@ export function registerContentRoutes(app: FastifyInstance, knowledge: Knowledge
   });
   app.get("/api/views/timeline", async () => buildTimeline(knowledge.index));
   app.get("/api/views/life-map", async () => buildLifeMap(knowledge.index));
-  app.get("/api/views/relationships", async () => buildRelationships(knowledge.index));
+  app.get("/api/views/relationships", async () => {
+    const index = knowledge.index;
+    return new PhotoMemoryStore(knowledge.vaultRoot).decorate(index.config, buildRelationships(index), index);
+  });
   app.get("/api/views/letters", async () => buildLetters(knowledge.index));
   app.get("/api/views/graph", async (request) => buildGraph(knowledge.index, 120, (request.query as { focus?: string }).focus));
   app.get("/api/views/mental-models", async (_request, reply) => buildMentalModels(knowledge.index) || reply.code(404).send({ error: "暂无思维模型页面" }));
@@ -90,6 +101,7 @@ async function handleContent<T>(reply: FastifyReply, action: () => Promise<T>, s
     return successCode === 200 ? result : reply.code(successCode).send(result);
   } catch (error) {
     if (error instanceof ContentRequestError) return reply.code(error.statusCode).send({ error: error.message });
+    if (error instanceof ImportRequestError) return reply.code(error.statusCode).send({ error: error.message });
     throw error;
   }
 }

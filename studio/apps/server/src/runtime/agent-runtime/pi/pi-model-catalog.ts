@@ -45,6 +45,7 @@ export class PiModelCatalog {
       provider: model.provider,
       providerDisplayName: this.providers.find((provider) => provider.id === model.provider)?.name || model.provider,
       displayName: model.name,
+      inputModalities: model.input,
       supportedReasoningEfforts: this.modelConfig(model)?.supportedReasoningEfforts
         || getSupportedThinkingLevels(model) as AgentReasoningEffort[],
       defaultReasoningEffort: this.modelConfig(model)?.defaultReasoningEffort || (model.reasoning ? "medium" : "off"),
@@ -88,7 +89,7 @@ function createPiProvider(config: PiProviderConfig) {
     provider: config.id,
     baseUrl: config.baseUrl,
     reasoning: model.reasoning,
-    input: ["text"],
+    input: model.inputModalities || ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: model.contextWindow,
     maxTokens: model.maxOutputTokens,

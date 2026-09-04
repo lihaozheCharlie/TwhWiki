@@ -4,6 +4,7 @@ import type { AgentExecutionRef, AgentRecoveryState, AgentRuntime, StartAgentExe
 import { RuntimeEventSource } from "./types.js";
 
 const fallbackModel: AgentModelOption = {
+  inputModalities: ["text", "image"],
   runtimeId: "codex",
   id: "gpt-5.6-sol",
   displayName: "GPT-5.6-Sol",
@@ -44,11 +45,11 @@ export class CodexRuntimeAdapter extends RuntimeEventSource implements AgentRunt
     const sessionId = input.sessionId || await this.codex.startThread(input.cwd, input.model);
     let turnId: string;
     try {
-      turnId = await this.codex.startTurn(sessionId, input.prompt, input.cwd, { model: input.model, effort: input.effort });
+      turnId = await this.codex.startTurn(sessionId, input.prompt, input.cwd, { model: input.model, effort: input.effort, imagePaths: input.images?.map((image) => image.path), readOnly: input.strictReadOnly });
     } catch (error) {
       if (!input.sessionId) throw error;
       await this.codex.resumeThread(sessionId, input.cwd);
-      turnId = await this.codex.startTurn(sessionId, input.prompt, input.cwd, { model: input.model, effort: input.effort });
+      turnId = await this.codex.startTurn(sessionId, input.prompt, input.cwd, { model: input.model, effort: input.effort, imagePaths: input.images?.map((image) => image.path), readOnly: input.strictReadOnly });
     }
     const ref = { runtimeId: this.id, sessionId, turnId } satisfies AgentExecutionRef;
     this.activeBySession.set(sessionId, ref);

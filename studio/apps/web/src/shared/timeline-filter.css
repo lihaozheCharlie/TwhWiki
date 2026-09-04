@@ -1,0 +1,6 @@
+.timeline-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; min-width: 0; padding: 16px 0; }
+.timeline-filter select { max-width: 100%; min-height: 36px; padding: 6px 30px 6px 12px; color: var(--ink); background-color: var(--paper); border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 13px; cursor: pointer; }
+.timeline-filter select:hover { border-color: var(--line-strong); }
+.timeline-filter select:focus-visible { outline: 3px solid var(--accent-primary); outline-offset: 3px; }
+.timeline-filter-divider { width: 3px; height: 3px; flex: none; background: var(--line-strong); border-radius: 50%; }
+.timeline-filter-hint { margin-left: auto; color: var(--muted); font-size: 12px; }

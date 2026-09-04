@@ -157,7 +157,7 @@ export function piProviderFromPreset(providerId: string, modelId: string, apiKey
     protocol: provider.protocol,
     baseUrl: provider.baseUrl,
     apiKey,
-    models: [{ ...selectedModel }],
+    models: [{ ...selectedModel, inputModalities: ["qwen", "openai"].includes(providerId) ? ["text", "image"] : selectedModel.inputModalities || ["text"] }],
   };
 }
 

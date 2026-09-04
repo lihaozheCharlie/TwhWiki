@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { Agent, type AgentEvent, type AgentMessage, type ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { contentText } from "@earendil-works/pi-ai";
 import type { AgentApprovalDecision, AgentRuntimeEvent, VaultConfig } from "@the-way-here/shared";
@@ -49,6 +50,8 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
     if (!this.enabled) throw new Error("Pi 运行时未启用");
     const model = this.catalog.get(input.model);
     if (!model) throw new Error(`Pi 模型不可用：${input.model}`);
+    if (input.images?.length && !model.input.includes("image")) throw new Error("当前模型不支持图片，请选择视觉模型或手动讲述");
+    const images = input.images?.length ? await Promise.all(input.images.map(async (image) => ({ type: "image" as const, data: (await readFile(image.path)).toString("base64"), mimeType: image.mimeType }))) : undefined;
     const sessionId = input.sessionId || randomUUID();
     if (this.active.get(sessionId)?.agent.state.isStreaming) throw new Error("Pi 会话已有一个回合正在运行");
     const restored = input.sessionId ? await this.sessions.load(sessionId) : undefined;
@@ -74,7 +77,7 @@ export class PiRuntimeAdapter extends RuntimeEventSource implements AgentRuntime
     setImmediate(() => {
       if (this.active.get(sessionId) !== execution) return;
       this.emit({ ref, event: { type: "turn.started", sessionId, turnId } });
-      void agent.prompt(input.prompt).catch(async (error: any) => {
+      void agent.prompt(input.prompt, images).catch(async (error: any) => {
         await this.finish(execution, execution.interrupted ? "interrupted" : "failed", error.message || String(error));
       });
     });

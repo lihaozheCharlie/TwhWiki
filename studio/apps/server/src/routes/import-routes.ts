@@ -1,11 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import type { SourceImportChannel, SourceImportFile } from "@the-way-here/shared";
 import { ImportRequestError, ImportStore } from "../modules/imports/import-store.js";
-import { KnowledgeRuntime } from "../runtime/knowledge-runtime.js";
 import { RunCoordinator } from "../runtime/run-coordinator.js";
 
-export function registerImportRoutes(app: FastifyInstance, knowledge: KnowledgeRuntime, runs: RunCoordinator): void {
-  const imports = new ImportStore(knowledge);
+export function registerImportRoutes(app: FastifyInstance, imports: ImportStore, runs: RunCoordinator): void {
   app.get("/api/imports", async () => imports.list(await runs.list()));
   app.post<{ Body: { files?: SourceImportFile[]; channel?: SourceImportChannel; targetFolder?: string } }>("/api/imports/files", { bodyLimit: 145 * 1024 * 1024 }, async (request, reply) => {
     try {

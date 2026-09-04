@@ -11,6 +11,7 @@ import "./styles/archive-theme.css";
 import "./styles/understanding.css";
 import "./styles/relationships.css";
 import "./styles/sources-redesign.css";
+import "./styles/letters-redesign.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

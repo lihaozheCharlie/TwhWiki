@@ -9,9 +9,6 @@
 .growth-note::before { display: none; }
 .growth-note { padding-top: 0; }
 
-.life-atlas::after { display: none; }
-.atlas-route::after { display: none; }
-
 .person-relationship-context, .letter-origin { padding: 15px 22px; background: #f7f7f9; border-bottom: 1px solid var(--line); }
 .person-relationship-context > span { color: var(--muted); font-size: 10px; font-weight: 600; }
 .person-relationship-context a { min-height: 30px; display: inline-flex; align-items: center; padding: 5px 9px; color: #425166; background: #fff; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; }
@@ -249,7 +246,7 @@
 .knowledge-document:not(.has-outline) > .editable-document-body { grid-row: 3; }
 
 /* One page owns the reading scroll; shared Markdown never creates a second viewport. */
-.editable-document--preview, .knowledge-document { overflow: visible; align-items: start; grid-template-rows: auto auto auto; }
+.editable-document--preview, .knowledge-document { overflow: visible; align-items: start; align-content: start; grid-template-rows: auto auto auto; }
 .editable-document--preview .editable-document-body, .knowledge-document > .editable-document-body { overflow: visible; }
 .editable-document--preview > textarea, .knowledge-document > textarea { height: auto; min-height: 64vh; overflow: hidden; resize: none; }
 .editable-document--preview > .document-outline, .knowledge-document > .document-outline { position: sticky; top: 124px; max-height: calc(100dvh - 148px); overflow: auto; align-self: start; }

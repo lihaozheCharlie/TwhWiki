@@ -118,6 +118,7 @@ export class CodexAppServer extends EventEmitter {
       providerDisplayName: "OpenAI",
       displayName: String(model.displayName || model.name || model.id || model.model),
       description: model.description ? String(model.description) : undefined,
+      inputModalities: (Array.isArray(model.inputModalities) ? model.inputModalities.filter((value: string) => value === "text" || value === "image") : ["text", "image"]) as Array<"text" | "image">,
       supportedReasoningEfforts: (model.supportedReasoningEfforts || model.reasoningEfforts || []).map((entry: any) => String(entry.reasoningEffort || entry.effort || entry)) as AgentReasoningEffort[],
       defaultReasoningEffort: (model.defaultReasoningEffort || model.defaultEffort) as AgentReasoningEffort | undefined,
     })).filter((model) => model.id);
@@ -136,13 +137,14 @@ export class CodexAppServer extends EventEmitter {
     await this.request("thread/resume", { threadId, cwd });
   }
 
-  async startTurn(threadId: string, prompt: string, cwd: string, options: { model?: string; effort?: AgentReasoningEffort } = {}): Promise<string> {
+  async startTurn(threadId: string, prompt: string, cwd: string, options: { model?: string; effort?: AgentReasoningEffort; imagePaths?: string[]; readOnly?: boolean } = {}): Promise<string> {
     const response = await this.request<{ turn: { id: string } }>("turn/start", {
       threadId,
       cwd,
       ...(options.model ? { model: options.model } : {}),
       ...(options.effort ? { effort: options.effort } : {}),
-      input: [{ type: "text", text: prompt }],
+      ...(options.readOnly ? { sandboxPolicy: { type: "readOnly" }, approvalPolicy: "never" } : {}),
+      input: [{ type: "text", text: prompt }, ...(options.imagePaths || []).map((imagePath) => ({ type: "localImage", path: imagePath }))],
     });
     return response.turn.id;
   }

@@ -50,10 +50,6 @@ h1, h2, h3, h4 { scroll-margin-top: 124px; }
 .page-hero h1 { max-width: 17ch; margin: 0 0 13px; font-size: clamp(42px, 5vw, 64px); font-weight: 680; line-height: 1; letter-spacing: -.05em; text-wrap: balance; }
 .page-hero-copy > p { max-width: 67ch; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.68; text-wrap: pretty; }
 .page-hero-aside { min-width: 210px; align-self: stretch; display: flex; align-items: end; padding-left: 34px; border-left: 1px solid var(--line); }
-.hero-metric { display: grid; align-content: end; }
-.hero-metric b { font-size: clamp(48px, 6vw, 72px); font-weight: 620; line-height: .9; letter-spacing: -.065em; font-variant-numeric: tabular-nums; }
-.hero-metric span { margin-top: 14px; color: var(--ink); font-size: 12px; font-weight: 650; }
-.hero-metric small { margin-top: 5px; color: var(--muted); font-size: 10px; }
 .source-page-header { margin-bottom: 34px; border-bottom: 1px solid var(--line); }
 .source-workspace-intro { min-height: 104px; display: flex; align-items: center; justify-content: space-between; gap: 36px; margin-bottom: 24px; padding: 4px 0 25px; border-bottom: 1px solid var(--line); }
 .source-workspace-intro > div:first-child { min-width: 0; }
@@ -153,8 +149,10 @@ h1, h2, h3, h4 { scroll-margin-top: 124px; }
 .new-source-form > header b { font-size: 11px; }
 .new-source-form > header button { width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); background: rgba(255, 255, 255, .7); border: 0; border-radius: 50%; font-size: 17px; line-height: 1; }
 .new-source-form > label { display: grid; gap: 5px; color: var(--muted); font-size: 10px; }
-.new-source-form input { width: 100%; min-height: 38px; padding: 0 10px; color: var(--ink); background: #fff; border: 1px solid rgba(0, 0, 0, .08); border-radius: 9px; outline: 0; font-size: 11px; }
-.new-source-form input:focus-visible { border-color: var(--accent-primary); outline: 3px solid rgba(87, 138, 131, .13); outline-offset: 0; }
+.new-source-form :is(input, select) { width: 100%; min-height: 38px; padding: 0 10px; color: var(--ink); background: #fff; border: 1px solid rgba(0, 0, 0, .08); border-radius: 9px; outline: 0; font: inherit; font-size: 11px; }
+.new-source-form select { padding-right: 34px; cursor: pointer; }
+.new-source-form :is(input, select):focus-visible { border-color: var(--accent-primary); outline: 3px solid rgba(87, 138, 131, .13); outline-offset: 0; }
+.new-source-form > label > small { color: var(--muted); font-size: 10px; line-height: 1.5; }
 .new-source-form > footer { display: grid; gap: 9px; }
 .new-source-form > footer span { min-height: 25px; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .new-source-form > footer button { min-height: 38px; color: #fff; background: var(--accent-primary); border: 0; border-radius: 999px; font-size: 10px; font-weight: 680; }

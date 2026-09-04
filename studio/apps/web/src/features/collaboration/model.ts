@@ -42,6 +42,7 @@ export type AgentAutoSubmission = {
 
 export function agentContextIdentity(context: AgentContext): string {
   const target = context.defaultOutputTarget;
+  if (target?.kind === "photo-memory") return `photo:${target.importId}:${target.phase}`;
   if (target?.kind === "journey-report") return `journey:${target.importId}:${target.storedPath}`;
   if (target?.kind === "letter-version") return `letter:${target.pageId}:${target.lensId}`;
   if (context.pageId) return `page:${context.pageId}`;
@@ -85,7 +86,7 @@ export function resolveAgentAutoSubmission(request: OpenContextAgentRequest, def
 }
 
 export function resolveComposerMode(requested?: WikiRun["mode"], outputTarget?: AgentOutputTarget, lockMode = false): WikiRun["mode"] {
-  if (outputTarget?.kind === "journey-report") return "read";
+  if (outputTarget?.kind === "journey-report" || outputTarget?.kind === "photo-memory") return "read";
   if (lockMode && requested) return requested;
   return requested === "validate" ? "validate" : "auto";
 }
@@ -131,6 +132,22 @@ export function groupAgentThreads(runs: WikiRun[]): AgentThread[] {
     const sorted = threadRuns.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     return { id, latest: sorted.at(-1)!, runs: sorted };
   }).sort((a, b) => b.latest.createdAt.localeCompare(a.latest.createdAt));
+}
+
+export function boundAgentThreadForPage(runs: WikiRun[], pageId?: string): AgentThread | undefined {
+  if (!pageId) return undefined;
+  const normalizePagePath = (value: string) => value.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\.md$/i, "");
+  const normalizedPageId = normalizePagePath(pageId);
+  return groupAgentThreads(runs).find((thread) => thread.runs.some((run) => {
+    if (run.contextPageId && normalizePagePath(run.contextPageId) === normalizedPageId) return true;
+    if (run.outputTarget?.kind === "letter-version" && run.outputTarget.pageId === pageId) return true;
+    const paths = [run.sourceContext?.storedPath, ...(run.sourceContext?.storedPaths || [])];
+    return paths.some((storedPath) => {
+      if (!storedPath) return false;
+      const normalizedStoredPath = normalizePagePath(storedPath);
+      return normalizedStoredPath === normalizedPageId || normalizedStoredPath.endsWith(`/${normalizedPageId}`);
+    });
+  }));
 }
 
 export const collaborationModes: Record<WikiRun["mode"], {
@@ -195,6 +212,7 @@ export function runFinalAnswer(run: WikiRun): string | undefined {
 }
 
 export function visibleAgentAnswer(answer: string, target?: AgentOutputTarget): string {
+  if (target?.kind === "photo-memory") return answer.replace(/<photo-memory>[\s\S]*?(?:<\/photo-memory>|$)/g, "").trim();
   if (target?.kind !== "journey-report") return answer.trim();
   const start = answer.lastIndexOf(JOURNEY_REPORT_OUTPUT_START);
   const end = answer.indexOf(JOURNEY_REPORT_OUTPUT_END, start + JOURNEY_REPORT_OUTPUT_START.length);

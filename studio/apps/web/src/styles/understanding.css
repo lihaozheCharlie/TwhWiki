@@ -10,6 +10,8 @@
   --understanding-self-soft: #e7f0ee;
   --understanding-life: #697b5d;
   --understanding-life-soft: #edf1e8;
+  --understanding-letter: var(--understanding-life);
+  --understanding-letter-soft: var(--understanding-life-soft);
   --understanding-people: #8b6d52;
   --understanding-people-soft: #f3ede4;
   color: var(--ink);
@@ -21,13 +23,14 @@
 .understanding-glyph--small { width: 46px; height: 46px; border-radius: 8px; }
 .understanding-glyph--self { color: var(--understanding-self); background: var(--understanding-self-soft); }
 .understanding-glyph--life { color: var(--understanding-life); background: var(--understanding-life-soft); }
+.understanding-glyph--letter { color: var(--understanding-letter); background: var(--understanding-letter-soft); }
 .understanding-glyph--people { color: var(--understanding-people); background: var(--understanding-people-soft); }
 
 .understanding-overview-lede { margin: 2px 0 32px; }
 .understanding-overview-lede h1 { margin: 0 0 10px; font-family: var(--font-display); font-size: clamp(32px, 4vw, 44px); font-weight: 540; letter-spacing: -.035em; line-height: 1.08; }
 .understanding-overview-lede p { max-width: var(--ui-copy-max); margin: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
 .understanding-overview-lede > span { display: block; margin-top: 12px; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
-.understanding-entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.understanding-entry-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .understanding-entry { min-width: 0; min-height: 176px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 17px; padding: 26px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; transition: background-color .18s var(--ease), border-color .18s var(--ease); }
 .understanding-entry:hover { color: inherit; background: var(--surface-subtle); border-color: var(--line-strong); }
 .understanding-entry:focus-visible { outline-color: currentColor; }
@@ -38,6 +41,7 @@
 .understanding-entry div > span b { color: var(--ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .understanding-entry--self:hover > .icon { color: var(--understanding-self); }
 .understanding-entry--life:hover > .icon { color: var(--understanding-life); }
+.understanding-entry--letter:hover > .icon { color: var(--understanding-letter); }
 .understanding-entry--people:hover > .icon { color: var(--understanding-people); }
 .understanding-overview-foot { display: flex; align-items: center; justify-content: space-between; gap: 28px; margin-top: 32px; padding: 26px 0 0; border-top: 1px solid var(--line); }
 .understanding-overview-foot h2 { margin: 0 0 7px; font-size: 16px; font-weight: 650; }
@@ -267,8 +271,11 @@ button.understanding-timeline-item:hover > div,
 .understanding-relationship-web footer i.center { background: var(--understanding-people); }
 .understanding-relationship-web footer i.role { background: var(--understanding-people-soft); border: 1px solid color-mix(in srgb, var(--understanding-people) 35%, transparent); }
 .understanding-relationship-web footer i.person { background: #fff; border: 1px solid var(--understanding-people); }
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   .understanding-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
   .understanding-row-groups { grid-template-columns: 1fr; }
   .understanding-relationship-web svg { height: 310px; }
 }

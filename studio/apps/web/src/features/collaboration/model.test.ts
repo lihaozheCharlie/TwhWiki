@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { WikiRun } from "@the-way-here/shared";
-import { agentContextIdentity, attachedContextPrompt, contextPrompt, groupAgentThreads, letterRunVersions, resolveAgentAutoSubmission, resolveComposerMode, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput, visibleAgentAnswer } from "./model";
+import { agentContextIdentity, attachedContextPrompt, boundAgentThreadForPage, contextPrompt, groupAgentThreads, letterRunVersions, resolveAgentAutoSubmission, resolveComposerMode, runDisplayPrompt, runFinalAnswer, shouldSubmitAgentInput, visibleAgentAnswer } from "./model";
 
 describe("collaboration model", () => {
+  it("hides photo payloads, including a partial streaming block", () => {
+    const target = { kind: "photo-memory" as const, importId: "batch", storedPath: "sources/photo.md", label: "照片", phase: "analyze" as const };
+    expect(visibleAgentAnswer('你想从哪里讲起？<photo-memory>{"photos":[]}</photo-memory>', target)).toBe("你想从哪里讲起？");
+    expect(visibleAgentAnswer('看看这里。<photo-memory>{"photos":', target)).toBe("看看这里。");
+    expect(resolveComposerMode("write", target)).toBe("read");
+  });
   it("extracts the final answer from Codex events", () => {
     const run = { events: [{ payload: { item: { type: "agentMessage", phase: "final_answer", text: "最终判断" } } }] } as unknown as WikiRun;
     expect(runFinalAnswer(run)).toBe("最终判断");
@@ -46,6 +52,25 @@ describe("collaboration model", () => {
     expect(threads[0]?.latest.id).toBe("run-3");
     expect(threads[1]?.runs.map((run) => run.id)).toEqual(["run-1", "run-2"]);
     expect(threads[1]?.latest.id).toBe("run-2");
+  });
+
+  it("restores the latest conversation bound to a page even while it is running", () => {
+    const older = { id: "run-old", contextPageId: "sources/日记/今天", status: "completed", createdAt: "2026-09-03T09:00:00.000Z" } as WikiRun;
+    const running = { id: "run-running", contextPageId: "sources/日记/今天", runtimeSessionId: "session-current", status: "running", createdAt: "2026-09-03T11:00:00.000Z" } as WikiRun;
+    const unrelated = { id: "run-other", contextPageId: "sources/日记/别处", status: "completed", createdAt: "2026-09-03T12:00:00.000Z" } as WikiRun;
+
+    expect(boundAgentThreadForPage([older, unrelated, running], "sources/日记/今天")?.latest.id).toBe("run-running");
+  });
+
+  it("restores legacy source conversations whose stored path includes the vault prefix", () => {
+    const legacy = {
+      id: "run-legacy",
+      status: "waiting_approval",
+      createdAt: "2026-09-03T11:00:00.000Z",
+      sourceContext: { importId: "manual", storedPath: "vault/personal/原始知识库/日记/今天.md", flow: "direct" },
+    } as unknown as WikiRun;
+
+    expect(boundAgentThreadForPage([legacy], "原始知识库/日记/今天")?.latest.id).toBe("run-legacy");
   });
 
   it("keeps completed perspective rereads as ordered letter versions", () => {

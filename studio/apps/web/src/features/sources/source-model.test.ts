@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SourceImportBatch, WikiPageSummary } from "@the-way-here/shared";
-import { countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildActionPresentation, sourceBuildPresentation, sourceBuildRecordForPage, sourceMonthOptions, sourceRecordMonth, sourceRecordType } from "./source-model";
+import { buildableSourceRecordForPage, countRecentSources, detectImportSelectionKind, importedFolderForBatch, pendingSourceBuildRecords, sourceBuildActionPresentation, sourceBuildPresentation, sourceBuildRecordForPage, sourceMonthOptions, sourceRecordMonth, sourceRecordType } from "./source-model";
 
 function page(overrides: Partial<WikiPageSummary>): WikiPageSummary {
   return {
@@ -23,6 +23,8 @@ describe("life record presentation model", () => {
   it("classifies the supported source families from their durable metadata", () => {
     expect(sourceRecordType(page({ relativePath: "sources/AI聊天记录/ChatGPT/对话.md" }))).toBe("ai");
     expect(sourceRecordType(page({ relativePath: "sources/AI聊天记录/Claude/对话.md" }))).toBe("ai");
+    expect(sourceRecordType(page({ relativePath: "sources/未分类/对话.md", importChannel: "claude" }))).toBe("ai");
+    expect(sourceRecordType(page({ relativePath: "sources/未分类/对话.md", importChannel: "other-ai" }))).toBe("ai");
     expect(sourceRecordType(page({ tags: ["支付宝"] }))).toBe("bill");
     expect(sourceRecordType(page({ relativePath: "sources/随手笔记/灵感.md" }))).toBe("notes");
   });
@@ -97,6 +99,16 @@ describe("life record presentation model", () => {
     expect(pending).toHaveLength(1);
     expect(sourceBuildRecordForPage(page({ relativePath: "sources/日记/今天.md" }), pending)?.batch.id).toBe("batch-1");
     expect(sourceBuildRecordForPage(page({ relativePath: "sources/日记/旧记录.md" }), pending)).toBeUndefined();
+  });
+
+  it("offers an untracked source the same direct build action as an imported record", () => {
+    const record = buildableSourceRecordForPage(page({ id: "sources/日记/新记录", relativePath: "sources/日记/新记录.md", title: "新记录" }), []);
+
+    expect(record).toMatchObject({
+      batch: { id: "source:sources/日记/新记录" },
+      file: { originalName: "新记录.md", storedPath: "sources/日记/新记录.md", buildKind: "direct", buildStatus: "ready" },
+    });
+    expect(sourceBuildActionPresentation(record.file)).toEqual({ kind: "start", label: "构建这份记录" });
   });
 
   it("reduces a completed build to one quiet status without warnings or a destination", () => {

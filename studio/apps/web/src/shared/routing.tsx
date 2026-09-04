@@ -21,6 +21,11 @@ export function apiPageHref(id: string): string {
   return `/api/pages/${id.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+export function pageDestination(page: Pick<WikiPageSummary, "id" | "category">): string {
+  if (page.category === "letters") return `/letters?${new URLSearchParams({ letter: page.id })}`;
+  return pageHref(page.id);
+}
+
 export function useReturnContext(): ReturnContext {
   const location = useLocation();
   return { returnTo: `${location.pathname}${location.search}`, returnLabel: returnLabelForPath(location.pathname) };
@@ -28,7 +33,7 @@ export function useReturnContext(): ReturnContext {
 
 export function PageLink({ page, className = "", children }: { page: WikiPageSummary; className?: string; children?: ReactNode }) {
   const returnContext = useReturnContext();
-  return <NavLink to={pageHref(page.id)} state={returnContext} className={className}>{children || page.title}</NavLink>;
+  return <NavLink to={pageDestination(page)} state={returnContext} className={className}>{children || page.title}</NavLink>;
 }
 
 function returnLabelForPath(pathname: string): string {

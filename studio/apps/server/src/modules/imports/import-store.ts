@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { SourceBuildStatus, SourceBuiltRef, SourceImportBatch, SourceImportChannel, SourceImportFile, WikiRun } from "@the-way-here/shared";
-import { prepareImportBatch } from "../../import-materials.js";
+import type { SourceBuildStatus, SourceBuiltRef, SourceImportBatch, SourceImportChannel, SourceImportFile, WikiPage, WikiRun } from "@the-way-here/shared";
+import { prepareImportBatch } from "./prepare-import.js";
 import { isPathInside, normalizeSourceFolder } from "../../path-policy.js";
 import { KnowledgeRuntime } from "../../runtime/knowledge-runtime.js";
 
@@ -55,6 +55,35 @@ export class ImportStore {
     return batch;
   }
 
+  async trackCreatedSource(page: Pick<WikiPage, "relativePath" | "title" | "markdown">): Promise<SourceImportBatch> {
+    const storedPath = page.relativePath.replace(/\\/g, "/");
+    const target = path.resolve(this.knowledge.vaultRoot, storedPath);
+    const sourceRoot = this.sourceRoot();
+    if (!isPathInside(sourceRoot, target) || !/\.md$/i.test(storedPath)) throw new ImportRequestError(400, "只能登记生活记录中的 Markdown 文件");
+    const createdAt = new Date().toISOString();
+    const bytes = Buffer.byteLength(page.markdown, "utf8");
+    const file = {
+      originalName: path.posix.basename(storedPath) || `${page.title}.md`,
+      storedPath,
+      bytes,
+      buildKind: "direct" as const,
+      buildStatus: "ready" as const,
+      buildUpdatedAt: createdAt,
+    };
+    const batch: SourceImportBatch = {
+      id: importBatchId(createdAt, [storedPath]),
+      createdAt,
+      channel: "files",
+      targetFolder: path.relative(sourceRoot, path.dirname(target)).split(path.sep).join("/"),
+      fileCount: 1,
+      totalBytes: bytes,
+      files: [file],
+    };
+    await this.writeBatch(batch);
+    this.knowledge.events.broadcast("import", { importId: batch.id, storedPath, buildStatus: file.buildStatus });
+    return batch;
+  }
+
   async create(request: ImportRequest): Promise<SourceImportBatch> {
     const files = request.files;
     if (!Array.isArray(files) || files.length === 0) throw new ImportRequestError(400, "请选择需要导入的材料");
@@ -69,8 +98,7 @@ export class ImportStore {
     }
 
     const createdAt = new Date().toISOString();
-    const digest = createHash("sha256").update(`${createdAt}:${files.map((file) => file.relativePath || file.name).join("|")}`).digest("hex").slice(0, 8);
-    const id = `${createdAt.replace(/[-:.TZ]/g, "").slice(0, 14)}-${digest}`;
+    const id = importBatchId(createdAt, files.map((file) => file.relativePath || file.name));
     const sourceRoot = this.sourceRoot();
     const targetRoot = path.resolve(sourceRoot, targetFolder);
     if (targetRoot !== sourceRoot && !isPathInside(sourceRoot, targetRoot)) throw new ImportRequestError(403, "目标文件夹超出原始知识目录");
@@ -90,7 +118,7 @@ export class ImportStore {
         throw new ImportRequestError(400, error.message);
       }
       const storedPath = path.relative(this.knowledge.vaultRoot, target).split(path.sep).join("/");
-      const build = classifyBuild(file.relativePath, file.content, channel, prepared.journey);
+      const build = classifyBuild(file.relativePath, file.content, prepared.journey);
       stored.push({ originalName: file.originalName, storedPath, bytes: file.bytes, ...build, buildUpdatedAt: build.buildStatus ? createdAt : undefined });
     }
     const batch: SourceImportBatch = {
@@ -200,7 +228,12 @@ export class ImportStore {
   }
 }
 
-function classifyBuild(relativePath: string, content: string, channel: SourceImportChannel, journey?: SourceImportBatch["journey"]): Pick<SourceImportBatch["files"][number], "buildKind" | "buildStatus" | "clueCount"> {
+function importBatchId(createdAt: string, identities: string[]): string {
+  const digest = createHash("sha256").update(`${createdAt}:${identities.join("|")}`).digest("hex").slice(0, 8);
+  return `${createdAt.replace(/[-:.TZ]/g, "").slice(0, 14)}-${digest}`;
+}
+
+function classifyBuild(relativePath: string, content: string, journey?: SourceImportBatch["journey"]): Pick<SourceImportBatch["files"][number], "buildKind" | "buildStatus" | "clueCount"> {
   if (!/\.md$/i.test(relativePath)) return {};
   if (journey && relativePath === journey.reportPath) return { buildKind: "dialogue", buildStatus: "needs-dialogue", clueCount: journey.clusters.length };
   const readable = content.replace(/^---[\s\S]*?---\s*/m, "").replace(/[#>*_`\[\]()|-]/g, " ").replace(/\s+/g, " ").trim();
@@ -216,7 +249,8 @@ function resolvedBuildStatus(kind: NonNullable<SourceImportBatch["files"][number
 }
 
 function runMatchesFile(run: WikiRun, importId: string, storedPath: string, kind: NonNullable<SourceImportBatch["files"][number]["buildKind"]>): boolean {
-  if (run.outputTarget?.kind === "journey-report") {
+  if (run.outputTarget?.kind === "photo-memory" && run.outputTarget.phase === "analyze") return false;
+  if (run.outputTarget?.kind === "journey-report" || run.outputTarget?.kind === "photo-memory") {
     return run.outputTarget.importId === importId && run.outputTarget.storedPath === storedPath;
   }
   const context = run.sourceContext;
@@ -226,9 +260,9 @@ function runMatchesFile(run: WikiRun, importId: string, storedPath: string, kind
 }
 
 function reconcileDialogueBuild(file: SourceImportBatch["files"][number], runs: WikiRun[], builtRefs: (run: WikiRun) => SourceBuiltRef[]): void {
-  const enrichRuns = runs.filter((run) => run.outputTarget?.kind === "journey-report" || run.sourceContext?.operation === "enrich");
+  const enrichRuns = runs.filter((run) => (run.outputTarget?.kind === "journey-report" || run.outputTarget?.kind === "photo-memory") || run.sourceContext?.operation === "enrich");
   const buildRuns = runs.filter((run) => run.sourceContext?.operation === "build"
-    || run.sourceContext?.operation === undefined && run.outputTarget?.kind !== "journey-report");
+    || run.sourceContext?.operation === undefined && run.outputTarget?.kind !== "journey-report" && run.outputTarget?.kind !== "photo-memory");
   const latestEnrich = enrichRuns[0];
   const latestBuild = buildRuns[0];
   const activeEnrich = enrichRuns.find((run) => activeRun(run));

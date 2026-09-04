@@ -35,6 +35,7 @@ export interface WikiPageSummary {
   title: string;
   category: PageCategory;
   type?: string;
+  importChannel?: SourceImportChannel;
   aliases: string[];
   tags: string[];
   status?: string;
@@ -55,6 +56,11 @@ export interface WikiPage extends WikiPageSummary {
   outgoingLinks: WikiLink[];
   relatedPages?: WikiPageSummary[];
   incomingLinks: WikiPageSummary[];
+}
+
+export interface SourceFolderSummary {
+  /** Slash-separated path relative to the current knowledge base's source root. */
+  path: string;
 }
 
 export interface VaultConfig {
@@ -105,7 +111,49 @@ export interface SourceImportFile {
 
 export type SourceChatImportChannel = "chatgpt" | "claude" | "gemini" | "deepseek" | "doubao" | "other-ai";
 
-export type SourceImportChannel = "files" | SourceChatImportChannel | "alipay";
+export type SourceImportChannel = "files" | SourceChatImportChannel | "alipay" | "photos";
+
+export type PhotoBox = { x: number; y: number; width: number; height: number };
+export interface PhotoPerson {
+  id: string;
+  box: PhotoBox;
+  name: string;
+  pageId?: string;
+  useAsAvatar: boolean;
+}
+export interface MemoryPhoto {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  observation?: string;
+  question?: string;
+  people: PhotoPerson[];
+}
+export interface PhotoMemory {
+  id: string;
+  knowledgeBaseId: string;
+  title: string;
+  reportPath: string;
+  revision: number;
+  reportHash?: string;
+  createdAt: string;
+  photos: MemoryPhoto[];
+  draft: string;
+  confirmedStory: string;
+  confirmedAt?: string;
+  builtAt?: string;
+  builtPeople?: Array<{ photoId: string; personId: string; pageId: string; avatar: boolean }>;
+}
+export interface PersonPhoto {
+  imageUrl: string;
+  avatarUrl?: string;
+  reportPageId: string;
+  title: string;
+}
+export function photoAssetUrl(knowledgeBaseId: string, memoryId: string, photoId: string, variant = "preview"): string {
+  return `/api/photo-memories/${encodeURIComponent(memoryId)}/assets/${encodeURIComponent(photoId)}/${encodeURIComponent(variant)}?knowledgeBaseId=${encodeURIComponent(knowledgeBaseId)}`;
+}
 
 export type SourceBuildKind = "direct" | "dialogue" | "identify";
 
@@ -323,6 +371,8 @@ export interface PersonGroup {
 }
 
 export interface PersonInsight extends WikiPageSummary {
+  avatarUrl?: string;
+  photos?: PersonPhoto[];
   mentionCount: number;
   lastMention?: string;
   relatedStages: WikiPageSummary[];
@@ -418,6 +468,7 @@ export type AgentReasoningEffort = "off" | "minimal" | "low" | "medium" | "high"
 export type AgentProviderProtocol = "openai-completions" | "openai-responses" | "anthropic-messages";
 
 export interface AgentProviderModelConfig {
+  inputModalities?: Array<"text" | "image">;
   id: string;
   displayName: string;
   reasoning: boolean;
@@ -452,6 +503,7 @@ export interface AgentRuntimeConfig {
 }
 
 export interface AgentModelOption {
+  inputModalities?: Array<"text" | "image">;
   runtimeId: AgentRuntimeId;
   id: string;
   provider?: string;
@@ -557,12 +609,21 @@ export interface JourneyReportOutputTarget {
   expectedContentHash?: string;
 }
 
+export interface PhotoMemoryOutputTarget {
+  kind: "photo-memory";
+  importId: string;
+  storedPath: string;
+  label: string;
+  phase: "analyze" | "enrich";
+  expectedRevision?: number;
+}
+
 export const JOURNEY_REPORT_OUTPUT_START = "<journey-report>";
 export const JOURNEY_REPORT_OUTPUT_END = "</journey-report>";
 export const JOURNEY_REPORT_DRAFT_START = "<!-- the-way-here:journey-draft:start -->";
 export const JOURNEY_REPORT_DRAFT_END = "<!-- the-way-here:journey-draft:end -->";
 
-export type AgentOutputTarget = LetterVersionOutputTarget | JourneyReportOutputTarget;
+export type AgentOutputTarget = LetterVersionOutputTarget | JourneyReportOutputTarget | PhotoMemoryOutputTarget;
 
 export interface WikiRun {
   id: string;
@@ -579,6 +640,7 @@ export interface WikiRun {
   effort?: AgentReasoningEffort;
   outputTarget?: AgentOutputTarget;
   sourceContext?: SourceRunContext;
+  contextPageId?: string;
   recoveredFromLegacyWorkspace?: boolean;
   mode: "auto" | "read" | "write" | "validate";
   status: RunStatus;

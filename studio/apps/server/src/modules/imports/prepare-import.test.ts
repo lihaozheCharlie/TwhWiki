@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { prepareImportFiles } from "./import-materials.js";
+import { prepareImportBatch } from "./prepare-import.js";
 
 function storedZip(name: string, content: string): string {
   return storedZipEntries([[name, content]]);
@@ -44,7 +44,7 @@ function storedZipEntries(entries: Array<[string, string]>): string {
 
 describe("material imports", () => {
   it("extracts Markdown and TXT files from a ZIP while preserving folders", () => {
-    const files = prepareImportFiles([{ name: "notes.zip", content: storedZip("archive/note.txt", "hello"), encoding: "base64" }], "files", "2026-08-24T00:00:00.000Z");
+    const files = prepareImportBatch([{ name: "notes.zip", content: storedZip("archive/note.txt", "hello"), encoding: "base64" }], "files", "2026-08-24T00:00:00.000Z").files;
     expect(files).toHaveLength(1);
     expect(files[0]?.relativePath).toBe("archive/note.md");
     expect(files[0]?.content).toContain("# note");
@@ -56,7 +56,7 @@ describe("material imports", () => {
       first: { message: { author: { role: "user" }, content: { parts: ["Question"] }, create_time: 1 } },
       second: { message: { author: { role: "assistant" }, content: { parts: ["Answer"] }, create_time: 2 } },
     } }]);
-    const files = prepareImportFiles([{ name: "conversations.json", content: exportJson }], "chatgpt", "2026-08-24T00:00:00.000Z");
+    const files = prepareImportBatch([{ name: "conversations.json", content: exportJson }], "chatgpt", "2026-08-24T00:00:00.000Z").files;
     expect(files).toHaveLength(1);
     expect(files[0]?.relativePath).toBe("A useful chat.md");
     expect(files[0]?.content).toContain("## 我");
@@ -86,7 +86,7 @@ describe("material imports", () => {
       ["conversations.json", conversations],
     ]);
 
-    const files = prepareImportFiles([{ name: "claude-export.zip", content: archive, encoding: "base64" }], "claude", "2026-08-24T00:00:00.000Z");
+    const files = prepareImportBatch([{ name: "claude-export.zip", content: archive, encoding: "base64" }], "claude", "2026-08-24T00:00:00.000Z").files;
 
     expect(files.map((file) => file.relativePath)).toEqual(["A Claude chat.md", "Empty chat.md"]);
     expect(files[0]?.content).toContain('import_channel: "claude"');
@@ -102,7 +102,7 @@ describe("material imports", () => {
   });
 
   it("does not allow ZIP paths to escape the selected folder", () => {
-    const files = prepareImportFiles([{ name: "notes.zip", content: storedZip("../../outside.txt", "safe"), encoding: "base64" }], "files", "2026-08-24T00:00:00.000Z");
+    const files = prepareImportBatch([{ name: "notes.zip", content: storedZip("../../outside.txt", "safe"), encoding: "base64" }], "files", "2026-08-24T00:00:00.000Z").files;
     expect(files[0]?.relativePath).toBe("outside.md");
   });
 });

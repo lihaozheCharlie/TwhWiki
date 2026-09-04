@@ -1,6 +1,6 @@
 import type { SourceImportBatch, WikiPageSummary } from "@the-way-here/shared";
 
-export type SourceRecordType = "notes" | "ai" | "bill";
+export type SourceRecordType = "notes" | "ai" | "bill" | "photos";
 export type ImportSelectionKind = "file" | "files" | "folder" | "archive";
 export type SourceBuildRecord = { batch: SourceImportBatch; file: SourceImportBatch["files"][number] };
 export type SourceBuildPresentation = {
@@ -18,6 +18,7 @@ export const sourceRecordTypes: ReadonlyArray<{ id: "all" | SourceRecordType; la
   { id: "notes", label: "日记与笔记" },
   { id: "ai", label: "AI 对话" },
   { id: "bill", label: "消费账单" },
+  { id: "photos", label: "照片与影像" },
 ];
 
 export function cleanSourcePath(relativePath: string): string {
@@ -36,7 +37,10 @@ export function importedFolderForBatch(batch: Pick<SourceImportBatch, "files" | 
   return first.slice(0, commonDepth).join("/") || cleanSourcePath(batch.targetFolder || "");
 }
 
-export function sourceRecordType(page: Pick<WikiPageSummary, "relativePath" | "type" | "tags">): SourceRecordType {
+export function sourceRecordType(page: Pick<WikiPageSummary, "relativePath" | "type" | "importChannel" | "tags">): SourceRecordType {
+  if (page.importChannel === "photos") return "photos";
+  if (page.importChannel === "alipay") return "bill";
+  if (page.importChannel && page.importChannel !== "files") return "ai";
   const identity = `${page.relativePath} ${page.type || ""} ${page.tags.join(" ")}`.toLocaleLowerCase();
   if (/(消费账单|支付宝|alipay|payment|bill)/i.test(identity)) return "bill";
   if (/(ai聊天记录|ai 对话|chatgpt|gemini|deepseek|豆包|claude)/i.test(identity)) return "ai";
@@ -96,6 +100,23 @@ export function pendingSourceBuildRecords(batches: SourceImportBatch[]): SourceB
 export function sourceBuildRecordForPage(page: Pick<WikiPageSummary, "relativePath">, records: SourceBuildRecord[]): SourceBuildRecord | undefined {
   const sourcePath = page.relativePath.replace(/\\/g, "/");
   return records.find(({ file }) => file.storedPath.replace(/\\/g, "/") === sourcePath);
+}
+
+export function buildableSourceRecordForPage(page: Pick<WikiPageSummary, "id" | "relativePath" | "title" | "modifiedAt">, records: SourceBuildRecord[]): SourceBuildRecord {
+  const tracked = sourceBuildRecordForPage(page, records);
+  if (tracked) return tracked;
+  const storedPath = page.relativePath.replace(/\\/g, "/");
+  const file = {
+    originalName: storedPath.split("/").at(-1) || `${page.title}.md`,
+    storedPath,
+    bytes: 0,
+    buildKind: "direct" as const,
+    buildStatus: "ready" as const,
+  };
+  return {
+    batch: { id: `source:${page.id}`, createdAt: page.modifiedAt, fileCount: 1, totalBytes: 0, files: [file] },
+    file,
+  };
 }
 
 export function sourceBuildPresentation(file: SourceBuildRecord["file"]): SourceBuildPresentation {

@@ -15,6 +15,16 @@ const config: VaultConfig = {
 };
 
 describe("run policy", () => {
+  it("validates photo phases and never trusts a client revision token", () => {
+    const target = { kind: "photo-memory", importId: "batch-1", storedPath: "sources/memory.md", label: "记忆", phase: "analyze" };
+    expect(parseAgentOutputTarget({ ...target, expectedRevision: 99 })).toEqual(target);
+    expect(parseAgentOutputTarget({ ...target, phase: "build" })).toBeUndefined();
+    expect(parseAgentOutputTarget({ ...target, storedPath: "" })).toBeUndefined();
+    const prompt = addOutputTargetInstructions("看图片", parseAgentOutputTarget(target));
+    expect(prompt).toContain("严格只读");
+    expect(prompt).toContain("不猜身份");
+    expect(prompt).toContain("<photo-memory>");
+  });
   it("accepts only declared run modes and reasoning efforts", () => {
     expect(parseRunMode("write")).toBe("write");
     expect(parseRunMode("auto")).toBe("auto");
