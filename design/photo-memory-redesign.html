@@ -139,44 +139,13 @@
   .step2-copy h3 .counter { font-size: 13px; font-weight: 600; color: var(--faint); font-family: var(--font-ui); }
   .step2-copy p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.8; max-width: 62ch; }
 
-  .people-field { margin-bottom: 16px; }
-  .people-field .field-label { display: block; margin-bottom: 8px; font-size: 12px; color: var(--faint); font-weight: 600; }
-  .people-row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .people-row .pill { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 999px; background: var(--surface-tinted); color: var(--accent-primary); font-size: 12.5px; font-weight: 600; }
-  .people-empty { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; }
-  .people-empty a { color: var(--accent-primary); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-weight: 600; }
-  .people-empty a:hover { color: var(--ink); }
-
   .story-field .field-label { display: block; margin-bottom: 8px; font-size: 12px; color: var(--faint); font-weight: 600; }
-  textarea.story-input { width: 100%; min-height: 140px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); font: 14px/1.9 var(--font-ui); color: var(--ink); resize: vertical; transition: opacity .2s var(--ease); }
+  textarea.story-input { width: 100%; min-height: 140px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); font: 14px/1.9 var(--font-ui); color: var(--ink); resize: vertical; transition: border-color .2s var(--ease); }
   textarea.story-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(87,138,131,.12); }
   textarea.story-input::placeholder { color: var(--faint); }
-  textarea.story-input.dimmed { opacity: .5; }
-  .assist-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; color: var(--muted); font-size: 12.5px; background: none; border: 0; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
-  .assist-link:hover { color: var(--ink); text-decoration-color: var(--accent-primary); }
-
-  /* AI 陪聊面板 — 一条引导式对话，走到最后给一版可用草稿 */
-  .ai-chat { margin-top: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-subtle); display: flex; flex-direction: column; gap: 12px; }
-  .ai-chat[hidden] { display: none; }
-  .ai-chat-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--faint); font-weight: 600; }
-  .ai-msg { display: flex; gap: 8px; align-items: flex-start; animation: fade-in .25s var(--ease) both; }
-  .ai-msg[hidden] { display: none; }
-  .ai-msg .avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-primary); color: #fff; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; flex-shrink: 0; }
-  .ai-msg .bubble { max-width: 82%; padding: 8px 12px; border-radius: 10px; background: #fff; border: 1px solid var(--line); font-size: 13px; line-height: 1.7; color: var(--ink); }
-  .ai-msg.user { flex-direction: row-reverse; }
-  .ai-msg.user .bubble { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .ai-msg.typing .bubble { color: var(--faint); font-style: italic; }
-  .ai-quick-replies { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 30px; animation: fade-in .25s var(--ease) both; }
-  .ai-quick-replies[hidden] { display: none; }
-  .ai-quick-replies button { padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink); font-size: 12.5px; cursor: pointer; text-align: left; font-family: inherit; }
-  .ai-quick-replies button:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
-  .ai-draft-block { margin-left: 30px; padding: 12px 14px; border: 1px dashed var(--accent-primary); border-radius: 10px; background: #fff; font-size: 13px; line-height: 1.8; color: var(--ink); animation: fade-in .25s var(--ease) both; }
-  .ai-draft-block[hidden] { display: none; }
-  .ai-chat-actions { display: flex; align-items: center; gap: 16px; margin-left: 30px; animation: fade-in .25s var(--ease) both; }
-  .ai-chat-actions[hidden] { display: none; }
-  .ai-chat-actions .primary-btn { min-height: 36px; padding: 8px 16px; font-size: 13px; }
-  .ai-chat-close { border: 0; background: none; color: var(--muted); font-size: 12.5px; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; font-family: inherit; }
-  .ai-chat-close:hover { color: var(--ink); }
+  .assist-link { color: var(--accent-primary); font-weight: 600; background: none; border: 0; cursor: pointer; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+  .assist-link:hover { color: var(--ink); }
+  .assist-link:disabled { color: var(--faint); cursor: default; text-decoration: none; }
 
   /* Footer — exactly one primary action, one quiet exit */
   .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 26px; border-top: 1px solid var(--line); background: var(--paper); }
@@ -204,24 +173,24 @@
 <body>
 
   <div class="page-intro">
-    <span class="kicker">交互简化 · 设计稿 v3</span>
+    <span class="kicker">交互简化 · 设计稿 v4</span>
     <h1>照片记忆标注流程 — 认人和讲故事，两步各管各的事</h1>
-    <p>这一版把「故事」拆回到每张照片各自记录，不再合并成一整段——毕竟同一段记忆里，不同照片背后的事往往不一样。第 2 步里的人物标签改成只读展示，改人物是第 1 步「认人」的事，第 2 步不重复提供编辑入口。「和 AI 聊几句」也从一个模糊的按钮，变成一段真正可以走完的引导对话。</p>
+    <p>这一版把讲故事这一步做得更干脆：人物只在第 1 步「认人」里出现，第 2 步不再重复展示，因为需要移除的人物在认人时就不会被标注上。「不知道怎么写」和「AI 陪聊」两个入口合并成一句话里的一个动作——点一下，AI 直接把这张照片的故事写出来填进框里，不需要来回问答。</p>
     <div class="compare">
       <div class="before">
         <h3>这次要解决的问题</h3>
         <ul>
-          <li>3 张照片共用一段故事，但每张照片背后的事可能完全不同</li>
-          <li>讲故事这一步还能改人物，但改人物本该是认人那一步的事，重复了</li>
-          <li>「和 AI 聊几句」点了之后发生什么，完全没设计，只是个摆设按钮</li>
+          <li>第 2 步还在展示"照片里认出的人"，但要移除人物本该在第 1 步操作，这里重复且没必要</li>
+          <li>"这张还没写…"的提示和"✦ 和 AI 聊几句"的按钮说的是同一件事，却分成了两处</li>
+          <li>点"和 AI 聊几句"之后要来回问答两轮才能拿到草稿，路径偏长</li>
         </ul>
       </div>
       <div class="after">
         <h3>这版的改法</h3>
         <ul>
-          <li>故事按每张照片单独写，顶部胶片条切照片，右下角小圆点标记哪张写了哪张没写</li>
-          <li>人物标签在第 2 步只读展示，没人认就提示"回第 1 步认一下"，不在这里重复编辑</li>
-          <li>「和 AI 聊几句」现在是一段真实对话：AI 问两句、你选着答，最后给一版草稿，用不用你说了算</li>
+          <li>第 2 步去掉人物展示模块，只专心讲故事，人物的事完全交给第 1 步</li>
+          <li>提示语和 AI 入口合并成一句话："还没写，可以自己写，也可以点 AI 帮你写"</li>
+          <li>点一下"AI 帮你写"，AI 直接生成这张照片的故事并填进输入框，不用来回聊</li>
         </ul>
       </div>
     </div>
@@ -319,50 +288,9 @@
             <p id="storySubtitle">这张已经写好了，随时可以接着改。每张照片各自记一段就好，不用凑成一整段。</p>
           </div>
 
-          <div class="people-field">
-            <span class="field-label">照片里认出的人</span>
-            <div class="people-row" id="peopleRow">
-              <span class="pill">外婆</span>
-              <span class="pill">妈妈</span>
-              <span class="pill">舅舅</span>
-            </div>
-            <div class="people-empty" id="peopleEmpty" hidden>还没认出人物 · <a id="goTagLink">回第 1 步认一下</a></div>
-          </div>
-
           <div class="story-field">
             <span class="field-label">故事</span>
             <textarea class="story-input" id="storyInput" placeholder="这张照片是什么时候、发生了什么？">那年夏天我们回外婆家过暑假，院子里的葡萄架刚好结果，舅舅从部队休假回来，难得一家人凑齐拍了这张照片。</textarea>
-            <button class="assist-link" id="assistLink">✦ 不知道怎么写？和 AI 聊几句，帮你理出线索</button>
-
-            <div class="ai-chat" id="aiChat" hidden>
-              <div class="ai-chat-head">
-                <span>和 AI 聊几句</span>
-                <button class="ai-chat-close" id="aiChatCloseTop">先不聊了</button>
-              </div>
-
-              <div class="ai-msg" data-el="q1"><span class="avatar">AI</span><span class="bubble">先说说，这张照片大概是什么时候、在哪拍的？</span></div>
-              <div class="ai-quick-replies" data-el="r1">
-                <button data-reply="1998 年夏天，外婆家院子里">1998 年夏天，外婆家院子里</button>
-              </div>
-
-              <div class="ai-msg user" data-el="a1" hidden><span class="bubble">1998 年夏天，外婆家院子里</span></div>
-              <div class="ai-msg typing" data-el="t1" hidden><span class="avatar">AI</span><span class="bubble">在想…</span></div>
-
-              <div class="ai-msg" data-el="q2" hidden><span class="avatar">AI</span><span class="bubble">当时有什么让你印象深刻的事，或者一句谁说的话？</span></div>
-              <div class="ai-quick-replies" data-el="r2" hidden>
-                <button data-reply="舅舅刚好休假回来，一家人难得凑齐了">舅舅刚好休假回来，一家人难得凑齐了</button>
-              </div>
-
-              <div class="ai-msg user" data-el="a2" hidden><span class="bubble">舅舅刚好休假回来，一家人难得凑齐了</span></div>
-              <div class="ai-msg typing" data-el="t2" hidden><span class="avatar">AI</span><span class="bubble">在想…</span></div>
-
-              <div class="ai-msg" data-el="q3" hidden><span class="avatar">AI</span><span class="bubble">帮你理了一下线索，你可以直接用，也可以接着改：</span></div>
-              <div class="ai-draft-block" data-el="draft" hidden>那年夏天我们回外婆家过暑假，舅舅刚好休假回来，一家人难得凑齐，就在院子里拍了这张照片。</div>
-              <div class="ai-chat-actions" data-el="actions" hidden>
-                <button class="primary-btn" id="useDraftBtn">用这段</button>
-                <button class="ai-chat-close" id="keepWritingBtn">还是自己写</button>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -381,7 +309,7 @@
   </div>
 
   <div class="annot">
-    <b>演示说明：</b>顶部两个进度条或右下角按钮切主步骤。第 2 步「讲故事」新增了自己的胶片条——每张照片各写各的故事，右下角小圆点标记写好没写；人物标签变成只读，没认出人的照片会提示回第 1 步认；点「和 AI 聊几句」会展开一段可以走完的引导对话，AI 问、你选着答，最后给一版草稿，点「用这段」直接填进故事框。
+    <b>演示说明：</b>顶部两个进度条或右下角按钮切主步骤。第 2 步「讲故事」用胶片条切换每张照片各自的故事，右下角小圆点标记写好没写；这一步不再展示人物，人物的认领/移除都在第 1 步完成。故事为空时，提示语里直接带一个「AI 帮你写」的动作——点一下，AI 生成这张照片的故事并直接填进输入框，不需要来回问答。
   </div>
 
 <script>
@@ -418,10 +346,20 @@
   skipBtn.addEventListener('click', () => { if (current < 2) { current += 1; renderStep(); } });
 
   // ---------- 每张照片各自的故事状态 ----------
+  // aiDraft：AI 点击后直接生成、填进输入框的内容（demo 数据，实际接后端生成）
   const photos = [
-    { people: ['外婆', '妈妈', '舅舅'], story: '那年夏天我们回外婆家过暑假，院子里的葡萄架刚好结果，舅舅从部队休假回来，难得一家人凑齐拍了这张照片。' },
-    { people: ['外婆', '妈妈'], story: '' },
-    { people: [], story: '' },
+    {
+      story: '那年夏天我们回外婆家过暑假，院子里的葡萄架刚好结果，舅舅从部队休假回来，难得一家人凑齐拍了这张照片。',
+      aiDraft: '那年夏天我们回外婆家过暑假，舅舅刚好休假回来，一家人难得凑齐，就在院子里拍了这张照片。',
+    },
+    {
+      story: '',
+      aiDraft: '这张应该也是同一次回外婆家拍的，院子里的光线和构图很相似，大概也是那年夏天一家人在一起的片段。',
+    },
+    {
+      story: '',
+      aiDraft: '这张照片里的人还没认出来，暂时只能看出是在户外拍的一张合照，认出人物后 AI 能写得更具体。',
+    },
   ];
   let storyIdx = 0;
 
@@ -430,9 +368,6 @@
   const storyInput = document.getElementById('storyInput');
   const storyCounter = document.getElementById('storyCounter');
   const storySubtitle = document.getElementById('storySubtitle');
-  const peopleRow = document.getElementById('peopleRow');
-  const peopleEmpty = document.getElementById('peopleEmpty');
-  const goTagLink = document.getElementById('goTagLink');
 
   function updateDot(idx) {
     const has = photos[idx].story.trim().length > 0;
@@ -445,20 +380,9 @@
     storyFilmstripBtns.forEach((b, i) => b.classList.toggle('active', i === storyIdx));
     storyCounter.textContent = `${storyIdx + 1} / ${photos.length}`;
     storyInput.value = photos[storyIdx].story;
-    storySubtitle.textContent = photos[storyIdx].story.trim()
-      ? '这张已经写好了，随时可以接着改。每张照片各自记一段就好，不用凑成一整段。'
-      : '这张还没写，可以自己写，也可以点下面让 AI 陪你聊几句。';
-
-    const people = photos[storyIdx].people;
-    if (people.length) {
-      peopleRow.hidden = false;
-      peopleEmpty.hidden = true;
-      peopleRow.innerHTML = people.map(p => `<span class="pill">${p}</span>`).join('');
-    } else {
-      peopleRow.hidden = true;
-      peopleEmpty.hidden = false;
-    }
-    resetChat();
+    storySubtitle.innerHTML = photos[storyIdx].story.trim()
+      ? '这张已经写好了，随时可以接着改。'
+      : '这张还没写，可以自己写，也可以点 <button class="assist-link" id="assistLink">AI 帮你写</button>。';
     updateDot(storyIdx);
   }
 
@@ -472,61 +396,21 @@
     updateDot(storyIdx);
   });
 
-  goTagLink.addEventListener('click', () => {
-    current = 1;
-    renderStep();
-    tagFilmstripBtns.forEach((x, j) => x.classList.toggle('active', j === storyIdx));
+  // ---------- AI 帮你写：点一下直接生成一版故事，填进输入框 ----------
+  // 用事件委托绑定在 storySubtitle 上，因为按钮是随内容一起重新渲染出来的
+  storySubtitle.addEventListener('click', (e) => {
+    const btn = e.target.closest('#assistLink');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'AI 正在写…';
+    setTimeout(() => {
+      const draft = photos[storyIdx].aiDraft;
+      storyInput.value = draft;
+      photos[storyIdx].story = draft;
+      updateDot(storyIdx);
+      renderStory();
+    }, 700);
   });
-
-  // ---------- 和 AI 聊几句：一段可以走完的引导对话 ----------
-  const assistLink = document.getElementById('assistLink');
-  const aiChat = document.getElementById('aiChat');
-  const chatEls = {};
-  aiChat.querySelectorAll('[data-el]').forEach(el => { chatEls[el.dataset.el] = el; });
-
-  function showEl(key) { chatEls[key].hidden = false; }
-  function hideEl(key) { chatEls[key].hidden = true; }
-
-  function resetChat() {
-    aiChat.hidden = true;
-    assistLink.style.display = 'inline-flex';
-    storyInput.classList.remove('dimmed');
-    ['a1', 't1', 'q2', 'r2', 'a2', 't2', 'q3', 'draft', 'actions'].forEach(hideEl);
-    showEl('q1');
-    showEl('r1');
-  }
-
-  assistLink.addEventListener('click', () => {
-    aiChat.hidden = false;
-    assistLink.style.display = 'none';
-    storyInput.classList.add('dimmed');
-  });
-
-  document.querySelector('[data-el="r1"] button').addEventListener('click', () => {
-    hideEl('r1');
-    showEl('a1');
-    showEl('t1');
-    setTimeout(() => { hideEl('t1'); showEl('q2'); showEl('r2'); }, 650);
-  });
-
-  document.querySelector('[data-el="r2"] button').addEventListener('click', () => {
-    hideEl('r2');
-    showEl('a2');
-    showEl('t2');
-    setTimeout(() => { hideEl('t2'); showEl('q3'); showEl('draft'); showEl('actions'); }, 650);
-  });
-
-  document.getElementById('useDraftBtn').addEventListener('click', () => {
-    const draft = chatEls.draft.textContent.trim();
-    storyInput.value = draft;
-    photos[storyIdx].story = draft;
-    updateDot(storyIdx);
-    resetChat();
-    storySubtitle.textContent = '这张已经写好了，随时可以接着改。每张照片各自记一段就好，不用凑成一整段。';
-  });
-
-  document.getElementById('keepWritingBtn').addEventListener('click', resetChat);
-  document.getElementById('aiChatCloseTop').addEventListener('click', resetChat);
 
   renderStep();
   renderStory();
