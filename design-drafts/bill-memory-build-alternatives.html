@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>账单记忆构建方式 · 设计探讨</title>
+<style>
+  :root {
+    --teal: #578a83;
+    --mist: #f4f7f6;
+    --paper: #fbfcfc;
+    --ink: #263440;
+    --muted: #5f706f;
+    --line: #d9e1df;
+    --gold: #b9874c;
+    --radius-control: 5px;
+    --radius-panel: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--mist);
+    color: var(--ink);
+    font-family: "Noto Sans SC Variable", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.8;
+  }
+  h1, h2, h3, .serif {
+    font-family: Georgia, "Songti SC", STSong, "Source Han Serif SC", serif;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 32px 120px;
+  }
+  header.hero {
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 48px;
+  }
+  header.hero .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  header.hero .eyebrow::before {
+    content: "";
+    width: 18px;
+    height: 1px;
+    background: var(--teal);
+    display: inline-block;
+  }
+  header.hero h1 {
+    font-size: clamp(32px, 4vw, 48px);
+    line-height: 1.2;
+    margin: 0 0 18px;
+    max-width: 820px;
+  }
+  header.hero p.lead {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 720px;
+    margin: 0;
+  }
+  section { margin-bottom: 88px; }
+  section > .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 16px;
+  }
+  section > .section-head h2 {
+    font-size: 26px;
+    margin: 0;
+  }
+  section > .section-head span.tag {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  section > .section-intro {
+    color: var(--muted);
+    max-width: 780px;
+    margin: 0 0 32px;
+  }
+
+  /* ---- Current flow diagram ---- */
+  .flow-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+  .flow-step {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    padding: 22px 22px 20px;
+    flex: 1;
+    position: relative;
+  }
+  .flow-step .step-index {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .flow-step h3 {
+    font-size: 18px;
+    margin: 0 0 8px;
+  }
+  .flow-step p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .flow-step .repeat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--gold);
+    background: rgba(185, 135, 76, 0.1);
+    border-radius: 999px;
+    padding: 3px 9px;
+    margin-top: 12px;
+  }
+  .flow-arrow {
+    width: 44px;
+    flex: 0 0 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 18px;
+  }
+
+  .qa-example {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    gap: 28px;
+  }
+  .qa-example .clue-list h4,
+  .qa-example .chat-preview h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .clue-item {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .clue-item b { display: block; margin-bottom: 4px; }
+  .clue-item span { color: var(--muted); }
+  .clue-item.active { border-color: var(--teal); background: rgba(87, 138, 131, 0.06); }
+  .chat-preview {
+    border-left: 1px solid var(--line);
+    padding-left: 28px;
+  }
+  .bubble {
+    max-width: 88%;
+    padding: 10px 14px;
+    border-radius: var(--radius-control);
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .bubble.agent { background: var(--mist); border: 1px solid var(--line); }
+  .bubble.user { background: var(--ink); color: var(--paper); margin-left: auto; }
+  .chat-note {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 14px;
+  }
+
+  .pain-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 28px;
+  }
+  .pain-card {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: var(--radius-panel);
+    padding: 18px 18px 16px;
+  }
+  .pain-card .mark {
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .pain-card p { margin: 0; font-size: 13px; color: var(--muted); }
+
+  /* ---- Alternatives grid ---- */
+  .alt-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .alt-card {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: var(--radius-panel);
+    padding: 26px;
+    display: flex;
+    flex-direction: column;
+  }
+  .alt-card.is-recommended { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+  .alt-card .alt-badge {
+    display: inline-flex;
+    align-self: flex-start;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 3px 10px;
+    margin-bottom: 14px;
+  }
+  .alt-card h3 { font-size: 19px; margin: 0 0 8px; }
+  .alt-card .pitch { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  .alt-schema {
+    background: var(--mist);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 16px;
+    margin-bottom: 18px;
+    min-height: 96px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .schema-chip {
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: var(--radius-control);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .schema-chip.on { background: var(--teal); color: var(--paper); border-color: var(--teal); }
+  .schema-chip.gold { background: rgba(185,135,76,0.14); border-color: var(--gold); color: var(--gold); }
+  .schema-arrow { color: var(--muted); font-size: 14px; }
+  .alt-lists {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: auto;
+  }
+  .alt-lists h5 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .alt-lists ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--ink); }
+  .alt-lists li { margin-bottom: 5px; }
+  .alt-lists.tradeoff ul { color: var(--muted); }
+
+  /* ---- Recommended detailed mockup ---- */
+  .mock-frame {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--paper);
+    overflow: hidden;
+  }
+  .mock-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 26px;
+    border-bottom: 1px solid var(--line);
+    background: var(--mist);
+  }
+  .mock-topbar h3 { font-size: 17px; margin: 0; }
+  .mock-topbar p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .mock-topbar .mock-progress {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .mock-topbar .mock-progress b { color: var(--teal); font-weight: 600; }
+
+  .mock-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .mock-cards {
+    padding: 24px;
+    border-right: 1px solid var(--line);
+  }
+  .mock-cards .hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+  .memory-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .memory-card.is-focused { border-color: var(--teal); background: rgba(87,138,131,0.05); }
+  .memory-card .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .memory-card .top-row h4 { font-size: 14px; margin: 0; }
+  .memory-card .top-row .confidence {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .memory-card p.summary { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+  .memory-card .actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .memory-card .actions button {
+    font: inherit;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: default;
+  }
+  .memory-card .actions button.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .memory-card .actions button.accent {
+    border-color: var(--teal);
+    color: var(--teal);
+  }
+  .memory-card .actions button.ghost {
+    color: var(--muted);
+  }
+
+  .mock-detail {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+  }
+  .mock-detail .detail-head {
+    margin-bottom: 16px;
+  }
+  .mock-detail .detail-head h4 { font-size: 15px; margin: 0 0 4px; }
+  .mock-detail .detail-head span { font-size: 12px; color: var(--muted); }
+  .mock-detail .quick-replies {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 14px 0 18px;
+  }
+  .mock-detail .quick-replies button {
+    font: inherit;
+    font-size: 12px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--mist);
+    color: var(--ink);
+  }
+  .mock-detail .quick-replies button.selected {
+    background: var(--teal);
+    color: var(--paper);
+    border-color: var(--teal);
+  }
+  .mock-detail .divider-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin: 6px 0 16px;
+    position: relative;
+  }
+  .mock-detail .divider-label::before,
+  .mock-detail .divider-label::after {
+    content: "";
+    display: inline-block;
+    width: 28%;
+    height: 1px;
+    background: var(--line);
+    vertical-align: middle;
+    margin: 0 8px;
+  }
+  .mock-detail .chat-thread {
+    flex: 1;
+  }
+  .mock-detail .compose {
+    margin-top: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--mist);
+  }
+  .mock-detail .compose button {
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: var(--radius-control);
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+  }
+
+  /* comparison table */
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.compare th, table.compare td {
+    border: 1px solid var(--line);
+    padding: 12px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--paper);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  table.compare tbody th {
+    background: var(--mist);
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  table.compare td { color: var(--ink); background: var(--paper); }
+  table.compare td.reco { background: rgba(87,138,131,0.06); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.hi { background: var(--teal); }
+  .dot.mid { background: var(--gold); }
+  .dot.lo { background: var(--line); }
+
+  .closing {
+    border-top: 1px solid var(--line);
+    padding-top: 32px;
+  }
+  .closing ol {
+    padding-left: 20px;
+    color: var(--ink);
+  }
+  .closing ol li { margin-bottom: 10px; }
+  .closing ol li b { color: var(--teal); }
+
+  @media (max-width: 980px) {
+    .alt-grid, .mock-body, .qa-example { grid-template-columns: 1fr; }
+    .pain-grid { grid-template-columns: 1fr; }
+    .flow-row { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); width: auto; padding: 6px 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">设计探讨 · 非最终方案</span>
+    <h1>导入账单后，记忆要怎么被「问出来」？</h1>
+    <p class="lead">现在的做法是把账单解析成若干条线索，再由 Agent 逐条追问、一次只问一个开放式问题，靠对话慢慢把「消费旅程」聊成「已确认的记忆」。这份设计稿先拆解现状，再给出几种可以替代或叠加的构建方式，供讨论取舍——不涉及代码改动。</p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2 class="serif">现状回顾</h2>
+      <span class="tag">payment-statement.ts · Sources.tsx</span>
+    </div>
+    <p class="section-intro">账单导入后固定走三步：解析成候选线索 → 对话完善（可反复）→ 用户确认后构建入 Wiki。第二步是当前讨论的核心——完全由一问一答推进。</p>
+
+    <div class="flow-row">
+      <div class="flow-step">
+        <span class="step-index">STEP 1</span>
+        <h3>账单解析</h3>
+        <p>按重复商户、地点、单日多事件、跨日期主题、旅程五种模式聚类，每条线索都带一个候选问题，按分数排序，最多保留 10 条。</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="step-index">STEP 2</span>
+        <h3>对话完善</h3>
+        <p>Agent 挑最像完整经历的一条线索，用一句话点出联系，再抛一个开放式问题；用户用几句话或一段话回答，Agent 复述要点后追问下一层。</p>
+        <span class="repeat-badge">● 可反复，不影响 Wiki</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="step-index">STEP 3</span>
+        <h3>构建入 Wiki</h3>
+        <p>用户主动点击「构建这份记录」，只有确认过的叙述会被摄取；候选线索和逐笔账单始终只是参考证据。</p>
+      </div>
+    </div>
+
+    <div class="qa-example">
+      <div class="clue-list">
+        <h4>候选线索（按分数排序）</h4>
+        <div class="clue-item active"><b>5月起 · 杭州旅程候选</b><span>7 笔记录，交通 + 住宿 + 餐饮，评分最高，Agent 优先挑它开场</span></div>
+        <div class="clue-item"><b>反复出现的「代码人生咖啡」</b><span>11 笔，多集中在上午 9 点前后，疑似固定通勤习惯</span></div>
+        <div class="clue-item"><b>运动与骑行线索</b><span>4 笔，迪卡侬 + 美利达 + 跑步相关消费</span></div>
+        <div class="clue-item"><b>围绕「未来科技城」的生活半径</b><span>6 笔，跨餐饮 / 购物 / 数字服务</span></div>
+      </div>
+      <div class="chat-preview">
+        <h4>对话如何展开（一次只问一件事）</h4>
+        <div class="bubble agent">五月中有段时间你在杭州密集出行，交通、住宿和几顿饭串在一起。想从哪个画面开始讲——是出发那天，还是到了之后印象最深的一件事？</div>
+        <div class="bubble user">是去看一个朋友的新工作室，顺便逛了西湖……</div>
+        <div class="bubble agent">听起来这次更像是一次「探望 + 顺路玩」的旅程。那次见面之后，你和这位朋友的联系变多了吗？</div>
+        <div class="chat-note">下一条线索（代码人生咖啡）要等这条旅程聊得差不多，或用户主动切换才会被提起——目前没有「先快速处理简单线索」的路径。</div>
+      </div>
+    </div>
+
+    <div class="pain-grid">
+      <div class="pain-card"><span class="mark">问题一 · 输入成本</span><p>10 条线索若都走「开放问题 + 长文回答」，即便只挑最像故事的几条，单条也常常要 3～5 轮才能收敛，用户要一直打字。</p></div>
+      <div class="pain-card"><span class="mark">问题二 · 顺序固定</span><p>Agent 按分数挑线索开场，用户没有「先说我最想聊的那条」的入口，也没法一眼看到全部线索再挑选。</p></div>
+      <div class="pain-card"><span class="mark">问题三 · 无分级处理</span><p>琐碎、显而易见的线索（比如「就是每天买咖啡」）和真正有故事的线索走的是同一套重问答流程，没有「直接确认，不用细说」的轻量出口。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2 class="serif">可以考虑的方向</h2>
+      <span class="tag">4 种思路 · 可组合</span>
+    </div>
+    <p class="section-intro">下面四种方式都保留「对话仍是讲述记忆的核心手段、账单只提供线索」的原则，区别在于：用户何时看到全部线索、每条线索默认要花多少力气、以及深聊什么时候才被触发。</p>
+
+    <div class="alt-grid">
+
+      <div class="alt-card">
+        <span class="alt-badge">方向 A</span>
+        <h3>线索地图先浏览，再选一条深聊</h3>
+        <p class="pitch">进入对话完善前，先给用户看一屏「线索地图」（时间线 + 分类气泡），用户自己挑感兴趣的一条开始，而不是系统按分数强制排序开场。</p>
+        <div class="alt-schema">
+          <span class="schema-chip">时间线总览</span>
+          <span class="schema-arrow">→</span>
+          <span class="schema-chip on">用户选一条</span>
+          <span class="schema-arrow">→</span>
+          <span class="schema-chip">开放问答（同现状）</span>
+        </div>
+        <div class="alt-lists">
+          <div><h5>优势</h5><ul><li>用户掌控从哪聊起</li><li>改动小，只加一层选择</li></ul></div>
+          <div class="tradeoff"><h5>取舍</h5><ul><li>没解决「琐碎线索也要重问答」</li><li>仍然是逐条单线程</li></ul></div>
+        </div>
+      </div>
+
+      <div class="alt-card">
+        <span class="alt-badge">方向 B</span>
+        <h3>先给旅程初稿，用户批注而非从零回答</h3>
+        <p class="pitch">Agent 先根据聚类直接写一段「推测性旅程叙述」草稿，明确标出哪些是推断、哪些是账单事实；用户用「这段对/这段错/帮我补充」的方式批注，而不是从空白问题开始回答。</p>
+        <div class="alt-schema">
+          <span class="schema-chip gold">推测草稿</span>
+          <span class="schema-arrow">→</span>
+          <span class="schema-chip">用户批注/纠正</span>
+          <span class="schema-arrow">→</span>
+          <span class="schema-chip on">仅对分歧处追问</span>
+        </div>
+        <div class="alt-lists">
+          <div><h5>优势</h5><ul><li>大幅降低打字量</li><li>对的部分秒确认</li></ul></div>
+          <div class="tradeoff"><h5>取舍</h5><ul><li>草稿写错会带偏用户</li><li>需要更强的措辞克制</li></ul></div>
+        </div>
+      </div>
+
+      <div class="alt-card is-recommended">
+        <span class="alt-badge">方向 C · 推荐</span>
+        <h3>线索卡片墙：确认 / 简答 / 深聊 三档分级</h3>
+        <p class="pitch">所有候选线索同屏铺开成卡片，每条卡片默认给三个动作：「确认为事实」（跳过对话，直接收录客观信息）、「简单说说」（一次性小问答，不追问）、「展开细聊」（保留现状的深度追问）。用户按线索价值自己分级处理。</p>
+        <div class="alt-schema">
+          <span class="schema-chip">卡片墙全览</span>
+          <span class="schema-arrow">→</span>
+          <span class="schema-chip on">确认</span>
+          <span class="schema-chip on">简答</span>
+          <span class="schema-chip on">深聊</span>
+        </div>
+        <div class="alt-lists">
+          <div><h5>优势</h5><ul><li>琐碎线索几秒处理完</li><li>深聊只留给真正有故事的线索</li><li>与现状对话体验兼容，可平滑升级</li></ul></div>
+          <div class="tradeoff"><h5>取舍</h5><ul><li>要设计「确认」的可撤销与证据留存</li><li>卡片墙本身多一屏信息密度</li></ul></div>
+        </div>
+      </div>
+
+      <div class="alt-card">
+        <span class="alt-badge">方向 D</span>
+        <h3>自由写作模式，账单只做「提词」</h3>
+        <p class="pitch">跳过一问一答，直接给用户一个大文本框和线索侧栏做提示，让用户像写一段回忆随笔一样一次性写完整段旅程；Agent 事后再逐句核对、只对模糊处追问。</p>
+        <div class="alt-schema">
+          <span class="schema-chip">线索提示侧栏</span>
+          <span class="schema-arrow">→</span>
+          <span class="schema-chip on">用户一次性写完</span>
+          <span class="schema-arrow">→</span>
+          <span class="schema-chip">事后核对少量追问</span>
+        </div>
+        <div class="alt-lists">
+          <div><h5>优势</h5><ul><li>擅长写作的用户效率最高</li><li>叙述连贯性天然更好</li></ul></div>
+          <div class="tradeoff"><h5>取舍</h5><ul><li>不擅长表达的用户会卡在空白输入框</li><li>与「先问一个具体问题」的产品原则冲突</li></ul></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2 class="serif">推荐方案细节：线索卡片墙</h2>
+      <span class="tag">方向 C 展开</span>
+    </div>
+    <p class="section-intro">对话完善这一步改成两层：先看全部线索卡片墙，按「确认 / 简答 / 深聊」分流；只有点了「展开细聊」的卡片才进入现状那套开放式追问对话，其余动作当场完成、不打开对话框。</p>
+
+    <div class="mock-frame">
+      <div class="mock-topbar">
+        <div>
+          <h3>支付宝消费旅程 · 5月3日—5月29日</h3>
+          <p>10 条线索 · 账单只提供参考证据，不代表已确认的经历</p>
+        </div>
+        <div class="mock-progress">账单解析 <b>已完成</b> · 对话完善 <b>3/10 已处理</b> · 构建入 Wiki 未开始</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-cards">
+          <p class="hint">按线索价值分流处理，不必按同一节奏对待每一条：</p>
+
+          <div class="memory-card">
+            <div class="top-row"><h4>反复出现的「代码人生咖啡」</h4><span class="confidence">11 笔 · 高置信</span></div>
+            <p class="summary">多集中在上午 9 点前后，疑似固定通勤习惯，细节价值有限。</p>
+            <div class="actions">
+              <button class="primary">✓ 确认为事实</button>
+              <button>简单说说</button>
+              <button class="accent">展开细聊</button>
+            </div>
+          </div>
+
+          <div class="memory-card is-focused">
+            <div class="top-row"><h4>5月起 · 杭州旅程候选</h4><span class="confidence">7 笔 · 高置信</span></div>
+            <p class="summary">交通 + 住宿 + 餐饮串成一段连续轨迹，最可能是一段完整经历。</p>
+            <div class="actions">
+              <button>确认为事实</button>
+              <button>简单说说</button>
+              <button class="accent">▸ 正在细聊</button>
+            </div>
+          </div>
+
+          <div class="memory-card">
+            <div class="top-row"><h4>运动与骑行线索</h4><span class="confidence">4 笔 · 中置信</span></div>
+            <p class="summary">迪卡侬、美利达、跑步相关消费，可能对应一段变化的开始。</p>
+            <div class="actions">
+              <button>确认为事实</button>
+              <button class="primary">已简单说说</button>
+              <button class="ghost">深聊</button>
+            </div>
+          </div>
+
+          <div class="memory-card">
+            <div class="top-row"><h4>围绕「未来科技城」的生活半径</h4><span class="confidence">6 笔 · 中置信</span></div>
+            <p class="summary">跨餐饮、购物、数字服务，可能是当时常去的一片区域。</p>
+            <div class="actions">
+              <button>确认为事实</button>
+              <button>简单说说</button>
+              <button class="accent">展开细聊</button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="mock-detail">
+          <div class="detail-head">
+            <h4>5月起 · 杭州旅程候选 · 展开细聊</h4>
+            <span>这一层和现状完全一致：一次只问一个开放式问题，回答后再顺着追问。</span>
+          </div>
+
+          <div class="chat-thread">
+            <div class="bubble agent">五月中有段时间你在杭州密集出行，交通、住宿和几顿饭串在一起。想从哪个画面开始讲——是出发那天，还是到了之后印象最深的一件事？</div>
+            <div class="bubble user">是去看一个朋友的新工作室，顺便逛了西湖……</div>
+            <div class="bubble agent">听起来这次更像是一次「探望 + 顺路玩」的旅程。那次见面之后，你和这位朋友的联系变多了吗？</div>
+          </div>
+
+          <div class="divider-label">「简单说说」用的是另一种更轻的样式</div>
+
+          <div class="detail-head">
+            <span>运动与骑行线索 · 简单说说（一次性问答，不追问）</span>
+          </div>
+          <p style="font-size:13px;color:var(--muted);margin:0 0 10px;">是不是那段时间开始运动的？</p>
+          <div class="quick-replies">
+            <button class="selected">对，那时候刚开始</button>
+            <button>不完全是，其实更早</button>
+            <button>我再说两句</button>
+          </div>
+
+          <div class="compose">
+            <span>确认过的内容会写入这份记录草稿；构建入 Wiki 前你还可以继续调整。</span>
+            <button>继续这条对话</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2 class="serif">四种方向对比</h2>
+      <span class="tag">效率 / 叙事深度 / 实现成本</span>
+    </div>
+    <table class="compare">
+      <thead>
+        <tr><th>方向</th><th>用户输入成本</th><th>叙事深度上限</th><th>与现状兼容度</th><th>实现成本</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>现状 · 纯逐条问答</th><td><span class="dot lo"></span>高（每条都要打字）</td><td><span class="dot hi"></span>高</td><td>—</td><td>—</td></tr>
+        <tr><td>A 线索地图先选</td><td><span class="dot mid"></span>中</td><td><span class="dot hi"></span>高</td><td><span class="dot hi"></span>很高</td><td><span class="dot hi"></span>低</td></tr>
+        <tr><td>B 草稿 + 批注</td><td><span class="dot hi"></span>低</td><td><span class="dot mid"></span>中（受草稿质量限制）</td><td><span class="dot mid"></span>中</td><td><span class="dot lo"></span>高</td></tr>
+        <tr class="reco"><th style="background:transparent;color:var(--ink);font-weight:600;">C 卡片墙分级（推荐）</th><td class="reco"><span class="dot hi"></span>低（可选择性投入）</td><td class="reco"><span class="dot hi"></span>高（深聊线索不打折）</td><td class="reco"><span class="dot hi"></span>高</td><td class="reco"><span class="dot mid"></span>中</td></tr>
+        <tr><td>D 自由写作</td><td><span class="dot mid"></span>因人而异</td><td><span class="dot hi"></span>高（擅长表达者）</td><td><span class="dot lo"></span>低</td><td><span class="dot mid"></span>中</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="closing">
+    <div class="section-head">
+      <h2 class="serif">建议的落地顺序</h2>
+    </div>
+    <ol>
+      <li><b>先做卡片墙全览。</b>把已有的分数排序候选线索改成一屏可见的卡片列表，替代「Agent 挑一条直接开场」——这一步不涉及对话逻辑，风险最低。</li>
+      <li><b>加「确认为事实」和「简单说说」两个轻量动作。</b>「确认」直接把线索的客观摘要（时间、地点、类别）写入记录草稿，不生成叙述性文字；「简单说说」用一次性预置选项 + 可选补充文字，不触发多轮追问。</li>
+      <li><b>「展开细聊」完全复用现状的开放式问答实现。</b>不需要重写对话逻辑，只是把入口从「自动开场」改成「用户主动点击某张卡片」。</li>
+      <li><b>构建入 Wiki 前维持现有的确认态提示。</b>「确认」和「简单说说」产生的内容依然只是草稿，和深聊产生的叙述享同一套 ready-to-build / 构建流程，不单独开一条通道。</li>
+    </ol>
+  </section>
+
+</div>
+</body>
+</html>
