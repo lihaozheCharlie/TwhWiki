@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>线索卡片墙 · 详细交互稿</title>
+<style>
+  :root {
+    --teal: #578a83;
+    --teal-deep: #3f6b65;
+    --mist: #f4f7f6;
+    --paper: #fbfcfc;
+    --ink: #263440;
+    --muted: #5f706f;
+    --line: #d9e1df;
+    --gold: #b9874c;
+    --rose: #a8615a;
+    --radius-control: 5px;
+    --radius-panel: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--mist);
+    color: var(--ink);
+    font-family: "Noto Sans SC Variable", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.75;
+  }
+  h1, h2, h3, .serif {
+    font-family: Georgia, "Songti SC", STSong, "Source Han Serif SC", serif;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 32px 140px; }
+
+  header.hero {
+    padding: 64px 0 36px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 48px;
+  }
+  header.hero .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; letter-spacing: 0.08em; color: var(--teal);
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  header.hero .eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--teal); display: inline-block; }
+  header.hero h1 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.2; margin: 0 0 16px; max-width: 860px; }
+  header.hero p.lead { font-size: 15.5px; color: var(--muted); max-width: 760px; margin: 0 0 8px; }
+  header.hero .nav-pills { display: flex; gap: 8px; margin-top: 22px; flex-wrap: wrap; }
+  header.hero .nav-pills a {
+    font-size: 12px; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+    background: var(--paper);
+  }
+  header.hero .nav-pills a:hover { border-color: var(--teal); color: var(--teal); }
+
+  section { margin-bottom: 92px; }
+  section > .section-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+    margin-bottom: 8px; border-bottom: 1px solid var(--line); padding-bottom: 16px;
+  }
+  section > .section-head h2 { font-size: 25px; margin: 0; }
+  section > .section-head span.tag { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  section > .section-intro { color: var(--muted); max-width: 800px; margin: 18px 0 30px; }
+
+  /* ---------- generic step list ---------- */
+  .step-list { list-style: none; margin: 0 0 32px; padding: 0; counter-reset: step; }
+  .step-list > li {
+    position: relative; padding-left: 40px; margin-bottom: 20px; counter-increment: step;
+  }
+  .step-list > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 0;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid var(--teal); color: var(--teal);
+    font-size: 12px; display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, serif;
+  }
+  .step-list > li h4 { margin: 0 0 4px; font-size: 14.5px; }
+  .step-list > li p { margin: 0; color: var(--muted); font-size: 13px; max-width: 720px; }
+
+  /* ---------- tab switcher ---------- */
+  .tabbar {
+    display: inline-flex; gap: 4px; background: var(--paper);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 22px;
+  }
+  .tabbar button {
+    font: inherit; font-size: 12.5px; padding: 7px 16px; border-radius: 999px;
+    border: none; background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .tabbar button.active { background: var(--ink); color: var(--paper); }
+  .tab-hint { font-size: 12px; color: var(--muted); margin: -14px 0 20px; }
+  .tab-hint b { color: var(--teal); }
+
+  /* ---------- card wall (section 1 overview) ---------- */
+  .mock-frame { border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--paper); overflow: hidden; }
+  .mock-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 26px; border-bottom: 1px solid var(--line); background: var(--mist);
+    flex-wrap: wrap; gap: 12px;
+  }
+  .mock-topbar h3 { font-size: 16.5px; margin: 0; }
+  .mock-topbar p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .progress-track {
+    width: 220px; height: 6px; border-radius: 999px; background: var(--line);
+    overflow: hidden; margin-top: 8px;
+  }
+  .progress-track > span { display: block; height: 100%; background: var(--teal); border-radius: 999px; }
+  .progress-legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .progress-legend .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+  .dot.confirmed { background: var(--teal); }
+  .dot.brief { background: var(--gold); }
+  .dot.deep { background: var(--rose); }
+  .dot.pending { background: var(--line); }
+
+  .build-cta {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .build-cta button {
+    font: inherit; font-size: 13px; padding: 9px 18px; border-radius: var(--radius-control);
+    border: 1px solid var(--line); background: var(--paper); color: var(--muted); cursor: not-allowed;
+  }
+  .build-cta button.ready { background: var(--ink); color: var(--paper); border-color: var(--ink); cursor: pointer; }
+  .build-cta small { color: var(--muted); font-size: 11px; }
+
+  .wall-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px;
+  }
+
+  .clue-card {
+    border: 1px solid var(--line); border-radius: var(--radius-panel);
+    background: var(--paper); padding: 16px; display: flex; flex-direction: column; gap: 10px;
+    transition: box-shadow .15s ease;
+  }
+  .clue-card .badge-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .clue-card .badge-row h4 { font-size: 13.5px; margin: 0; }
+  .clue-card .meta { font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .clue-card .summary { font-size: 12px; color: var(--muted); margin: 0; }
+  .clue-card .status-chip {
+    font-size: 10.5px; display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px; align-self: flex-start;
+  }
+  .status-chip.pending { background: var(--mist); color: var(--muted); border: 1px solid var(--line); }
+  .status-chip.confirmed { background: rgba(87,138,131,0.12); color: var(--teal-deep); }
+  .status-chip.brief { background: rgba(185,135,76,0.14); color: var(--gold); }
+  .status-chip.deep { background: rgba(168,97,90,0.12); color: var(--rose); }
+  .clue-card .actions { display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap; }
+  .clue-card .actions button {
+    font: inherit; font-size: 11.5px; padding: 6px 10px; border-radius: var(--radius-control);
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  }
+  .clue-card .actions button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .clue-card .actions button.accent { border-color: var(--rose); color: var(--rose); }
+  .clue-card.done { opacity: 0.7; }
+  .clue-card.done .actions { display: none; }
+  .clue-card.done .result-line { font-size: 11.5px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 4px; }
+
+  /* ---------- section 3 interactive demos ---------- */
+  .demo-shell {
+    border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--paper);
+    padding: 26px; display: grid; grid-template-columns: 300px 1fr; gap: 26px;
+  }
+  .demo-shell .demo-card-slot { border-right: 1px solid var(--line); padding-right: 24px; }
+  .demo-shell .demo-card-slot .caption { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 12px; }
+  .demo-panel { min-height: 260px; }
+  .demo-panel .empty-hint { color: var(--muted); font-size: 13px; padding-top: 30px; text-align: center; }
+
+  /* confirm micro-flow */
+  .confirm-evidence { background: var(--mist); border: 1px solid var(--line); border-radius: var(--radius-control); padding: 14px 16px; margin-bottom: 14px; }
+  .confirm-evidence h5 { font-size: 12px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .confirm-evidence ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+  .confirm-evidence li { margin-bottom: 4px; }
+  .confirm-sentence { font-size: 13.5px; margin-bottom: 16px; }
+  .confirm-sentence b { color: var(--teal-deep); }
+  .undo-toast {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--ink); color: var(--paper); border-radius: var(--radius-control);
+    padding: 10px 14px; font-size: 12.5px;
+  }
+  .undo-toast button { font: inherit; font-size: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.4); color: var(--paper); border-radius: var(--radius-control); padding: 4px 10px; }
+  .undo-toast .timer { font-size: 11px; opacity: .7; }
+
+  /* brief micro-flow */
+  .brief-question { font-size: 13.5px; margin-bottom: 14px; }
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip-row button {
+    font: inherit; font-size: 12.5px; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--mist); color: var(--ink);
+  }
+  .chip-row button.selected { background: var(--gold); border-color: var(--gold); color: var(--paper); }
+  .brief-freeform {
+    border: 1px solid var(--line); border-radius: var(--radius-control); padding: 8px 12px;
+    font-size: 12.5px; color: var(--muted); background: var(--paper); margin-bottom: 14px;
+  }
+  .brief-followup {
+    border-left: 2px solid var(--gold); padding-left: 12px; margin: 14px 0; font-size: 12.5px; color: var(--muted);
+  }
+  .brief-followup b { color: var(--gold); display: block; margin-bottom: 4px; font-size: 12px; }
+  .mini-submit { display: flex; justify-content: flex-end; }
+  .mini-submit button { font: inherit; font-size: 12.5px; padding: 7px 16px; border-radius: var(--radius-control); background: var(--ink); color: var(--paper); border: none; }
+
+  /* deep chat micro-flow */
+  .chat-thread .bubble { max-width: 90%; padding: 10px 14px; border-radius: var(--radius-control); margin-bottom: 10px; font-size: 12.5px; }
+  .chat-thread .bubble.agent { background: var(--mist); border: 1px solid var(--line); }
+  .chat-thread .bubble.user { background: var(--ink); color: var(--paper); margin-left: auto; }
+  .chat-collapse {
+    display: flex; justify-content: space-between; align-items: center; margin-top: 14px;
+    border: 1px solid var(--line); border-radius: var(--radius-control); padding: 10px 12px; background: var(--mist);
+    font-size: 12px; color: var(--muted);
+  }
+  .chat-collapse button { font: inherit; font-size: 12px; padding: 5px 12px; border-radius: var(--radius-control); background: var(--rose); color: var(--paper); border: none; }
+
+  /* result line inline preview for demo panel default state */
+  .state-note { font-size: 12px; color: var(--muted); margin-bottom: 16px; padding: 10px 12px; background: var(--mist); border-radius: var(--radius-control); border: 1px dashed var(--line); }
+
+  /* ---------- build confirmation modal mockup ---------- */
+  .modal-mock {
+    border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--paper);
+    max-width: 620px; margin: 0 auto; overflow: hidden;
+  }
+  .modal-mock .modal-head { padding: 20px 26px; border-bottom: 1px solid var(--line); }
+  .modal-mock .modal-head h3 { font-size: 17px; margin: 0 0 4px; }
+  .modal-mock .modal-head p { font-size: 12.5px; color: var(--muted); margin: 0; }
+  .modal-mock .modal-body { padding: 20px 26px; }
+  .modal-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .modal-row:last-child { border-bottom: none; }
+  .modal-row .label { display: flex; align-items: center; gap: 8px; }
+  .modal-row .count { color: var(--muted); font-size: 12px; }
+  .modal-mock .modal-foot { padding: 16px 26px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; background: var(--mist); }
+  .modal-mock .modal-foot button { font: inherit; font-size: 13px; padding: 9px 18px; border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--paper); }
+  .modal-mock .modal-foot button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  /* ---------- edge case grid ---------- */
+  .edge-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .edge-card { border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-panel); padding: 18px 20px; }
+  .edge-card .mark { font-size: 11px; letter-spacing: .04em; color: var(--rose); margin-bottom: 8px; display: block; text-transform: uppercase; }
+  .edge-card h4 { font-size: 14px; margin: 0 0 6px; }
+  .edge-card p { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+  .closing { border-top: 1px solid var(--line); padding-top: 32px; }
+  .closing ol { padding-left: 20px; }
+  .closing ol li { margin-bottom: 10px; font-size: 13.5px; }
+  .closing ol li b { color: var(--teal-deep); }
+
+  @media (max-width: 980px) {
+    .wall-grid { grid-template-columns: 1fr 1fr; }
+    .demo-shell, .edge-grid { grid-template-columns: 1fr; }
+    .demo-shell .demo-card-slot { border-right: none; border-bottom: 1px solid var(--line); padding-right: 0; padding-bottom: 20px; }
+  }
+  @media (max-width: 640px) {
+    .wall-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">设计探讨 · 交互细化稿 · 非最终方案</span>
+    <h1>线索卡片墙：确认 / 简答 / 深聊 三档分级的完整交互</h1>
+    <p class="lead">这份稿子只展开推荐方向 C，把「对话完善」这一步拆成两层：先看全部候选线索的卡片墙，用户对每条线索自主选择处理力度；只有「展开细聊」才进入现状那套开放式追问对话，其余两条路径当场完成、不打开长对话。</p>
+    <div class="nav-pills">
+      <a href="#overview">① 页面结构总览</a>
+      <a href="#states">② 卡片状态系统</a>
+      <a href="#confirm">③ 确认为事实</a>
+      <a href="#brief">④ 简单说说</a>
+      <a href="#deep">⑤ 展开细聊</a>
+      <a href="#build">⑥ 构建入 Wiki</a>
+      <a href="#edge">⑦ 边界情况</a>
+    </div>
+  </header>
+
+  <section id="overview">
+    <div class="section-head">
+      <h2 class="serif">① 页面结构总览</h2>
+      <span class="tag">替代现状 Step 2 的整屏</span>
+    </div>
+    <p class="section-intro">进入「对话完善」后，不再由 Agent 强制挑一条线索开场，而是先铺开全部候选线索卡片。顶部条固定展示总进度；卡片墙按分数从高到低排列，但用户可以任意顺序处理；已处理的卡片会保留在原位但视觉降权，方便回顾而不打断节奏。</p>
+
+    <div class="mock-frame">
+      <div class="mock-topbar">
+        <div>
+          <h3>支付宝消费旅程 · 5月3日—5月29日</h3>
+          <p>10 条候选线索 · 账单只提供参考证据，不代表已确认的经历</p>
+          <div class="progress-track"><span style="width: 40%"></span></div>
+          <div class="progress-legend">
+            <span><i class="dot confirmed"></i>已确认 2</span>
+            <span><i class="dot brief"></i>已简答 2</span>
+            <span><i class="dot deep"></i>已深聊 0</span>
+            <span><i class="dot pending"></i>待处理 6</span>
+          </div>
+        </div>
+        <div class="build-cta">
+          <button>构建这份记录</button>
+          <small>还有 6 条线索未处理，处理完或主动跳过后可构建</small>
+        </div>
+      </div>
+      <div class="wall-grid">
+
+        <div class="clue-card done">
+          <div class="badge-row"><h4>反复出现的「代码人生咖啡」</h4><span class="meta">11 笔</span></div>
+          <span class="status-chip confirmed">✓ 已确认为事实</span>
+          <p class="result-line">已收录：工作日上午的固定咖啡消费习惯，无需展开细节。</p>
+        </div>
+
+        <div class="clue-card">
+          <div class="badge-row"><h4>5月起 · 杭州旅程候选</h4><span class="meta">7 笔 · 高置信</span></div>
+          <p class="summary">交通 + 住宿 + 餐饮串成一段连续轨迹，最可能是一段完整经历。</p>
+          <span class="status-chip pending">待处理</span>
+          <div class="actions">
+            <button>确认为事实</button>
+            <button>简单说说</button>
+            <button class="accent">展开细聊</button>
+          </div>
+        </div>
+
+        <div class="clue-card done">
+          <div class="badge-row"><h4>运动与骑行线索</h4><span class="meta">4 笔</span></div>
+          <span class="status-chip brief">已简答</span>
+          <p class="result-line">已收录：三月新买了辆自行车，周末固定骑行通勤代替公交。</p>
+        </div>
+
+        <div class="clue-card">
+          <div class="badge-row"><h4>围绕「未来科技城」的生活半径</h4><span class="meta">6 笔</span></div>
+          <p class="summary">跨餐饮 / 购物 / 数字服务，疑似常驻活动范围。</p>
+          <span class="status-chip pending">待处理</span>
+          <div class="actions">
+            <button>确认为事实</button>
+            <button>简单说说</button>
+            <button class="accent">展开细聊</button>
+          </div>
+        </div>
+
+        <div class="clue-card">
+          <div class="badge-row"><h4>单日多笔 · 5月18日</h4><span class="meta">5 笔 · 同一天</span></div>
+          <p class="summary">书店、花店、一家餐厅集中在同一天下午，疑似特殊日子。</p>
+          <span class="status-chip pending">待处理</span>
+          <div class="actions">
+            <button>确认为事实</button>
+            <button>简单说说</button>
+            <button class="accent">展开细聊</button>
+          </div>
+        </div>
+
+        <div class="clue-card done">
+          <div class="badge-row"><h4>数码配件小额消费</h4><span class="meta">3 笔</span></div>
+          <span class="status-chip confirmed">✓ 已确认为事实</span>
+          <p class="result-line">已收录：数据线、充电宝等日常补充购置，无需展开细节。</p>
+        </div>
+
+        <div class="clue-card">
+          <div class="badge-row"><h4>连续三周的健身房续费</h4><span class="meta">3 笔</span></div>
+          <p class="summary">同一健身工作室，间隔约 7 天，疑似规律训练。</p>
+          <span class="status-chip pending">待处理</span>
+          <div class="actions">
+            <button>确认为事实</button>
+            <button>简单说说</button>
+            <button class="accent">展开细聊</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <p class="tab-hint" style="margin-top:16px;">静态示意：真实页面中卡片会随处理结果实时切换到「已完成」态，且已完成卡片仍可点击展开查看/修改结果（见下一节）。</p>
+  </section>
+
+  <section id="states">
+    <div class="section-head">
+      <h2 class="serif">② 单张卡片的状态系统</h2>
+      <span class="tag">点击标签切换查看四种状态</span>
+    </div>
+    <p class="section-intro">同一张卡片在不同处理阶段展示不同内容，但结构保持一致（标题 + 置信摘要 + 状态标签 + 操作区/结果区），避免用户在卡片墙里迷失。</p>
+
+    <div class="tabbar" role="tablist">
+      <button class="active" data-state="pending" onclick="switchCardState(this,'pending')">待处理</button>
+      <button data-state="confirmed" onclick="switchCardState(this,'confirmed')">已确认</button>
+      <button data-state="brief" onclick="switchCardState(this,'brief')">已简答</button>
+      <button data-state="deep" onclick="switchCardState(this,'deep')">已深聊</button>
+    </div>
+
+    <div style="max-width: 380px;">
+      <div class="clue-card" id="stateCardDemo">
+        <div class="badge-row"><h4>5月起 · 杭州旅程候选</h4><span class="meta">7 笔 · 高置信</span></div>
+        <p class="summary" id="stateCardSummary">交通 + 住宿 + 餐饮串成一段连续轨迹，最可能是一段完整经历。</p>
+        <span class="status-chip pending" id="stateCardChip">待处理</span>
+        <div class="actions" id="stateCardActions">
+          <button>确认为事实</button>
+          <button>简单说说</button>
+          <button class="accent">展开细聊</button>
+        </div>
+        <p class="result-line" id="stateCardResult" style="display:none;"></p>
+      </div>
+    </div>
+    <p class="tab-hint" style="margin-top:16px;">
+      要点：<b>已确认 / 已简答</b>两种完成态仍保留「重新处理」入口（点击结果文字即可回到对应流程重做，不是只读的死态）；<b>已深聊</b>态展示的是对话摘要而非全文，点击才展开完整对话记录。
+    </p>
+  </section>
+
+  <section id="confirm">
+    <div class="section-head">
+      <h2 class="serif">③ 路径一：确认为事实</h2>
+      <span class="tag">给几乎不需要讲述的琐碎线索</span>
+    </div>
+    <p class="section-intro">当线索本身已经足够清楚、置信度高、且没有值得展开的故事时（比如固定通勤咖啡），用户不需要回答任何问题，一次点击直接把「账单事实」转成「已确认的记忆片段」。</p>
+
+    <ol class="step-list">
+      <li><h4>点击「确认为事实」</h4><p>卡片原地展开一个确认面板（不跳转、不打开新对话），面板顶部用一句话复述系统要收录的内容，并列出支撑这句话的原始账单证据。</p></li>
+      <li><h4>核对证据摘要</h4><p>用户只需要判断这句复述对不对，不需要另外写文字；如果复述有偏差，也可以点击「不对，简单说说」直接降级进入路径二。</p></li>
+      <li><h4>提交确认</h4><p>点击「确认收录」后卡片立即变为已确认态，同时右上角弹出一条可撤销的提示条，给一段时间内的「撤销」窗口。</p></li>
+      <li><h4>可随时撤销/重做</h4><p>撤销窗口过后，已确认的结果仍非终态——用户可以在卡片墙里随时点回这条线索重新处理，直到最终「构建入 Wiki」之前都可修改。</p></li>
+    </ol>
+
+    <div class="demo-shell">
+      <div class="demo-card-slot">
+        <p class="caption">卡片墙中的样子</p>
+        <div class="clue-card">
+          <div class="badge-row"><h4>反复出现的「代码人生咖啡」</h4><span class="meta">11 笔 · 高置信</span></div>
+          <p class="summary">多集中在上午 9 点前后，疑似固定通勤习惯，细节价值有限。</p>
+          <span class="status-chip pending">待处理</span>
+          <div class="actions">
+            <button class="primary">✓ 确认为事实</button>
+            <button>简单说说</button>
+            <button class="accent">展开细聊</button>
+          </div>
+        </div>
+      </div>
+      <div class="demo-panel">
+        <p class="caption" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;">点击「确认为事实」后原地展开的面板</p>
+        <div class="confirm-sentence">即将收录为：<b>「工作日上午习惯在代码人生咖啡买一杯咖啡，是固定的通勤习惯」</b></div>
+        <div class="confirm-evidence">
+          <h5>支撑证据（来自账单，仅供核对）</h5>
+          <ul>
+            <li>5/6　08:57　代码人生咖啡　¥28</li>
+            <li>5/8　09:03　代码人生咖啡　¥28</li>
+            <li>5/13　08:49　代码人生咖啡　¥32</li>
+            <li>其余 8 笔，时间集中在 8:45–9:10 之间</li>
+          </ul>
+        </div>
+        <div style="display:flex; justify-content:space-between; gap:10px; margin-bottom:14px;">
+          <button style="font:inherit;font-size:12.5px;padding:8px 14px;border-radius:5px;border:1px solid var(--line);background:var(--paper);color:var(--muted);">不对，改为简单说说</button>
+          <button style="font:inherit;font-size:12.5px;padding:8px 16px;border-radius:5px;border:none;background:var(--ink);color:var(--paper);">✓ 确认收录</button>
+        </div>
+        <div class="undo-toast">
+          <span>已收录「代码人生咖啡」为固定习惯</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="timer">8 秒后关闭</span>
+            <button>撤销</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="brief">
+    <div class="section-head">
+      <h2 class="serif">④ 路径二：简单说说</h2>
+      <span class="tag">一次性小问答，不进入多轮追问</span>
+    </div>
+    <p class="section-intro">当线索有一点值得补充的信息、但还不足以撑起一段完整叙述时，用「预置选项 + 一句话补充」的轻量问答收集，最多允许一次追问（仅当回答模糊到无法收录时），绝不会像深聊一样反复展开。</p>
+
+    <ol class="step-list">
+      <li><h4>点击「简单说说」</h4><p>卡片原地展开一个问题，问题由系统针对这条线索的模式生成（比如骑行线索问「这是新习惯还是一直都有？」），并预置 2～4 个最常见答案作为快捷选项。</p></li>
+      <li><h4>选快捷选项，或自己补一句</h4><p>用户可以只点一个选项直接提交，也可以在选项下方的一行输入框里补充一句话；两者可以同时使用（选项 + 半句补充）。</p></li>
+      <li><h4>系统判断是否需要追问</h4><p>如果选项已经足够清楚，直接进入已简答态；只有当用户选择了「其他」且没有补充说明、导致内容无法收录时，才会追加<b>一次</b>更具体的追问，追问后不再继续深入。</p></li>
+      <li><h4>提交后立即收录</h4><p>整个过程都在卡片内完成，不会打开独立对话窗口，提交后卡片立刻切换为已简答态并展示收录的一句话结果。</p></li>
+    </ol>
+
+    <div class="tabbar" role="tablist">
+      <button class="active" data-brief="normal" onclick="switchBrief(this,'normal')">常规：选完直接提交</button>
+      <button data-brief="followup" onclick="switchBrief(this,'followup')">边界：选「其他」触发一次追问</button>
+    </div>
+
+    <div class="demo-shell">
+      <div class="demo-card-slot">
+        <p class="caption">卡片墙中的样子</p>
+        <div class="clue-card">
+          <div class="badge-row"><h4>运动与骑行线索</h4><span class="meta">4 笔</span></div>
+          <p class="summary">迪卡侬 + 美利达 + 跑步相关消费，时间集中在最近一个月。</p>
+          <span class="status-chip pending">待处理</span>
+          <div class="actions">
+            <button>确认为事实</button>
+            <button class="primary">简单说说</button>
+            <button class="accent">展开细聊</button>
+          </div>
+        </div>
+      </div>
+      <div class="demo-panel" id="briefPanel">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </section>
+
+  <section id="deep">
+    <div class="section-head">
+      <h2 class="serif">⑤ 路径三：展开细聊</h2>
+      <span class="tag">复用现状的开放式追问对话</span>
+    </div>
+    <p class="section-intro">只有用户主动判断「这条线索背后有故事」，才会点开细聊——这时才切换到现状已经跑通的深度对话体验，改动范围最小，只是把入口从「系统强制开场」换成「用户主动选择」。</p>
+
+    <ol class="step-list">
+      <li><h4>点击「展开细聊」</h4><p>页面从卡片墙过渡到对话面板（原地展开为侧栏，或整屏切换，视线索卡片数量与屏幕宽度而定），卡片墙保留在收起状态，可随时「收起对话」回去。</p></li>
+      <li><h4>Agent 用一句话点出联系，抛出第一个开放式问题</h4><p>与现状完全一致：不罗列账单明细，先给出一个有温度的观察，再问一个具体但开放的问题。</p></li>
+      <li><h4>多轮追问，直到叙述完整</h4><p>用户回答后 Agent 复述要点、追问下一层，反复若干轮，直到这段经历讲清楚为止——这一层逻辑不改动。</p></li>
+      <li><h4>收起对话，返回卡片墙</h4><p>用户可以随时点「收起对话」，未讲完也会保存当前进度；卡片状态变为「已深聊」，摘要显示已聊到的要点，之后随时可以点回去继续聊或直接结束。</p></li>
+    </ol>
+
+    <div class="demo-shell">
+      <div class="demo-card-slot">
+        <p class="caption">卡片墙中的样子（细聊进行中）</p>
+        <div class="clue-card">
+          <div class="badge-row"><h4>5月起 · 杭州旅程候选</h4><span class="meta">7 笔 · 高置信</span></div>
+          <p class="summary">交通 + 住宿 + 餐饮串成一段连续轨迹。</p>
+          <span class="status-chip deep">▸ 正在细聊</span>
+          <div class="actions">
+            <button class="accent" style="border-color:var(--rose);color:var(--rose);">继续对话</button>
+          </div>
+        </div>
+      </div>
+      <div class="demo-panel">
+        <p class="caption" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;">展开后的对话面板</p>
+        <div class="chat-thread">
+          <div class="bubble agent">五月中有段时间你在杭州密集出行，交通、住宿和几顿饭串在一起。想从哪个画面开始讲——是出发那天，还是到了之后印象最深的一件事？</div>
+          <div class="bubble user">是去看一个朋友的新工作室，顺便逛了西湖……</div>
+          <div class="bubble agent">听起来这次更像是一次「探望 + 顺路玩」的旅程。那次见面之后，你和这位朋友的联系变多了吗？</div>
+        </div>
+        <div class="chat-collapse">
+          <span>已记录 2 轮对话，进度会自动保存</span>
+          <button>收起对话，返回卡片墙</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="build">
+    <div class="section-head">
+      <h2 class="serif">⑥ 构建入 Wiki 的触发条件</h2>
+      <span class="tag">Step 3 · 与现状保持一致的最终确认</span>
+    </div>
+    <p class="section-intro">「构建这份记录」按钮不要求全部 10 条线索都处理完——用户可以主动跳过不感兴趣的线索；按钮真正的门槛是「每条线索都有一个明确归属（已处理或已跳过），不存在悬而未决的状态」。点击后弹出最终确认，逐条列出将被摄取的内容，账单原始明细依旧只作为参考证据留存。</p>
+
+    <div class="modal-mock">
+      <div class="modal-head">
+        <h3>确认构建这份记录</h3>
+        <p>以下内容会被摄取进 Wiki，跳过的线索不会出现在最终叙述中</p>
+      </div>
+      <div class="modal-body">
+        <div class="modal-row"><div class="label"><i class="dot confirmed"></i>代码人生咖啡 · 固定通勤习惯</div><span class="count">已确认</span></div>
+        <div class="modal-row"><div class="label"><i class="dot brief"></i>运动与骑行 · 三月新买自行车通勤</div><span class="count">已简答</span></div>
+        <div class="modal-row"><div class="label"><i class="dot deep"></i>杭州旅程 · 探望朋友 + 西湖同游</div><span class="count">已深聊 · 2 轮</span></div>
+        <div class="modal-row"><div class="label"><i class="dot pending"></i>数码配件小额消费</div><span class="count">已确认</span></div>
+        <div class="modal-row"><div class="label" style="color:var(--muted);"><i class="dot" style="background:var(--line);"></i>健身房续费、单日多笔 5/18 等 4 条</div><span class="count">已跳过 · 不摄取</span></div>
+      </div>
+      <div class="modal-foot">
+        <button>返回继续处理</button>
+        <button class="primary">确认构建</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="edge">
+    <div class="section-head">
+      <h2 class="serif">⑦ 需要提前设计清楚的边界情况</h2>
+      <span class="tag">决定这套方案是否站得住的细节</span>
+    </div>
+    <div class="edge-grid">
+      <div class="edge-card">
+        <span class="mark">撤销窗口之后怎么办</span>
+        <h4>已确认 ≠ 不可修改</h4>
+        <p>撤销提示条只是即时纠错的快捷通道，过期后不代表锁死——只要还没点「构建入 Wiki」，任何已确认/已简答的卡片都可以重新点开、切换成别的处理方式。</p>
+      </div>
+      <div class="edge-card">
+        <span class="mark">简答与深聊的边界</span>
+        <h4>简答里的一句话补充算不算「细聊」</h4>
+        <p>简答阶段的自由输入框只做「一次性收录」，不会触发多轮追问；如果用户在简答里写的内容明显比预期复杂（比如写了一整段故事），系统应识别并提示「这条更适合展开细聊」，而不是强行按简答逻辑截断。</p>
+      </div>
+      <div class="edge-card">
+        <span class="mark">线索之间的联动</span>
+        <h4>一条线索的回答影响另一条线索</h4>
+        <p>比如用户在「杭州旅程」深聊里提到的朋友，恰好也出现在「单日多笔 5/18」线索里——需要设计一种轻量提示（而非强制关联），让用户知道这两条线索可能相关，但不强迫立刻处理。</p>
+      </div>
+      <div class="edge-card">
+        <span class="mark">长时间搁置</span>
+        <h4>卡片墙不是一次性任务</h4>
+        <p>用户可能处理了 3 条就离开，几天后才回来——需要保留进度、允许随时退出而不丢失已完成的部分，且不能在用户每次打开时都重新提示「还剩 X 条待处理」造成压力感。</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="closing">
+    <h2 class="serif" style="font-size:20px;margin-bottom:16px;">落地顺序建议</h2>
+    <ol>
+      <li><b>先做卡片墙的信息架构</b> —— 把现有线索列表（Sources.tsx 里已有的候选线索数据）改造成同屏展示，不动对话逻辑。</li>
+      <li><b>再接「确认为事实」</b> —— 风险最低、收益最直接，能立刻缓解「琐碎线索也要重问答」的问题。</li>
+      <li><b>然后接「简单说说」</b> —— 需要为每种线索模式（商户重复/单日多笔/跨日期主题等）预先设计对应的预置问题与选项。</li>
+      <li><b>「展开细聊」直接复用现状对话组件</b> —— 只需改造触发方式（从系统自动开场改为用户主动点击），核心追问逻辑不变。</li>
+      <li><b>最后打通构建入 Wiki 的确认弹层</b> —— 把「已跳过」也纳入合法终态，避免用户被迫处理不想聊的线索。</li>
+    </ol>
+  </div>
+
+</div>
+
+<script>
+  // ---- section 2: card state switcher ----
+  var cardStates = {
+    pending: {
+      chipClass: 'status-chip pending',
+      chipText: '待处理',
+      showActions: true,
+      resultText: ''
+    },
+    confirmed: {
+      chipClass: 'status-chip confirmed',
+      chipText: '✓ 已确认为事实',
+      showActions: false,
+      resultText: '已收录：5月中在杭州出差/旅行，涉及交通、住宿与用餐。（点击可重新处理）'
+    },
+    brief: {
+      chipClass: 'status-chip brief',
+      chipText: '已简答',
+      showActions: false,
+      resultText: '已收录：这是一次临时安排的短途旅行，非常规出差。（点击可重新处理）'
+    },
+    deep: {
+      chipClass: 'status-chip deep',
+      chipText: '已深聊 · 2 轮对话',
+      showActions: false,
+      resultText: '已收录：探望搬到杭州的朋友，顺路同游西湖，是近期少有的放松行程。（点击展开完整对话）'
+    }
+  };
+
+  function switchCardState(btn, state) {
+    var tabbar = btn.parentElement;
+    Array.prototype.forEach.call(tabbar.children, function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    var s = cardStates[state];
+    document.getElementById('stateCardChip').className = s.chipClass;
+    document.getElementById('stateCardChip').textContent = s.chipText;
+    document.getElementById('stateCardActions').style.display = s.showActions ? 'flex' : 'none';
+    var resultEl = document.getElementById('stateCardResult');
+    if (s.resultText) {
+      resultEl.style.display = 'block';
+      resultEl.textContent = s.resultText;
+    } else {
+      resultEl.style.display = 'none';
+    }
+  }
+
+  // ---- section 4: brief flow switcher ----
+  function renderBriefNormal() {
+    return '' +
+      '<p class="caption" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;">点击「简单说说」后原地展开的面板 · 常规路径</p>' +
+      '<div class="brief-question">这几笔运动相关消费，是<b>最近才开始</b>的新习惯，还是一直都有？</div>' +
+      '<div class="chip-row">' +
+        '<button class="selected">最近新开始的</button>' +
+        '<button>一直都有</button>' +
+        '<button>只是临时买装备</button>' +
+        '<button>其他</button>' +
+      '</div>' +
+      '<div class="brief-freeform">可选：补充一句（比如具体是什么原因开始的）——「三月同事推荐，买了辆自行车通勤」</div>' +
+      '<div class="mini-submit"><button>提交，无需继续追问</button></div>';
+  }
+
+  function renderBriefFollowup() {
+    return '' +
+      '<p class="caption" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;">点击「简单说说」后原地展开的面板 · 触发一次追问</p>' +
+      '<div class="brief-question">这几笔运动相关消费，是<b>最近才开始</b>的新习惯，还是一直都有？</div>' +
+      '<div class="chip-row">' +
+        '<button>最近新开始的</button>' +
+        '<button>一直都有</button>' +
+        '<button>只是临时买装备</button>' +
+        '<button class="selected">其他</button>' +
+      '</div>' +
+      '<div class="brief-freeform" style="color:var(--rose);border-color:var(--rose);">未填写补充说明，「其他」无法直接收录</div>' +
+      '<div class="brief-followup"><b>唯一一次追问（不会再继续深入）</b>能简单说说具体是什么情况吗？一句话就好。</div>' +
+      '<div class="brief-freeform">用户输入：「装备是买给家人的，跟我自己关系不大」</div>' +
+      '<div class="mini-submit"><button>提交，结束这条线索</button></div>';
+  }
+
+  function switchBrief(btn, mode) {
+    var tabbar = btn.parentElement;
+    Array.prototype.forEach.call(tabbar.children, function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('briefPanel').innerHTML = mode === 'normal' ? renderBriefNormal() : renderBriefFollowup();
+  }
+
+  // init
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('briefPanel').innerHTML = renderBriefNormal();
+  });
+</script>
+</body>
+</html>
