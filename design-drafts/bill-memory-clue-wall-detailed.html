@@ -183,21 +183,18 @@
   .undo-toast .timer { font-size: 11px; opacity: .7; }
 
   /* brief micro-flow */
-  .brief-question { font-size: 13.5px; margin-bottom: 14px; }
-  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .chip-row button {
-    font: inherit; font-size: 12.5px; padding: 8px 14px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--mist); color: var(--ink);
+  .brief-question { font-size: 13.5px; margin-bottom: 14px; color: var(--muted); }
+  .brief-question b { color: var(--ink); font-weight: 600; }
+  .brief-fixed-prompt {
+    font-size: 13px; color: var(--ink); margin-bottom: 10px; padding-left: 12px;
+    border-left: 2px solid var(--gold);
   }
-  .chip-row button.selected { background: var(--gold); border-color: var(--gold); color: var(--paper); }
-  .brief-freeform {
-    border: 1px solid var(--line); border-radius: var(--radius-control); padding: 8px 12px;
-    font-size: 12.5px; color: var(--muted); background: var(--paper); margin-bottom: 14px;
+  .brief-input {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--paper);
+    padding: 10px 12px; margin-bottom: 14px; resize: vertical;
   }
-  .brief-followup {
-    border-left: 2px solid var(--gold); padding-left: 12px; margin: 14px 0; font-size: 12.5px; color: var(--muted);
-  }
-  .brief-followup b { color: var(--gold); display: block; margin-bottom: 4px; font-size: 12px; }
+  .brief-input::placeholder { color: var(--muted); }
   .mini-submit { display: flex; justify-content: flex-end; }
   .mini-submit button { font: inherit; font-size: 12.5px; padding: 7px 16px; border-radius: var(--radius-control); background: var(--ink); color: var(--paper); border: none; }
 
@@ -458,18 +455,18 @@
       <h2 class="serif">④ 路径二：简单说说</h2>
       <span class="tag">一次性小问答，不进入多轮追问</span>
     </div>
-    <p class="section-intro">当线索有一点值得补充的信息、但还不足以撑起一段完整叙述时，用「预置选项 + 一句话补充」的轻量问答收集，最多允许一次追问（仅当回答模糊到无法收录时），绝不会像深聊一样反复展开。</p>
+    <p class="section-intro">系统预置的选项通常很傻——真实情况总有对不上号的时候。这一步不再猜用户会怎么答，只用一句固定话术把「摘要」摆出来、把「话筒」递过去：认不认这个摘要，想不想多说一句，用户自己决定，系统不追问、不判断对错。</p>
 
     <ol class="step-list">
-      <li><h4>点击「简单说说」</h4><p>卡片原地展开一个问题，问题由系统针对这条线索的模式生成（比如骑行线索问「这是新习惯还是一直都有？」），并预置 2～4 个最常见答案作为快捷选项。</p></li>
-      <li><h4>选快捷选项，或自己补一句</h4><p>用户可以只点一个选项直接提交，也可以在选项下方的一行输入框里补充一句话；两者可以同时使用（选项 + 半句补充）。</p></li>
-      <li><h4>系统判断是否需要追问</h4><p>如果选项已经足够清楚，直接进入已简答态；只有当用户选择了「其他」且没有补充说明、导致内容无法收录时，才会追加<b>一次</b>更具体的追问，追问后不再继续深入。</p></li>
-      <li><h4>提交后立即收录</h4><p>整个过程都在卡片内完成，不会打开独立对话窗口，提交后卡片立刻切换为已简答态并展示收录的一句话结果。</p></li>
+      <li><h4>点击「简单说说」</h4><p>卡片原地展开一个面板，顶部先复述系统看到的摘要（同一句话，所有线索都通用），不生成任何针对性问题，也没有任何预置选项按钮。</p></li>
+      <li><h4>面板下方是同一句固定引导语 + 一个输入框</h4><p>固定话术始终是「这背后有什么想补充的吗？随便说一两句就好，不写也可以」，输入框是空白的一行/多行文本框，占位提示同样是固定文案，不随线索变化。</p></li>
+      <li><h4>用户自己决定写什么、写不写</h4><p>可以什么都不写直接「跳过，认这个摘要」，也可以写一两句自己的话；系统不再判断内容是否「足够清楚」，不做二次追问——用户说到哪儿，就收录到哪儿。</p></li>
+      <li><h4>提交后立即收录</h4><p>整个过程都在卡片内完成，不会打开独立对话窗口，提交后卡片立刻切换为已简答态，展示的是用户自己的原话（留空则展示系统摘要）。</p></li>
     </ol>
 
     <div class="tabbar" role="tablist">
-      <button class="active" data-brief="normal" onclick="switchBrief(this,'normal')">常规：选完直接提交</button>
-      <button data-brief="followup" onclick="switchBrief(this,'followup')">边界：选「其他」触发一次追问</button>
+      <button class="active" data-brief="normal" onclick="switchBrief(this,'normal')">常规：补充一两句后提交</button>
+      <button data-brief="followup" onclick="switchBrief(this,'followup')">边界：什么都不写，直接跳过</button>
     </div>
 
     <div class="demo-shell">
@@ -593,7 +590,7 @@
     <ol>
       <li><b>先做卡片墙的信息架构</b> —— 把现有线索列表（Sources.tsx 里已有的候选线索数据）改造成同屏展示，不动对话逻辑。</li>
       <li><b>再接「确认为事实」</b> —— 风险最低、收益最直接，能立刻缓解「琐碎线索也要重问答」的问题。</li>
-      <li><b>然后接「简单说说」</b> —— 需要为每种线索模式（商户重复/单日多笔/跨日期主题等）预先设计对应的预置问题与选项。</li>
+      <li><b>然后接「简单说说」</b> —— 只需要一套固定话术 + 一个通用输入框，不用为每种线索模式单独设计预置问题，实现成本反而更低。</li>
       <li><b>「展开细聊」直接复用现状对话组件</b> —— 只需改造触发方式（从系统自动开场改为用户主动点击），核心追问逻辑不变。</li>
       <li><b>最后打通构建入 Wiki 的确认弹层</b> —— 把「已跳过」也纳入合法终态，避免用户被迫处理不想聊的线索。</li>
     </ol>
@@ -652,31 +649,19 @@
   function renderBriefNormal() {
     return '' +
       '<p class="caption" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;">点击「简单说说」后原地展开的面板 · 常规路径</p>' +
-      '<div class="brief-question">这几笔运动相关消费，是<b>最近才开始</b>的新习惯，还是一直都有？</div>' +
-      '<div class="chip-row">' +
-        '<button class="selected">最近新开始的</button>' +
-        '<button>一直都有</button>' +
-        '<button>只是临时买装备</button>' +
-        '<button>其他</button>' +
-      '</div>' +
-      '<div class="brief-freeform">可选：补充一句（比如具体是什么原因开始的）——「三月同事推荐，买了辆自行车通勤」</div>' +
-      '<div class="mini-submit"><button>提交，无需继续追问</button></div>';
+      '<div class="brief-question">系统看到的是：<b>迪卡侬 + 美利达 + 跑步相关消费，最近一个月比较集中。</b></div>' +
+      '<div class="brief-fixed-prompt">这背后有什么想补充的吗？随便说一两句就好，不写也可以。</div>' +
+      '<textarea class="brief-input" placeholder="在这里写一两句，比如是怎么开始的、跟谁有关……" rows="2">三月同事推荐，买了辆自行车通勤，最近顺带也开始跑步了。</textarea>' +
+      '<div class="mini-submit"><button>提交这句话</button></div>';
   }
 
   function renderBriefFollowup() {
     return '' +
-      '<p class="caption" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;">点击「简单说说」后原地展开的面板 · 触发一次追问</p>' +
-      '<div class="brief-question">这几笔运动相关消费，是<b>最近才开始</b>的新习惯，还是一直都有？</div>' +
-      '<div class="chip-row">' +
-        '<button>最近新开始的</button>' +
-        '<button>一直都有</button>' +
-        '<button>只是临时买装备</button>' +
-        '<button class="selected">其他</button>' +
-      '</div>' +
-      '<div class="brief-freeform" style="color:var(--rose);border-color:var(--rose);">未填写补充说明，「其他」无法直接收录</div>' +
-      '<div class="brief-followup"><b>唯一一次追问（不会再继续深入）</b>能简单说说具体是什么情况吗？一句话就好。</div>' +
-      '<div class="brief-freeform">用户输入：「装备是买给家人的，跟我自己关系不大」</div>' +
-      '<div class="mini-submit"><button>提交，结束这条线索</button></div>';
+      '<p class="caption" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;">点击「简单说说」后原地展开的面板 · 什么都不写</p>' +
+      '<div class="brief-question">系统看到的是：<b>迪卡侬 + 美利达 + 跑步相关消费，最近一个月比较集中。</b></div>' +
+      '<div class="brief-fixed-prompt">这背后有什么想补充的吗？随便说一两句就好，不写也可以。</div>' +
+      '<textarea class="brief-input" placeholder="在这里写一两句，比如是怎么开始的、跟谁有关……" rows="2"></textarea>' +
+      '<div class="mini-submit"><button>跳过，认这个摘要</button></div>';
   }
 
   function switchBrief(btn, mode) {
